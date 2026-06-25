@@ -14,21 +14,31 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "recordable": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./voiceover": {
+      "types": "./dist/voiceover/index.d.ts",
+      "import": "./dist/voiceover/index.js"
     }
   },
   "files": [
     "dist",
+    "recordable.schema.json",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
     "build": "tsc",
+    "test": "tsx --test test/**/*.test.ts",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build"
+    "gen:schema": "tsx scripts/gen-schema.ts",
+    "prepublishOnly": "npm run clean && npm run gen:schema && npm run build"
   },
   "keywords": [
     "screen-recording",
@@ -48,12 +58,19 @@
     "node": ">=18"
   },
   "dependencies": {
-    "puppeteer": "^22.0.0",
-    "puppeteer-screen-recorder": "^3.0.0"
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "gray-matter": "^4.0.3",
+    "json5": "^2.2.3",
+    "markdown-it": "^14.2.0",
+    "puppeteer": "^22.0.0"
   },
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
+  },
+  "optionalDependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.0.0"
   }
 }

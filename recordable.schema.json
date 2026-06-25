@@ -1,0 +1,731 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/paragramagency/recordable/main/recordable.schema.json",
+  "title": "Recordable script",
+  "description": "A declarative recording script: config + an array of action steps.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "steps"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "config": {
+          "$ref": "#/$defs/config"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      }
+    },
+    {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    }
+  ],
+  "$defs": {
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "viewport": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "number"
+            },
+            "height": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        },
+        "fps": {
+          "type": "number"
+        },
+        "outputDir": {
+          "type": "string"
+        },
+        "outputName": {
+          "type": "string"
+        },
+        "outputTimestamp": {
+          "type": "boolean"
+        },
+        "headless": {
+          "type": "boolean"
+        },
+        "typingSpeed": {
+          "type": "number"
+        },
+        "videoCrf": {
+          "type": "number"
+        },
+        "videoCodec": {
+          "type": "string"
+        },
+        "videoPreset": {
+          "type": "string"
+        },
+        "aspectRatio": {
+          "type": "string"
+        },
+        "zoomDuration": {
+          "type": "number"
+        },
+        "actionDelay": {
+          "type": "number"
+        },
+        "silent": {
+          "type": "boolean"
+        },
+        "autoScroll": {
+          "type": "boolean"
+        },
+        "scrollMargin": {
+          "type": "number"
+        },
+        "scrollSpeed": {
+          "type": "number"
+        },
+        "cursor": {
+          "type": "boolean"
+        },
+        "visitTimeout": {
+          "type": "number"
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": [
+        "action"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "pause",
+            "resume",
+            "resumeOnInput",
+            "insert",
+            "audio",
+            "setConfig",
+            "visit",
+            "waitFor",
+            "click",
+            "hover",
+            "type",
+            "clear",
+            "select",
+            "key",
+            "mouse",
+            "scroll",
+            "zoom",
+            "resetZoom",
+            "wait"
+          ],
+          "description": "The action to perform."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "pause"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "pause"
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "resume"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "resume"
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "resumeOnInput"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "resumeOnInput"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "insert"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "insert"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "action",
+              "path"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "audio"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "audio"
+              },
+              "path": {
+                "type": "string"
+              },
+              "wait": {
+                "type": "boolean"
+              },
+              "volume": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "action",
+              "path"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "setConfig"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "setConfig"
+              },
+              "config": {
+                "$ref": "#/$defs/config"
+              }
+            },
+            "required": [
+              "action",
+              "config"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "visit"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "visit"
+              },
+              "url": {
+                "type": "string"
+              },
+              "options": {
+                "type": "object",
+                "properties": {
+                  "waitUntil": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number"
+                  },
+                  "referer": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "action",
+              "url"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "waitFor"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "waitFor"
+              },
+              "target": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "visible",
+                  "hidden",
+                  "present"
+                ]
+              },
+              "timeout": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "action",
+              "target"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "click"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "click"
+              },
+              "target": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "action",
+              "target"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "hover"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "hover"
+              },
+              "target": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "action",
+              "target"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "type"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "type"
+              },
+              "target": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "duration": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "action",
+              "target",
+              "text"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "clear"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "clear"
+              },
+              "target": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "action",
+              "target"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "select"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "select"
+              },
+              "target": {
+                "type": "string"
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "action",
+              "target"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "key"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "key"
+              },
+              "key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "action",
+              "key"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "mouse"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "mouse"
+              },
+              "target": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                      "x",
+                      "y"
+                    ]
+                  }
+                ]
+              }
+            },
+            "required": [
+              "action",
+              "target"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "scroll"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "scroll"
+              },
+              "target": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "duration": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "action",
+              "target"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "zoom"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "zoom"
+              },
+              "level": {
+                "type": "number"
+              },
+              "origin": {
+                "type": "string"
+              },
+              "duration": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "action",
+              "level"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "resetZoom"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "resetZoom"
+              },
+              "duration": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "wait"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "wait"
+              },
+              "ms": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "action",
+              "ms"
+            ],
+            "additionalProperties": false
+          }
+        }
+      ]
+    }
+  }
+}

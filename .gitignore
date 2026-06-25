@@ -1,5 +1,9 @@
 node_modules/
 dist/
 output/
+.recordable-cache/
 *.mp4
+.env
+.env.*
+!.env.example
 .DS_Store

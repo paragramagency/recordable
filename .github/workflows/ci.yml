@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      # Schema is generated from src/script.ts — fail if the committed copy is stale.
+      - run: npm run gen:schema
+      - name: Verify schema is up to date
+        run: git diff --exit-code recordable.schema.json
+
+      - run: npm run build
+
+      # Smoke-test the CLI validator against a sample script (no browser).
+      - run: node dist/cli.js demos/06-cli/demo.json --check

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Beacon — Dashboard</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand"><span class="dot"></span> Beacon</div>
+      <nav class="nav">
+        <a class="active" href="index.html">📊 Dashboard</a>
+        <a href="reports.html">📄 Reports</a>
+        <a href="settings.html">⚙️ Settings</a>
+      </nav>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <input class="search" id="search" placeholder="Search dashboards, reports…" autocomplete="off" />
+        <div class="spacer"></div>
+        <div class="menu">
+          <div class="avatar" id="avatar">CP</div>
+          <div class="menu-pop">
+            <a href="settings.html">Account settings</a>
+            <a href="#">Billing</a>
+            <a href="#">Sign out</a>
+          </div>
+        </div>
+      </header>
+
+      <main class="content">
+        <h1 class="page">Dashboard</h1>
+        <p class="lead">Your team's activity over the last 30 days.</p>
+
+        <section class="cards">
+          <div class="card" id="card-visitors">
+            <div class="k">Visitors</div>
+            <div class="v">48,209</div>
+            <div class="delta">▲ 12.4% vs last month</div>
+          </div>
+          <div class="card">
+            <div class="k">Conversion</div>
+            <div class="v">3.8%</div>
+            <div class="delta">▲ 0.6 pts</div>
+          </div>
+          <div class="card">
+            <div class="k">Revenue</div>
+            <div class="v">£21.4k</div>
+            <div class="delta">▲ 8.1%</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Traffic</h2>
+          <div class="chart">
+            <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+              <polyline fill="none" stroke="#5b54e8" stroke-width="3"
+                points="0,180 60,150 120,160 180,110 240,130 300,80 360,95 420,55 480,70 540,30 600,45" />
+            </svg>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      // Close the avatar menu on Escape (so key("Escape") has a visible effect).
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") document.activeElement?.blur();
+      });
+    </script>
+  </body>
+</html>

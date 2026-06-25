@@ -1,0 +1,30 @@
+{
+  "$schema": "../../recordable.schema.json",
+  "config": {
+    "cursor": true,
+    "typingSpeed": 16,
+    "viewport": { "width": 1280, "height": 800 },
+    "outputDir": "./output",
+    "outputName": "demo-06-cli",
+    "outputTimestamp": false
+  },
+  "steps": [
+    { "action": "pause" },
+    { "action": "visit", "url": "./index.html" },
+    { "action": "resume" },
+
+    { "action": "zoom", "level": 1.25, "origin": "#feedback" },
+    { "action": "type", "target": "#name", "text": "Jane Doe" },
+    { "action": "wait", "ms": 300 },
+    { "action": "select", "target": "#topic", "values": ["feature"] },
+    { "action": "wait", "ms": 400 },
+    { "action": "type", "target": "#message", "text": "Love the smooth zoom — a dark theme would be the cherry on top." },
+    { "action": "wait", "ms": 400 },
+
+    { "action": "click", "target": "text:Send feedback" },
+    { "action": "waitFor", "target": "text:Thanks", "state": "visible" },
+    { "action": "wait", "ms": 1200 },
+    { "action": "resetZoom" },
+    { "action": "wait", "ms": 800 }
+  ]
+}

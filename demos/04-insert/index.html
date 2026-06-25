@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Orbit — Product</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --card: #141a30;
+        --accent: #6c63ff;
+        --accent-hi: #837dff;
+        --text: #eef1ff;
+        --muted: #9aa3c7;
+        --line: #232a45;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        line-height: 1.5;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 22px 56px;
+        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        background: rgba(11, 16, 32, 0.85);
+        backdrop-filter: blur(8px);
+      }
+      .brand { font-weight: 700; font-size: 20px; letter-spacing: -0.01em; }
+      .brand span { color: var(--accent-hi); }
+      nav a { color: var(--muted); text-decoration: none; margin-left: 28px; font-size: 15px; }
+      section { padding: 80px 56px; max-width: 1000px; margin: 0 auto; }
+      .hero h1 { font-size: 52px; line-height: 1.1; margin: 0 0 18px; letter-spacing: -0.02em; }
+      .hero p { font-size: 20px; color: var(--muted); max-width: 620px; margin: 0 0 32px; }
+      .cta {
+        display: inline-block;
+        padding: 15px 28px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #fff;
+        background: var(--accent);
+        border: 0;
+        border-radius: 12px;
+        cursor: pointer;
+      }
+      .cta:hover { background: var(--accent-hi); }
+      .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+      .feature {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 28px;
+      }
+      .feature h3 { margin: 0 0 10px; font-size: 19px; }
+      .feature p { margin: 0; color: var(--muted); font-size: 15px; }
+      h2 { font-size: 34px; margin: 0 0 28px; letter-spacing: -0.01em; }
+      footer { padding: 48px 56px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">Orbit<span>.</span></div>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#">Sign in</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <h1>Ship faster,<br />stay in orbit.</h1>
+      <p>The deploy pipeline that gets out of your way. Push to main, grab a coffee, watch it go live.</p>
+      <button class="cta" id="get-started">Get started</button>
+    </section>
+
+    <section id="features">
+      <h2>Why teams pick Orbit</h2>
+      <div class="features">
+        <div class="feature"><h3>Zero-config</h3><p>Sensible defaults detect your stack and just work — no YAML archaeology.</p></div>
+        <div class="feature"><h3>Instant rollback</h3><p>Every deploy is a snapshot. Roll back to any point in one click.</p></div>
+        <div class="feature"><h3>Preview URLs</h3><p>Every branch gets a live URL, torn down automatically when you merge.</p></div>
+      </div>
+    </section>
+
+    <section id="pricing">
+      <h2>Simple pricing</h2>
+      <p style="color: var(--muted); max-width: 620px;">Start free, scale when you need to. No seat tax, no surprise overages — just usage that maps to what you ship.</p>
+    </section>
+
+    <footer>© Orbit — a fictional product for demo purposes.</footer>
+  </body>
+</html>

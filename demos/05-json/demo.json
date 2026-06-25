@@ -1,0 +1,30 @@
+{
+  "$schema": "../../recordable.schema.json",
+  "config": {
+    "cursor": true,
+    "typingSpeed": 14,
+    "viewport": { "width": 1280, "height": 800 },
+    "outputDir": "./output",
+    "outputName": "demo-05-json",
+    "outputTimestamp": false
+  },
+  "steps": [
+    { "action": "pause" },
+    { "action": "visit", "url": "./index.html" },
+    { "action": "resume" },
+
+    { "action": "zoom", "level": 1.4, "origin": "#email" },
+    { "action": "type", "target": "#email", "text": "helo@studio.com" },
+    { "action": "wait", "ms": 400 },
+
+    { "action": "clear", "target": "#email" },
+    { "action": "type", "target": "#email", "text": "hello@studio.com" },
+    { "action": "wait", "ms": 400 },
+
+    { "action": "click", "target": "text:Subscribe" },
+    { "action": "waitFor", "target": "text:You're in", "state": "visible" },
+    { "action": "wait", "ms": 1200 },
+    { "action": "resetZoom" },
+    { "action": "wait", "ms": 800 }
+  ]
+}

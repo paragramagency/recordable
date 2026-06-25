@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Orbit — Sign in</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: linear-gradient(135deg, #11163a, #221a52);
+        color: #eef1ff; display: grid; place-items: center; min-height: 100vh;
+      }
+      .card {
+        width: 380px; max-width: 90vw; background: #161b38;
+        border: 1px solid #2a3157; border-radius: 18px; padding: 36px;
+        box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+      }
+      .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; margin-bottom: 22px; }
+      .brand .dot { width: 14px; height: 14px; border-radius: 4px; background: #6c63ff; }
+      h1 { font-size: 22px; margin: 0 0 6px; }
+      p.sub { color: #9aa3c7; margin: 0 0 26px; font-size: 14px; }
+      label { display: block; font-size: 13px; color: #9aa3c7; margin: 14px 0 6px; }
+      input {
+        width: 100%; padding: 12px 14px; font-size: 15px; color: #eef1ff;
+        background: #0f1430; border: 1px solid #2a3157; border-radius: 10px; outline: none;
+      }
+      input:focus { border-color: #6c63ff; box-shadow: 0 0 0 4px rgba(108,99,255,0.18); }
+      button {
+        margin-top: 22px; width: 100%; padding: 13px; font-size: 15px; font-weight: 600;
+        color: #fff; background: #6c63ff; border: 0; border-radius: 10px; cursor: pointer;
+      }
+      button:hover { background: #837dff; }
+      .hint { margin-top: 18px; font-size: 12px; color: #6f78a0; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="brand"><span class="dot"></span> Orbit</div>
+      <h1>Welcome back</h1>
+      <p class="sub">Sign in to your workspace.</p>
+      <form onsubmit="event.preventDefault(); location.href='app.html';">
+        <label for="email">Email</label>
+        <input id="email" type="email" placeholder="you@company.com" autocomplete="off" />
+        <label for="password">Password</label>
+        <input id="password" type="password" placeholder="••••••••" autocomplete="off" />
+        <button type="submit">Sign in</button>
+      </form>
+      <p class="hint">Demo: any values work. Sign in, then click ▶ Play to record.</p>
+    </main>
+  </body>
+</html>
