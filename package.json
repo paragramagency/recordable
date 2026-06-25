@@ -1,0 +1,59 @@
+{
+  "name": "recordable",
+  "version": "1.0.0",
+  "description": "Programmatic, repeatable browser screen recording. Script a walkthrough as a fluent chain of actions — clicks, typing, smooth zoom/scroll, an animated cursor, and manual steps like logins — and capture it to MP4.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paragramagency/recordable.git"
+  },
+  "homepage": "https://github.com/paragramagency/recordable#readme",
+  "bugs": {
+    "url": "https://github.com/paragramagency/recordable/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "screen-recording",
+    "screencast",
+    "screen-capture",
+    "recorder",
+    "puppeteer",
+    "automation",
+    "browser",
+    "scripted",
+    "video",
+    "mp4"
+  ],
+  "author": "Cam Parry <hello@camparry.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "puppeteer": "^22.0.0",
+    "puppeteer-screen-recorder": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
