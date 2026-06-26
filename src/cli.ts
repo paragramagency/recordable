@@ -34,8 +34,8 @@ Options:
   --no-timestamp   Don't prepend an ISO timestamp to the filename
   -h, --help       Show this help
 
-A .json script is an array of { "action", ... } steps, or { "config", "steps" }.
-A .md file authors the same steps as markers in prose; with a "voiceover"
+A .json script is an array of { "action", ... } actions, or { "config", "actions" }.
+A .md file authors the same actions as markers in prose; with a "voiceover"
 frontmatter block it generates narration audio (needs ELEVENLABS_API_KEY, loaded
 from a .env beside the file) into a sibling assets/ folder. Provider/voice/model
 default from RECORDABLE_TTS_PROVIDER / RECORDABLE_VOICE_ID / RECORDABLE_MODEL_ID,

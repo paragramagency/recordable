@@ -28,7 +28,7 @@ test("compileMarkdown: a marker fires on its word, with a tail wait", async () =
   ].join("\n");
 
   const assetsDir = freshDir();
-  const { config, steps, assets } = await compileMarkdown(md, {
+  const { config, actions, assets } = await compileMarkdown(md, {
     provider,
     assetsDir,
   });
@@ -37,12 +37,12 @@ test("compileMarkdown: a marker fires on its word, with a tail wait", async () =
   assert.equal(assets.length, 1);
   assert.ok(existsSync(assets[0]), "audio asset written to disk");
 
-  assert.equal(steps[0].action, "audio");
-  assert.equal(steps[0].wait, false);
-  assert.ok(String(steps[0].path).endsWith(".wav"));
+  assert.equal(actions[0].action, "audio");
+  assert.equal(actions[0].wait, false);
+  assert.ok(String(actions[0].path).endsWith(".wav"));
 
   const lead = gestureLeadMs({ action: "click" }, {});
-  assert.deepEqual(steps.slice(1), [
+  assert.deepEqual(actions.slice(1), [
     { action: "wait", ms: 600 },
     { action: "click", target: "text:Go" },
     { action: "wait", ms: 2100 - (600 + lead) },
@@ -54,11 +54,11 @@ test("compileMarkdown: a type's slot covers its cursor lead and keystrokes", asy
   // the start of "typing" → fires at 400ms. Its slot is the cursor lead plus the
   // keystroke time for "ab", so the tail wait is what's left after both.
   const md = 'Now `type("#x", "ab")` typing here done.';
-  const { steps } = await compileMarkdown(md, { provider, assetsDir: freshDir() });
+  const { actions } = await compileMarkdown(md, { provider, assetsDir: freshDir() });
 
   const lead = gestureLeadMs({ action: "type" }, {});
   const keys = typingDuration("ab", 7); // default typingSpeed
-  assert.deepEqual(steps.slice(1), [
+  assert.deepEqual(actions.slice(1), [
     { action: "wait", ms: 400 },
     { action: "type", target: "#x", text: "ab" },
     { action: "wait", ms: 2100 - (400 + lead + keys) },
@@ -76,16 +76,16 @@ test("compileMarkdown: a fenced block between paragraphs is a no-audio pause", a
   ].join("\n");
 
   const assetsDir = freshDir();
-  const { steps, assets } = await compileMarkdown(md, { provider, assetsDir });
+  const { actions, assets } = await compileMarkdown(md, { provider, assetsDir });
 
   assert.equal(assets.length, 1); // only the narration paragraph synthesizes
-  const tail = steps.length;
-  assert.deepEqual(steps.slice(tail - 2), [
+  const tail = actions.length;
+  assert.deepEqual(actions.slice(tail - 2), [
     { action: "zoom", level: 2 },
     { action: "wait", ms: 300 },
   ]);
-  // The pause steps are plain — no audio() precedes them.
-  assert.ok(!steps.slice(-2).some((s) => s.action === "audio"));
+  // The pause actions are plain — no audio() precedes them.
+  assert.ok(!actions.slice(-2).some((s) => s.action === "audio"));
 });
 
 test("compileMarkdown: identical narration reuses one cached asset", async () => {
@@ -114,10 +114,10 @@ test("compileMarkdown: an overlaid insert eats its length from the next wait", a
 
   // "Click the button now." (2100ms); click fires on "the" at 600ms.
   const md = `\`insert("${clip}")\` Click \`click("text:Go")\` the button now.`;
-  const { steps } = await compileMarkdown(md, { provider, assetsDir: freshDir() });
+  const { actions } = await compileMarkdown(md, { provider, assetsDir: freshDir() });
 
   const lead = gestureLeadMs({ action: "click" }, {});
-  assert.deepEqual(steps.slice(1), [
+  assert.deepEqual(actions.slice(1), [
     { action: "insert", path: clip },
     { action: "wait", ms: 600 - clipMs }, // the insert ate its length from this wait
     { action: "click", target: "text:Go" },

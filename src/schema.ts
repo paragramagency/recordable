@@ -59,7 +59,7 @@ function actionShape(params: readonly Param[]): {
 }
 
 /**
- * The `step` schema: a single object whose `action` enumerates every action,
+ * The `action` schema: a single object whose `action` key enumerates every action,
  * with one `if/then` per action applying that action's keys.
  *
  * This shape (rather than a `oneOf` of per-action objects) is what makes editor
@@ -68,7 +68,7 @@ function actionShape(params: readonly Param[]): {
  * just the no-arg actions until you've typed the other keys. The `enum` + `then`
  * form keeps full autocomplete while preserving required-key and typo checks.
  */
-function stepSchema(): JSONSchema {
+function actionSchema(): JSONSchema {
   const actions = Object.keys(ACTIONS);
 
   const allOf = actions.map((action) => {
@@ -133,22 +133,22 @@ function configSchema(): JSONSchema {
 
 /** Build the full JSON Schema for a Recordable script file. */
 export function buildSchema(): JSONSchema {
-  const step = stepSchema();
+  const action = actionSchema();
 
   const objectForm: JSONSchema = {
     type: "object",
-    required: ["steps"],
+    required: ["actions"],
     additionalProperties: false,
     properties: {
       $schema: { type: "string" },
       config: { $ref: "#/$defs/config" },
-      steps: { type: "array", items: { $ref: "#/$defs/step" } },
+      actions: { type: "array", items: { $ref: "#/$defs/action" } },
     },
   };
 
   const arrayForm: JSONSchema = {
     type: "array",
-    items: { $ref: "#/$defs/step" },
+    items: { $ref: "#/$defs/action" },
   };
 
   return {
@@ -156,11 +156,11 @@ export function buildSchema(): JSONSchema {
     $id: "https://raw.githubusercontent.com/paragramagency/recordable/main/recordable.schema.json",
     title: "Recordable script",
     description:
-      "A declarative recording script: config + an array of action steps.",
+      "A declarative recording script: config + an array of actions.",
     oneOf: [objectForm, arrayForm],
     $defs: {
       config: configSchema(),
-      step: step,
+      action,
     },
   };
 }

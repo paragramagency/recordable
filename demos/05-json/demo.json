@@ -7,7 +7,7 @@
     "outputName": "demo-05-json",
     "outputTimestamp": false
   },
-  "steps": [
+  "actions": [
     { "action": "pause" },
     { "action": "visit", "url": "../site/new.html" },
     { "action": "resume" },

@@ -7,9 +7,9 @@ import {
   narrationBlock,
   parseMarkdown,
   type NarrationBlock,
-  type StepsBlock,
+  type ActionsBlock,
 } from "../src/markdown/parse.js";
-import { callToStep } from "../src/script.js";
+import { callToAction } from "../src/script.js";
 
 // Canonical fixtures: the same walkthrough authored two ways — inline markers in
 // prose (narration.md) and a fenced step list (fenced.md). Owned by the tests so
@@ -20,11 +20,11 @@ const fixture = (name: string) =>
     "utf8",
   );
 
-// ─── callToStep via the manifest (markdown's mapping target) ─────────────────
+// ─── callToAction via the manifest (markdown's mapping target) ─────────────────
 
-test("callToStep: gather flattens the trailing options to top-level keys", () => {
+test("callToAction: gather flattens the trailing options to top-level keys", () => {
   assert.deepEqual(
-    callToStep("zoom", [1.5, { origin: "#hero", duration: 800 }]),
+    callToAction("zoom", [1.5, { origin: "#hero", duration: 800 }]),
     {
       action: "zoom",
       level: 1.5,
@@ -33,7 +33,7 @@ test("callToStep: gather flattens the trailing options to top-level keys", () =>
     },
   );
   assert.deepEqual(
-    callToStep("waitFor", ["text:Done", { state: "visible", timeout: 20000 }]),
+    callToAction("waitFor", ["text:Done", { state: "visible", timeout: 20000 }]),
     {
       action: "waitFor",
       target: "text:Done",
@@ -43,24 +43,24 @@ test("callToStep: gather flattens the trailing options to top-level keys", () =>
   );
 });
 
-test("callToStep: select maps target + value, and rejects extra args", () => {
-  assert.deepEqual(callToStep("select", ["#r", "a"]), {
+test("callToAction: select maps target + value, and rejects extra args", () => {
+  assert.deepEqual(callToAction("select", ["#r", "a"]), {
     action: "select",
     target: "#r",
     value: "a",
   });
-  assert.throws(() => callToStep("select", ["#r", "a", "b"]), /too many/);
+  assert.throws(() => callToAction("select", ["#r", "a", "b"]), /too many/);
 });
 
-test("callToStep: a typo'd option key is rejected by validation", () => {
+test("callToAction: a typo'd option key is rejected by validation", () => {
   assert.throws(
-    () => callToStep("zoom", [1.5, { orgin: "#h" }]),
+    () => callToAction("zoom", [1.5, { orgin: "#h" }]),
     /unknown key "orgin"/,
   );
 });
 
-test("callToStep: passing the old positional origin (a string) where options go throws", () => {
-  assert.throws(() => callToStep("zoom", [1.5, "#hero"]), /options object/);
+test("callToAction: passing the old positional origin (a string) where options go throws", () => {
+  assert.throws(() => callToAction("zoom", [1.5, "#hero"]), /options object/);
 });
 
 // ─── narrationBlock: stripping + offsets ─────────────────────────────────────
@@ -131,15 +131,15 @@ test("parseMarkdown: `voiceover: true` opts in via an empty block (env fills it)
   assert.equal(off.voiceover, undefined);
 });
 
-test("parseMarkdown: fenced ```ts block becomes one steps block", () => {
+test("parseMarkdown: fenced ```ts block becomes one actions block", () => {
   const { blocks } = parseMarkdown(fixture("fenced.md"));
   assert.equal(blocks.length, 1);
-  assert.equal(blocks[0].type, "steps");
+  assert.equal(blocks[0].type, "actions");
 });
 
 test("parseBlocks: a fenced block is a step list regardless of language tag", () => {
   // The language indicator is a visual aid only — bare, `recordable`, and an
-  // unrelated tag all yield the same steps.
+  // unrelated tag all yield the same actions.
   const body = `click("text:Go")\nwait(500)`;
   const expected = [
     { action: "click", target: "text:Go" },
@@ -148,8 +148,8 @@ test("parseBlocks: a fenced block is a step list regardless of language tag", ()
   for (const lang of ["", "ts", "recordable", "js", "sh"]) {
     const { blocks } = parseMarkdown("```" + lang + "\n" + body + "\n```\n");
     assert.equal(blocks.length, 1, `lang=${lang}`);
-    assert.equal(blocks[0].type, "steps");
-    assert.deepEqual((blocks[0] as StepsBlock).steps, expected, `lang=${lang}`);
+    assert.equal(blocks[0].type, "actions");
+    assert.deepEqual((blocks[0] as ActionsBlock).actions, expected, `lang=${lang}`);
   }
 });
 

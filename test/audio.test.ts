@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { audioFilterGraph, audioOverruns } from "../src/audio/track.js";
 import { timelineMs } from "../src/video/recorder.js";
-import { callToStep } from "../src/script.js";
+import { callToAction } from "../src/script.js";
 
 // ─── Timeline clock ──────────────────────────────────────────────────────────
 
@@ -68,13 +68,13 @@ test("audioOverruns: flags clips past the video end beyond tolerance", () => {
 
 // ─── Manifest mapping ────────────────────────────────────────────────────────
 
-test("callToStep: audio path + gathered options", () => {
-  assert.deepEqual(callToStep("audio", ["vo.mp3"]), {
+test("callToAction: audio path + gathered options", () => {
+  assert.deepEqual(callToAction("audio", ["vo.mp3"]), {
     action: "audio",
     path: "vo.mp3",
   });
   assert.deepEqual(
-    callToStep("audio", ["vo.mp3", { wait: false, volume: 0.8 }]),
+    callToAction("audio", ["vo.mp3", { wait: false, volume: 0.8 }]),
     {
       action: "audio",
       path: "vo.mp3",

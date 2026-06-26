@@ -1,5 +1,5 @@
 import type { RecordableConfig } from "./config.js";
-import type { ScriptStep } from "./script.js";
+import type { Action } from "./script.js";
 
 // ─── Gesture timing (single source of truth) ─────────────────────────────────
 //
@@ -42,7 +42,7 @@ const CURSOR_MOVE_ESTIMATE_MS = 350;
  *  value-set of a `select`). The compiler adds this to elapsed so the next
  *  narrated word is placed after the gesture, not on top of it. With the cursor
  *  overlay off, only the real (non-animated) costs remain. */
-export function gestureLeadMs(step: ScriptStep, cfg: RecordableConfig): number {
+export function gestureLeadMs(step: Action, cfg: RecordableConfig): number {
   const cursor = cfg.cursor ?? true;
   const move = cursor ? CURSOR_MOVE_ESTIMATE_MS : 0;
   const press = cursor ? PRE_CLICK_MS + CLICK_PRESS_MS : 0;

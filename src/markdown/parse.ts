@@ -2,7 +2,7 @@ import matter from "gray-matter";
 import MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
 import { Recordable } from "../compose/recordable.js";
-import { callToStep, fromJSON, type ScriptStep } from "../script.js";
+import { callToAction, fromJSON, type Action } from "../script.js";
 import type { RecordableConfig, VoiceoverConfig } from "../config.js";
 import { parseVoiceover } from "../validate.js";
 import {
@@ -17,7 +17,7 @@ import {
 // A recording can be authored as Markdown: fluent-API calls as inline backtick
 // spans inside narration prose (voiceover/timed), or a fenced block of one call
 // per line (a pure step list, no narration). It's a *surface* over the same
-// keyed-step IR the JSON layer uses — every call goes through `callToStep`.
+// keyed-step IR the JSON layer uses — every call goes through `callToAction`.
 //
 // markdown-it tokenises the document, so the awkward cases (blank-line
 // boundaries, indented/`~~~` fences, code spans with commas or parens) are the
@@ -31,7 +31,7 @@ const md = new MarkdownIt();
 
 /** A marker: one call lifted out of narration, with its position in the prose. */
 export interface Marker {
-  step: ScriptStep;
+  step: Action;
   /** Character offset of the marker within the stripped narration (markers removed). */
   offset: number;
 }
@@ -44,12 +44,12 @@ export interface NarrationBlock {
 }
 
 /** A fenced code block: a pure ordered step list, no narration or timing. */
-export interface StepsBlock {
-  type: "steps";
-  steps: ScriptStep[];
+export interface ActionsBlock {
+  type: "actions";
+  actions: Action[];
 }
 
-export type MarkdownBlock = NarrationBlock | StepsBlock;
+export type MarkdownBlock = NarrationBlock | ActionsBlock;
 
 /** The fully parsed document: recording config, optional voiceover, blocks. */
 export interface ParsedMarkdown {
@@ -100,10 +100,10 @@ function parseBlocks(content: string): MarkdownBlock[] {
 
   for (const t of md.parse(content, {})) {
     if (t.type === "fence" || t.type === "code_block") {
-      const steps = parseMethodCalls(t.content).map((c) =>
-        callToStep(c.name, c.args),
+      const actions = parseMethodCalls(t.content).map((c) =>
+        callToAction(c.name, c.args),
       );
-      if (steps.length) blocks.push({ type: "steps", steps });
+      if (actions.length) blocks.push({ type: "actions", actions });
     } else if (t.type === "inline") {
       // The `inline` token carries a paragraph's (or heading's) content.
       const block = narrationFromInline(t.children ?? []);
@@ -161,7 +161,7 @@ function narrationFromInline(children: Token[]): NarrationBlock {
     if (ch === SENTINEL) {
       const c = calls[ci++];
       markers.push({
-        step: callToStep(c.name, c.args),
+        step: callToAction(c.name, c.args),
         offset: narration.length,
       });
     } else {
@@ -179,13 +179,13 @@ function narrationFromInline(children: Token[]): NarrationBlock {
 }
 
 /** Flatten parsed blocks to a plain step list (markers in order; no audio). */
-export function flattenBlocks(blocks: MarkdownBlock[]): ScriptStep[] {
-  const steps: ScriptStep[] = [];
+export function flattenBlocks(blocks: MarkdownBlock[]): Action[] {
+  const actions: Action[] = [];
   for (const b of blocks) {
-    if (b.type === "steps") steps.push(...b.steps);
-    else for (const m of b.markers) steps.push(m.step);
+    if (b.type === "actions") actions.push(...b.actions);
+    else for (const m of b.markers) actions.push(m.step);
   }
-  return steps;
+  return actions;
 }
 
 /**
@@ -199,5 +199,5 @@ export function flattenMarkdown(
   configOverride: RecordableConfig = {},
 ): Recordable {
   const { config, blocks } = parseMarkdown(md);
-  return fromJSON({ config, steps: flattenBlocks(blocks) }, configOverride);
+  return fromJSON({ config, actions: flattenBlocks(blocks) }, configOverride);
 }

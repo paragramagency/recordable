@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/paragramagency/recordable/main/recordable.schema.json",
   "title": "Recordable script",
-  "description": "A declarative recording script: config + an array of action steps.",
+  "description": "A declarative recording script: config + an array of actions.",
   "oneOf": [
     {
       "type": "object",
       "required": [
-        "steps"
+        "actions"
       ],
       "additionalProperties": false,
       "properties": {
@@ -17,10 +17,10 @@
         "config": {
           "$ref": "#/$defs/config"
         },
-        "steps": {
+        "actions": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/step"
+            "$ref": "#/$defs/action"
           }
         }
       }
@@ -28,7 +28,7 @@
     {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/step"
+        "$ref": "#/$defs/action"
       }
     }
   ],
@@ -115,7 +115,7 @@
         }
       }
     },
-    "step": {
+    "action": {
       "type": "object",
       "required": [
         "action"

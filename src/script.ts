@@ -5,7 +5,7 @@ import type { RecordableConfig } from "./config.js";
 
 // ─── Declarative JSON scripts ────────────────────────────────────────────────
 //
-// A script is an array of flat `{ action, ...args }` steps that map ~1:1 onto
+// A script is an array of flat `{ action, ...args }` actions that map ~1:1 onto
 // the chainable API. The ACTIONS manifest below is the single source of truth:
 // it drives this interpreter, the published JSON Schema (see schema.ts), and
 // the Markdown marker parser later.
@@ -13,7 +13,7 @@ import type { RecordableConfig } from "./config.js";
 //   {
 //     "$schema": "./recordable.schema.json",
 //     "config": { "cursor": true },
-//     "steps": [
+//     "actions": [
 //       { "action": "pause" },
 //       { "action": "visit", "url": "https://example.com" },
 //       { "action": "resume" },
@@ -138,12 +138,12 @@ const norm = (p: Param): ParamObj =>
 const isOptional = (p: ParamObj) => "optional" in p && p.optional === true;
 
 /** A single step: the action name plus its flat named arguments. */
-export type ScriptStep = { action: string; [key: string]: unknown };
+export type Action = { action: string; [key: string]: unknown };
 
-/** A whole script: a bare array of steps, or an object pairing config + steps. */
+/** A whole script: a bare array of actions, or an object pairing config + actions. */
 export type Script =
-  | ScriptStep[]
-  | { $schema?: string; config?: RecordableConfig; steps: ScriptStep[] };
+  | Action[]
+  | { $schema?: string; config?: RecordableConfig; actions: Action[] };
 
 /** The set of valid top-level keys for an action (for typo detection). */
 function validKeys(params: readonly Param[]): Set<string> {
@@ -163,7 +163,7 @@ function validKeys(params: readonly Param[]): Set<string> {
  * parameters then apply, so a present later arg (e.g. `zoom` duration without
  * origin) never lands in the wrong slot.
  */
-function buildArgs(step: ScriptStep, params: readonly Param[]): unknown[] {
+function buildArgs(step: Action, params: readonly Param[]): unknown[] {
   const args: unknown[] = [];
   for (const raw of params) {
     const p = norm(raw);
@@ -193,7 +193,7 @@ function buildArgs(step: ScriptStep, params: readonly Param[]): unknown[] {
  * key must be a recognised argument (catches typos like `orgin`). Returns the
  * action's parameter list. Shared by {@link fromJSON} and the Markdown mapper.
  */
-export function validateStep(step: ScriptStep): readonly Param[] {
+export function validateAction(step: Action): readonly Param[] {
   const params = ACTIONS[step.action];
   if (!params) {
     throw new Error(
@@ -213,12 +213,12 @@ export function validateStep(step: ScriptStep): readonly Param[] {
 
 /**
  * Map a positional method call — `{ name, args }` as produced by the Markdown
- * parser — onto a flat keyed {@link ScriptStep}, the same IR the JSON layer
+ * parser — onto a flat keyed {@link Action}, the same IR the JSON layer
  * uses. Positional args are named by manifest order; a trailing options object
  * for a `gather` param is flattened to top-level keys. The result is validated,
  * so option-key typos throw here.
  */
-export function callToStep(name: string, args: readonly unknown[]): ScriptStep {
+export function callToAction(name: string, args: readonly unknown[]): Action {
   const params = ACTIONS[name];
   if (!params) {
     throw new Error(
@@ -226,7 +226,7 @@ export function callToStep(name: string, args: readonly unknown[]): ScriptStep {
     );
   }
 
-  const step: ScriptStep = { action: name };
+  const step: Action = { action: name };
   let i = 0;
 
   for (const raw of params) {
@@ -257,28 +257,28 @@ export function callToStep(name: string, args: readonly unknown[]): ScriptStep {
     );
   }
 
-  validateStep(step);
+  validateAction(step);
   return step;
 }
 
 /** Split a `Script` into its optional config and step array. */
 export function splitScript(script: Script): {
   config?: RecordableConfig;
-  steps: ScriptStep[];
+  actions: Action[];
 } {
-  if (Array.isArray(script)) return { steps: script };
-  return { config: script.config, steps: script.steps };
+  if (Array.isArray(script)) return { actions: script };
+  return { config: script.config, actions: script.actions };
 }
 
 /**
  * Resolve relative `visit` URLs (`./`, `../`) against `baseDir` so a script and
  * its pages travel together regardless of cwd: each becomes a `file://` URL.
- * Mutates the steps in place; a no-op when `baseDir` is empty.
+ * Mutates the actions in place; a no-op when `baseDir` is empty.
  * (Relative `outputDir`/`assetsDir` are resolved alongside, in the config.)
  */
-export function resolveVisitUrls(steps: ScriptStep[], baseDir: string): void {
+export function resolveVisitUrls(actions: Action[], baseDir: string): void {
   if (!baseDir) return;
-  for (const step of steps) {
+  for (const step of actions) {
     if (
       step.action === "visit" &&
       typeof step.url === "string" &&

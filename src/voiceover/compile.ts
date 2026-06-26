@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { parseMarkdown, type NarrationBlock } from "../markdown/parse.js";
-import type { ScriptStep } from "../script.js";
+import type { Action } from "../script.js";
 import type { RecordableConfig, VoiceoverConfig } from "../config.js";
 import { typingDuration, truncate, createLogger, type Logger } from "../utils.js";
 import { getDuration } from "../ffmpeg.js";
@@ -45,7 +45,7 @@ export interface CompileOptions {
 /** The compiled artifact: a runnable script plus the audio files it references. */
 export interface CompiledScript {
   config: RecordableConfig;
-  steps: ScriptStep[];
+  actions: Action[];
   /** Paths of every audio asset written, in document order (deduped by content). */
   assets: string[];
 }
@@ -59,8 +59,8 @@ function extFor(format: string): string {
  *  Omitted durations use the config default, never an elastic fit (spec §C). The
  *  cursor's travel-and-press to a target (`gestureLeadMs`) is added on top, so a
  *  click/type doesn't silently push the rest of the paragraph late. */
-async function stepDurationMs(
-  step: ScriptStep,
+async function actionDurationMs(
+  step: Action,
   cfg: RecordableConfig,
 ): Promise<number> {
   const lead = gestureLeadMs(step, cfg);
@@ -115,7 +115,7 @@ function markerFireMs(
 }
 
 /** A marker as the author wrote it, e.g. `click("#signInBtn")` — for diagnostics. */
-function markerLabel(step: ScriptStep): string {
+function markerLabel(step: Action): string {
   const arg = (step.target ?? step.path ?? "") as string;
   return arg ? `${step.action}("${arg}")` : `${step.action}()`;
 }
@@ -153,7 +153,7 @@ async function compileNarration(
     log: Logger;
     providerName: string;
   },
-): Promise<{ steps: ScriptStep[]; asset: string }> {
+): Promise<{ actions: Action[]; asset: string }> {
   const { narration, markers } = block;
   const key = keyFor(narration, opts.voiceover);
   const preview = truncate(narration);
@@ -179,7 +179,7 @@ async function compileNarration(
   mkdirSync(opts.assetsDir, { recursive: true });
   writeFileSync(asset, result.audio);
 
-  const steps: ScriptStep[] = [{ action: "audio", path: asset, wait: false }];
+  const actions: Action[] = [{ action: "audio", path: asset, wait: false }];
 
   const alignment: Alignment = result.alignment ?? {
     chars: [],
@@ -197,7 +197,7 @@ async function compileNarration(
     );
     const gap = Math.round(fire - elapsed);
     if (gap > 0) {
-      steps.push({ action: "wait", ms: gap });
+      actions.push({ action: "wait", ms: gap });
       elapsed += gap;
     } else if (gap < 0) {
       // The action can't land on its word: earlier actions in this paragraph
@@ -215,16 +215,16 @@ async function compileNarration(
           `(paragraph "${preview}"): ${cause}, so it and the rest lag ${-gap}ms. Fix: ${fix}.`,
       );
     }
-    steps.push(m.step);
-    elapsed += await stepDurationMs(m.step, opts.cfg);
+    actions.push(m.step);
+    elapsed += await actionDurationMs(m.step, opts.cfg);
     prevOffset = m.offset;
   }
 
   // Let the narration finish before the next block begins.
   const tail = Math.round(result.durationMs - elapsed);
-  if (tail > 0) steps.push({ action: "wait", ms: tail });
+  if (tail > 0) actions.push({ action: "wait", ms: tail });
 
-  return { steps, asset };
+  return { actions, asset };
 }
 
 /** Apply env defaults to a voiceover block — frontmatter always wins. The env
@@ -302,15 +302,15 @@ export async function compileMarkdown(
     actionDelay: 0,
   };
 
-  const steps: ScriptStep[] = [];
+  const actions: Action[] = [];
   const assets: string[] = [];
 
-  const narrationCount = parsed.blocks.filter((b) => b.type !== "steps").length;
+  const narrationCount = parsed.blocks.filter((b) => b.type !== "actions").length;
   log("Voice", `compiling ${narrationCount} narration block(s) → ${providerName}`);
 
   for (const block of parsed.blocks) {
-    if (block.type === "steps") {
-      steps.push(...block.steps); // a fenced pause: actions run sequentially, no audio
+    if (block.type === "actions") {
+      actions.push(...block.actions); // a fenced pause: actions run sequentially, no audio
       continue;
     }
     const compiled = await compileNarration(block, {
@@ -323,11 +323,11 @@ export async function compileMarkdown(
       log,
       providerName,
     });
-    steps.push(...compiled.steps);
+    actions.push(...compiled.actions);
     assets.push(compiled.asset);
   }
 
   log.success("Voice", `done — compiled ${assets.length} clip(s)`);
 
-  return { config, steps, assets };
+  return { config, actions, assets };
 }

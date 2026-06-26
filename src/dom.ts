@@ -79,11 +79,11 @@ export async function smoothScroll(
       return new Promise<void>((resolve) => {
         const startY = window.scrollY;
         const dist = targetY - startY;
-        const steps = Math.ceil(duration / 16);
+        const frames = Math.ceil(duration / 16);
         let i = 0;
         const id = setInterval(() => {
           i++;
-          const p = Math.min(i / steps, 1);
+          const p = Math.min(i / frames, 1);
           const e =
             p < 0.5 ? 4 * p * p * p : (p - 1) * (2 * p - 2) * (2 * p - 2) + 1;
           window.scrollTo(0, startY + dist * e);

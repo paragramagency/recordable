@@ -18,10 +18,10 @@ import {
   buildArgs,
   resolveVisitUrls,
   splitScript,
-  validateStep,
+  validateAction,
   type Param,
   type Script,
-  type ScriptStep,
+  type Action,
 } from "../script.js";
 import { flattenBlocks, parseMarkdown } from "../markdown/parse.js";
 
@@ -58,20 +58,20 @@ export class Recordable {
 
   // ─── Loaders ───────────────────────────────────────────────────────────────
   //
-  // `fromJSON` / `fromMarkdown` turn declarative content into queued steps on
+  // `fromJSON` / `fromMarkdown` turn declarative content into queued actions on
   // *this* instance, sitting between construction and run(). Config from the
   // content layers *under* the constructor config, so what you pass wins.
 
-  /** Load a JSON script — an array of steps, a `{ config, steps }` object, or a
+  /** Load a JSON script — an array of actions, a `{ config, actions }` object, or a
    *  raw JSON string — enqueuing each step. Returns `this` to chain into `.run()`. */
   fromJSON(script: Script | string): this {
     const parsed: Script =
       typeof script === "string" ? JSON.parse(script) : script;
-    const { config, steps } = splitScript(parsed);
-    if (!Array.isArray(steps))
-      throw new Error("Script must be an array of steps, or { steps: [...] }");
+    const { config, actions } = splitScript(parsed);
+    if (!Array.isArray(actions))
+      throw new Error("Script must be an array of actions, or { actions: [...] }");
     this._applyContentConfig(config ?? {});
-    this._loadSteps(steps);
+    this._loadActions(actions);
     return this;
   }
 
@@ -88,16 +88,16 @@ export class Recordable {
     this._applyContentConfig(parsed.config);
 
     if (!parsed.voiceover) {
-      this._loadSteps(flattenBlocks(parsed.blocks));
+      this._loadActions(flattenBlocks(parsed.blocks));
       return this;
     }
-    // Defer TTS to run(); remember where these steps belong in the queue.
+    // Defer TTS to run(); remember where these actions belong in the queue.
     const insertAt = this.queue.length;
     this.pending.push(() => this._stageVoiceover(md, insertAt));
     return this;
   }
 
-  /** Synthesize a voiceover document and splice its steps into the queue at the
+  /** Synthesize a voiceover document and splice its actions into the queue at the
    *  position `fromMarkdown` was called (so chaining order is preserved). */
   private async _stageVoiceover(md: string, insertAt: number): Promise<void> {
     // Pick up secrets (ELEVENLABS_API_KEY) from a .env beside the document.
@@ -117,11 +117,11 @@ export class Recordable {
     });
     this.cfg = { ...this.cfg, actionDelay: 0 }; // computed waits assume no inter-action delay
 
-    // Build the compiled steps in isolation (the chain methods push to `queue`),
+    // Build the compiled actions in isolation (the chain methods push to `queue`),
     // then splice them in. Safe: this runs during run()'s await, single-threaded.
     const saved = this.queue;
     this.queue = [];
-    this._loadSteps(compiled.steps);
+    this._loadActions(compiled.actions);
     const items = this.queue;
     this.queue = saved;
     this.queue.splice(insertAt, 0, ...items);
@@ -162,7 +162,7 @@ export class Recordable {
 
   /**
    * Resume capturing, but only once the user *plays* — clicks the in-page ▶ Play
-   * button (or presses Enter in the terminal). Use for manual steps such as a
+   * button (or presses Enter in the terminal). Use for manual actions such as a
    * login: `pause()` first, sign in by hand (headful), then `resumeOnInput()`.
    */
   resumeOnInput(message = "Press ▶ Play when you're ready to record"): this {
@@ -340,7 +340,7 @@ export class Recordable {
     this.pending = [];
 
     // Expose just what the session needs; cfg/recording are read live via arrow
-    // getters (this instance mutates them as control steps run).
+    // getters (this instance mutates them as control actions run).
     const comp = {
       queue: this.queue,
       log: this.log,
@@ -389,15 +389,15 @@ export class Recordable {
 
   /** Validate each step against the manifest and enqueue it by calling its method
    *  (relative `visit` URLs resolve against `baseDir` first). */
-  private _loadSteps(steps: ScriptStep[]): void {
-    resolveVisitUrls(steps, this.cfg.baseDir);
-    steps.forEach((step, i) => {
+  private _loadActions(actions: Action[]): void {
+    resolveVisitUrls(actions, this.cfg.baseDir);
+    actions.forEach((step, i) => {
       const where = `step ${i} (${step?.action ?? "?"})`;
       if (!step || typeof step !== "object")
         throw new Error(`${where}: not an object`);
       let params: readonly Param[];
       try {
-        params = validateStep(step);
+        params = validateAction(step);
       } catch (err) {
         throw new Error(`${where}: ${(err as Error).message}`, { cause: err });
       }

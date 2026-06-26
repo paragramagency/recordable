@@ -16,7 +16,7 @@ import { type Runtime } from "./runtime.js";
 // recording — stitch the video, mix the audio onto it. Owns the browser + output
 // lifecycle; reads the composed script and live config from the builder.
 
-/** One queued action. `control` steps (pause/resume/insert) run without forcing a
+/** One queued action. `control` actions (pause/resume/insert) run without forcing a
  *  capture segment to begin. */
 export interface QueueItem {
   run: (page: Page) => Promise<void>;

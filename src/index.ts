@@ -3,10 +3,10 @@ export {
   fromJSON,
   runScript,
   ACTIONS,
-  callToStep,
-  validateStep,
+  callToAction,
+  validateAction,
 } from "./script.js";
-export type { Script, ScriptStep } from "./script.js";
+export type { Script, Action } from "./script.js";
 export { buildSchema } from "./schema.js";
 export {
   flattenMarkdown,
@@ -18,7 +18,7 @@ export type {
   ParsedMarkdown,
   MarkdownBlock,
   NarrationBlock,
-  StepsBlock,
+  ActionsBlock,
   Marker,
 } from "./markdown/parse.js";
 export {
