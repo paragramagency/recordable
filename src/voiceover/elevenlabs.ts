@@ -75,8 +75,10 @@ export class ElevenLabsProvider implements TTSProvider {
     });
 
     // Response is the object directly in current SDKs, `.data`-wrapped in older.
+    // Audio field is `audioBase64` (camelCase SDK) / `audio_base64` (raw REST).
     const data = res?.data ?? res;
-    const audio = Buffer.from(data.audio as string, "base64");
+    const audioBase64 = data.audioBase64 ?? data.audio_base64 ?? data.audio;
+    const audio = Buffer.from(audioBase64 as string, "base64");
     const alignment = data.alignment
       ? normalizeAlignment(data.alignment as ElevenLabsAlignment)
       : undefined;

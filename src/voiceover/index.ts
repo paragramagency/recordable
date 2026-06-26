@@ -6,3 +6,4 @@ export { normalizeAlignment, alignmentDurationMs, type ElevenLabsAlignment } fro
 export { cacheKey, FileCache, type CacheKeyParts } from "./cache.js";
 export { ElevenLabsProvider, type ElevenLabsOptions } from "./elevenlabs.js";
 export { MockTTSProvider, silentWav, type MockOptions } from "./mock.js";
+export { compileMarkdown, type CompileOptions, type CompiledScript } from "./compile.js";

@@ -1,25 +1,27 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { resolve, basename, dirname, isAbsolute } from "node:path";
-import { pathToFileURL } from "node:url";
+import { resolve, basename, dirname } from "node:path";
 import { parseArgs } from "node:util";
-import { fromJSON, type Script, type ScriptStep } from "./index.js";
+import { Recordable } from "./index.js";
 import type { RecordableConfig } from "./config.js";
 
 // ─── recordable CLI ──────────────────────────────────────────────────────────
 //
-//   recordable <script.json> [options]
+//   recordable <script.json | script.md> [options]
 //
-// Loads a declarative JSON script and records it. Designed to run with no
-// install via `npx recordable demo.json` — author JSON, run, get an MP4.
+// A thin wrapper over the programmatic API: read the file, then
+// `new Recordable({ baseDir, ...flags }).fromJSON|fromMarkdown(contents).run()`.
+// Dispatches by extension; `baseDir` (the script's folder) handles relative path
+// resolution, the sibling `.env`, and assets/output defaults. Designed for
+// `npx recordable demo.md`.
 
-const USAGE = `recordable — record a declarative JSON script
+const USAGE = `recordable — record a declarative script
 
 Usage:
-  recordable <script.json> [options]
+  recordable <script.json | script.md> [options]
 
 Options:
-  --check          Validate the script and exit (no browser, no recording)
+  --check          Validate the script and exit (no browser, no audio, no recording)
   --headless       Run without a visible browser window
   --silent         Suppress recorder console output
   --out-dir <dir>  Output directory (overrides the script's config)
@@ -27,9 +29,12 @@ Options:
   --no-timestamp   Don't prepend an ISO timestamp to the filename
   -h, --help       Show this help
 
-A script is a JSON file: an array of { "action", ... } steps, or
-{ "config", "steps" }. See the published schema (recordable.schema.json) — add
-"$schema" to your file for editor autocomplete and validation.
+A .json script is an array of { "action", ... } steps, or { "config", "steps" }.
+A .md file authors the same steps as markers in prose; with a "voiceover"
+frontmatter block it generates narration audio (needs ELEVENLABS_API_KEY, loaded
+from a .env beside the file) into a sibling assets/ folder. Provider/voice/model
+default from RECORDABLE_TTS_PROVIDER / RECORDABLE_VOICE_ID / RECORDABLE_MODEL_ID,
+which the frontmatter overrides. Config precedence: defaults < file < flags.
 
 Relative "visit" URLs (e.g. "./index.html") and a relative "outputDir" resolve
 against the script file, so a script and its output stay together. --out-dir
@@ -73,7 +78,8 @@ function parseCliArgs(argv: string[]): Args {
   if (values.headless) config.headless = true;
   if (values.silent) config.silent = true;
   if (values["no-timestamp"]) config.outputTimestamp = false;
-  if (values["out-dir"]) config.outputDir = values["out-dir"];
+  // Resolve --out-dir against cwd now so baseDir resolution leaves it alone.
+  if (values["out-dir"]) config.outputDir = resolve(values["out-dir"]);
   if (values.name) config.outputName = values.name;
 
   return { file: positionals[0], check: Boolean(values.check), config };
@@ -84,61 +90,37 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-/** Resolve relative `visit` URLs against the script file so paths "just work". */
-function resolveVisitUrls(steps: ScriptStep[], file: string): void {
-  const base = pathToFileURL(file);
-  for (const step of steps) {
-    if (step.action === "visit" && typeof step.url === "string" && /^\.\.?\//.test(step.url)) {
-      step.url = new URL(step.url, base).href;
-    }
-  }
-}
-
-/**
- * Resolve a relative `outputDir` in the script against the script file, so the
- * recording lands next to the script regardless of cwd. A `--out-dir` flag
- * (taken relative to cwd, the conventional CLI behaviour) overrides and is left
- * untouched.
- */
-function resolveOutputDir(script: Script, file: string, overridden: boolean): void {
-  if (overridden || Array.isArray(script) || !script.config) return;
-  const dir = script.config.outputDir;
-  if (typeof dir === "string" && !isAbsolute(dir)) {
-    script.config.outputDir = resolve(dirname(file), dir);
-  }
-}
-
 async function main(): Promise<void> {
   const args = parseCliArgs(process.argv.slice(2));
   if (!args.file) fail("no script file given (try --help)");
 
   const file = resolve(args.file);
+  const isMarkdown = /\.(md|markdown)$/i.test(file);
+  // baseDir = the script's folder: resolves its relative paths, loads a sibling
+  // .env, and defaults assets/output to <baseDir>/assets and <baseDir>/output.
+  const config: RecordableConfig = { baseDir: dirname(file), ...args.config };
 
-  let script: Script;
+  let contents: string;
   try {
-    script = JSON.parse(readFileSync(file, "utf8")) as Script;
-  } catch (err) {
-    const reason = err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT"
-      ? "file not found"
-      : `invalid JSON — ${(err as Error).message}`;
-    fail(`${basename(file)}: ${reason}`);
+    contents = readFileSync(file, "utf8");
+  } catch {
+    fail(`${basename(file)}: file not found`);
   }
 
-  resolveVisitUrls(Array.isArray(script) ? script : script.steps, file);
-  resolveOutputDir(script, file, Boolean(args.config.outputDir));
-
-  // fromJSON validates the whole script (unknown actions, missing/typo'd keys)
-  // before any browser launches.
-  let rec;
+  // Build the recording — same call a script makes. This parses + validates
+  // (bad actions/keys throw) but never launches a browser or synthesizes audio;
+  // that all happens in run(), so --check can build and stop here.
+  let rec: Recordable;
   try {
-    rec = fromJSON(script, args.config);
+    rec = isMarkdown
+      ? new Recordable(config).fromMarkdown(contents)
+      : new Recordable(config).fromJSON(contents);
   } catch (err) {
-    fail((err as Error).message);
+    fail(`${basename(file)}: ${(err as Error).message}`);
   }
 
   if (args.check) {
-    const count = Array.isArray(script) ? script.length : script.steps.length;
-    console.log(`OK — ${count} step${count === 1 ? "" : "s"} valid`);
+    console.log(`OK — ${basename(file)} is valid`);
     return;
   }
 

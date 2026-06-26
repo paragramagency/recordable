@@ -2,7 +2,7 @@ export { Recordable } from "./main.js";
 export { fromJSON, runScript, ACTIONS, callToStep, validateStep } from "./script.js";
 export type { Script, ScriptStep } from "./script.js";
 export { buildSchema } from "./schema.js";
-export { fromMarkdown, parseMarkdown, narrationBlock, flattenBlocks } from "./markdown/parse.js";
+export { flattenMarkdown, parseMarkdown, narrationBlock, flattenBlocks } from "./markdown/parse.js";
 export type {
   ParsedMarkdown,
   MarkdownBlock,

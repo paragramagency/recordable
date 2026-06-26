@@ -2,6 +2,9 @@ node_modules/
 dist/
 output/
 .recordable-cache/
+.cache/
+demos/**/assets/
+*.assets/
 *.mp4
 .env
 .env.*

@@ -171,11 +171,11 @@ export function flattenBlocks(blocks: MarkdownBlock[]): ScriptStep[] {
 
 /**
  * Build a {@link Recordable} from a Markdown document — the core, no-audio path:
- * markers compile to a plain chain exactly as JSON would. (Generating voiceover
- * audio and timing lives in the optional add-on, which compiles to this same
- * step IR.) `configOverride` wins over frontmatter config.
+ * markers compile to a plain chain exactly as JSON would, synchronously, ignoring
+ * any `voiceover` frontmatter. For the voiceover-aware entry use the async
+ * {@link Recordable.fromMarkdown}. `configOverride` wins over frontmatter config.
  */
-export function fromMarkdown(md: string, configOverride: RecordableConfig = {}): Recordable {
+export function flattenMarkdown(md: string, configOverride: RecordableConfig = {}): Recordable {
   const { config, blocks } = parseMarkdown(md);
   return fromJSON({ config, steps: flattenBlocks(blocks) }, configOverride);
 }

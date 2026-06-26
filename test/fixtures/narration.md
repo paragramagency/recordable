@@ -18,5 +18,3 @@ Upload a class set `hover("text:Upload")` `click("text:Upload class set")` and L
 Here are the results. `scroll("#results")` Every grade comes with a rationale you can audit, `zoom(1.5, {origin:"#rationale", duration:800})` so nothing is a black box. `wait(2000)`
 
 From cold open to graded class set in under two minutes. `resetZoom()`
-
-

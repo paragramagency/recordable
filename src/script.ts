@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { Recordable } from "./main.js";
 import type { RecordableConfig } from "./config.js";
 
@@ -226,44 +228,33 @@ export function callToStep(name: string, args: readonly unknown[]): ScriptStep {
 }
 
 /** Split a `Script` into its optional config and step array. */
-function splitScript(script: Script): { config?: RecordableConfig; steps: ScriptStep[] } {
+export function splitScript(script: Script): { config?: RecordableConfig; steps: ScriptStep[] } {
   if (Array.isArray(script)) return { steps: script };
   return { config: script.config, steps: script.steps };
 }
 
 /**
- * Build a {@link Recordable} from a JSON script without running it — enqueues
- * every step so the caller can chain more, inspect, or call `.run()` later.
- *
- * `script` may be a parsed object/array or a raw JSON string. A top-level
- * `config` (when the object form is used) is merged with `configOverride`,
- * which wins. A top-level `$schema` key is ignored.
+ * Resolve relative `visit` URLs (`./`, `../`) against `baseDir` so a script and
+ * its pages travel together regardless of cwd: each becomes a `file://` URL.
+ * Mutates the steps in place; a no-op when `baseDir` is empty.
+ * (Relative `outputDir`/`assetsDir` are resolved alongside, in the config.)
+ */
+export function resolveVisitUrls(steps: ScriptStep[], baseDir: string): void {
+  if (!baseDir) return;
+  for (const step of steps) {
+    if (step.action === "visit" && typeof step.url === "string" && /^\.\.?\//.test(step.url)) {
+      step.url = pathToFileURL(resolve(baseDir, step.url)).href;
+    }
+  }
+}
+
+/**
+ * Build a {@link Recordable} from a JSON script without running it — a thin
+ * wrapper over `new Recordable(configOverride).fromJSON(script)`. `configOverride`
+ * (the explicit/programmatic config) wins over the script's own `config`.
  */
 export function fromJSON(script: Script | string, configOverride: RecordableConfig = {}): Recordable {
-  const parsed: Script = typeof script === "string" ? JSON.parse(script) : script;
-  const { config, steps } = splitScript(parsed);
-
-  if (!Array.isArray(steps)) throw new Error("Script must be an array of steps, or { steps: [...] }");
-
-  const rec = new Recordable({ ...config, ...configOverride });
-
-  steps.forEach((step, i) => {
-    const where = `step ${i} (${step?.action ?? "?"})`;
-    if (!step || typeof step !== "object") throw new Error(`${where}: not an object`);
-
-    let params: readonly Param[];
-    try {
-      params = validateStep(step);
-    } catch (err) {
-      throw new Error(`${where}: ${(err as Error).message}`);
-    }
-
-    (rec as unknown as Record<string, (...a: unknown[]) => unknown>)[step.action](
-      ...buildArgs(step, params),
-    );
-  });
-
-  return rec;
+  return new Recordable(configOverride).fromJSON(script);
 }
 
 /** Build a {@link Recordable} from a JSON script and run it to completion. */

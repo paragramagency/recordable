@@ -5,8 +5,11 @@ export interface RecordableConfig {
   viewport?: { width: number; height: number };
   /** Recording frame rate. Default: 30 */
   fps?: number;
-  /** Output directory. Default: ./output */
+  /** Output directory. Relative paths resolve against `baseDir`. Default: output */
   outputDir?: string;
+  /** Where generated voiceover audio is written (voiceover documents only).
+   *  Relative paths resolve against `baseDir`. Default: assets */
+  assetsDir?: string;
   /** Base filename (without extension or timestamp). Default: recordable */
   outputName?: string;
   /** Prepend an ISO timestamp to the filename. Default: true */
@@ -35,10 +38,13 @@ export interface RecordableConfig {
   scrollMargin?: number;
   /** Auto-scroll speed in px/s — faster = snappier short scrolls. Default: 1500 */
   scrollSpeed?: number;
-  /** Show an animated cursor overlay that moves to elements before interacting. Default: false */
+  /** Show an animated cursor overlay that moves to elements before interacting. Default: true */
   cursor?: boolean;
   /** Timeout in ms for page navigation. Default: 30000 */
   visitTimeout?: number;
+  /** Directory that relative `visit` URLs, `outputDir`, and `assetsDir` resolve
+   *  against (e.g. the script file's folder). Default: unset → resolve against cwd. */
+  baseDir?: string;
 }
 
 /**
@@ -105,7 +111,8 @@ export type ResolvedConfig = Required<RecordableConfig>;
 export const DEFAULT_CONFIG: ResolvedConfig = {
   viewport: { width: 1920, height: 1080 },
   fps: 30,
-  outputDir: "./output",
+  outputDir: "output",
+  assetsDir: "assets",
   outputName: "recordable",
   outputTimestamp: true,
   headless: false,
@@ -120,6 +127,7 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
   autoScroll: true,
   scrollMargin: 120,
   scrollSpeed: 1500,
-  cursor: false,
+  cursor: true,
   visitTimeout: 30_000,
+  baseDir: "",
 };

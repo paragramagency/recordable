@@ -11,8 +11,11 @@ import {
 } from "../src/markdown/parse.js";
 import { callToStep } from "../src/script.js";
 
-const mock = (name: string) =>
-  readFileSync(fileURLToPath(new URL(`../demos/format-mockups/${name}`, import.meta.url)), "utf8");
+// Canonical fixtures: the same walkthrough authored two ways — inline markers in
+// prose (narration.md) and a fenced step list (fenced.md). Owned by the tests so
+// demo churn can't break them.
+const fixture = (name: string) =>
+  readFileSync(fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url)), "utf8");
 
 // ─── callToStep via the manifest (markdown's mapping target) ─────────────────
 
@@ -87,7 +90,7 @@ test("narrationBlock: a non-call backtick span stays verbatim in narration", () 
 // ─── Frontmatter + whole-document parsing ────────────────────────────────────
 
 test("parseMarkdown: splits recording config from the voiceover block", () => {
-  const { config, voiceover } = parseMarkdown(mock("07-method-backtick.md"));
+  const { config, voiceover } = parseMarkdown(fixture("narration.md"));
   assert.deepEqual(config, { viewport: { width: 1920, height: 1080 }, cursor: true });
   assert.deepEqual(voiceover, {
     provider: "elevenlabs",
@@ -97,7 +100,7 @@ test("parseMarkdown: splits recording config from the voiceover block", () => {
 });
 
 test("parseMarkdown: fenced ```ts block becomes one steps block", () => {
-  const { blocks } = parseMarkdown(mock("08-method-backtick-list.md"));
+  const { blocks } = parseMarkdown(fixture("fenced.md"));
   assert.equal(blocks.length, 1);
   assert.equal(blocks[0].type, "steps");
 });
@@ -132,15 +135,15 @@ const EXPECTED_STEPS = [
   { action: "resetZoom" },
 ];
 
-test("inline (07) and fenced (08) mockups compile to the same step IR", () => {
-  const inline = flattenBlocks(parseMarkdown(mock("07-method-backtick.md")).blocks);
-  const fenced = flattenBlocks(parseMarkdown(mock("08-method-backtick-list.md")).blocks);
+test("inline-marker and fenced-list authoring compile to the same step IR", () => {
+  const inline = flattenBlocks(parseMarkdown(fixture("narration.md")).blocks);
+  const fenced = flattenBlocks(parseMarkdown(fixture("fenced.md")).blocks);
   assert.deepEqual(inline, EXPECTED_STEPS);
   assert.deepEqual(fenced, EXPECTED_STEPS);
 });
 
-test("parseMarkdown (07): one narration block per paragraph, each with markers", () => {
-  const blocks = parseMarkdown(mock("07-method-backtick.md")).blocks;
+test("parseMarkdown (narration): one narration block per paragraph, each with markers", () => {
+  const blocks = parseMarkdown(fixture("narration.md")).blocks;
   assert.ok(blocks.every((b) => b.type === "narration"));
   // 6 prose paragraphs in the mockup.
   assert.equal(blocks.length, 6);

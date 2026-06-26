@@ -34,6 +34,17 @@ import {
   PLAY_BINDING,
   PLAY_BUTTON_ID,
 } from "./play-button.js";
+import { isAbsolute, resolve } from "node:path";
+import {
+  buildArgs,
+  resolveVisitUrls,
+  splitScript,
+  validateStep,
+  type Param,
+  type Script,
+  type ScriptStep,
+} from "./script.js";
+import { flattenBlocks, parseMarkdown } from "./markdown/parse.js";
 
 // ─── Class ───────────────────────────────────────────────────────────────────
 
@@ -41,10 +52,18 @@ type Action = (page: Page) => Promise<void>;
 
 export class Recordable {
   private cfg: ResolvedConfig = { ...DEFAULT_CONFIG };
+  // The explicit config passed to the constructor — always wins over config that
+  // comes from a loaded document (frontmatter / script `config`), which layers
+  // underneath it.
+  private readonly userConfig: RecordableConfig;
   private readonly log: LogFn = createLogger(() => this.cfg.silent);
   private readonly recorder = new SegmentRecorder(() => this.cfg, this.log);
   private readonly cursor = new Cursor();
   private queue: { run: Action; control: boolean }[] = [];
+  // Async load work (voiceover synthesis) deferred from a builder call to run(),
+  // so `fromMarkdown` stays a synchronous, chainable step. Stored as thunks and
+  // only invoked by run(), so building a script never triggers synthesis.
+  private pending: Array<() => Promise<void>> = [];
   private browser: Browser | null = null;
   private zoomState: ZoomState = { tx: 0, ty: 0, s: 1 };
   private outputPath = "";
@@ -58,7 +77,77 @@ export class Recordable {
   private playBindingExposed = false;
 
   constructor(config: RecordableConfig = {}) {
-    this.cfg = { ...this.cfg, ...config };
+    this.userConfig = config;
+    this._applyContentConfig({}); // sets cfg = defaults < userConfig, resolving paths
+  }
+
+  // ─── Loaders ───────────────────────────────────────────────────────────────
+  //
+  // `fromJSON` / `fromMarkdown` turn declarative content into queued steps on
+  // *this* instance, sitting between construction and run():
+  //
+  //   await new Recordable({ baseDir }).fromMarkdown(md); await rec.run();
+  //
+  // Config from the content (a script's `config`, a document's frontmatter)
+  // layers *under* the constructor config, so what you pass explicitly wins.
+
+  /** Load a JSON script — an array of steps, a `{ config, steps }` object, or a
+   *  raw JSON string — enqueuing each step. Returns `this` to chain into `.run()`. */
+  fromJSON(script: Script | string): this {
+    const parsed: Script = typeof script === "string" ? JSON.parse(script) : script;
+    const { config, steps } = splitScript(parsed);
+    if (!Array.isArray(steps)) throw new Error("Script must be an array of steps, or { steps: [...] }");
+    this._applyContentConfig(config ?? {});
+    this._loadSteps(steps);
+    return this;
+  }
+
+  /**
+   * Load a Markdown document's contents — a synchronous, chainable builder step
+   * (`new Recordable(cfg).fromMarkdown(md).run()`). The `voiceover` frontmatter
+   * key decides the path: present → synthesize narration audio + computed waits
+   * (the add-on, dynamically imported so a no-audio run never loads TTS) written
+   * to `config.assetsDir`; absent → flatten markers to a plain chain. Synthesis
+   * is async, so it's **deferred to `run()`**; everything else (config, frontmatter
+   * parsing) happens now. Relative `visit`/`outputDir`/`assetsDir` resolve against
+   * `config.baseDir`. The caller reads the file (and loads any `.env`).
+   */
+  fromMarkdown(md: string): this {
+    const parsed = parseMarkdown(md);
+    this._applyContentConfig(parsed.config);
+
+    if (!parsed.voiceover) {
+      this._loadSteps(flattenBlocks(parsed.blocks));
+      return this;
+    }
+    // Defer TTS to run(); remember where these steps belong in the queue.
+    const insertAt = this.queue.length;
+    this.pending.push(() => this._stageVoiceover(md, insertAt));
+    return this;
+  }
+
+  /** Synthesize a voiceover document and splice its steps into the queue at the
+   *  position `fromMarkdown` was called (so chaining order is preserved). */
+  private async _stageVoiceover(md: string, insertAt: number): Promise<void> {
+    // Pick up secrets (ELEVENLABS_API_KEY) from a .env beside the document.
+    if (this.cfg.baseDir) {
+      try {
+        process.loadEnvFile(resolve(this.cfg.baseDir, ".env")); // no-op if absent
+      } catch {}
+    }
+
+    const { compileMarkdown } = await import("./voiceover/index.js");
+    const compiled = await compileMarkdown(md, { assetsDir: this.cfg.assetsDir, configOverride: this.cfg });
+    this.cfg = { ...this.cfg, actionDelay: 0 }; // computed waits assume no inter-action delay
+
+    // Build the compiled steps in isolation (the chain methods push to `queue`),
+    // then splice them in. Safe: this runs during run()'s await, single-threaded.
+    const saved = this.queue;
+    this.queue = [];
+    this._loadSteps(compiled.steps);
+    const items = this.queue;
+    this.queue = saved;
+    this.queue.splice(insertAt, 0, ...items);
   }
 
   /** Merge additional config options at runtime. Enqueue as an action so it takes effect at the right point in the sequence. */
@@ -395,6 +484,9 @@ export class Recordable {
 
   /** Execute the queued action sequence, then finalise the recording. */
   async run(): Promise<void> {
+    // Finish any deferred load work (voiceover synthesis) before recording.
+    for (const job of this.pending) await job();
+    this.pending = [];
     this.outputPath = getOutputPath(this.cfg);
     this.recorder.init();
     this.browser = await puppeteer.launch({
@@ -479,6 +571,36 @@ export class Recordable {
   private _enqueue(action: Action, control = false): this {
     this.queue.push({ run: action, control });
     return this;
+  }
+
+  /** Recompute `cfg` as defaults < content config < constructor config, then
+   *  resolve a relative `outputDir`/`assetsDir` against `baseDir`. */
+  private _applyContentConfig(content: RecordableConfig): void {
+    this.cfg = { ...DEFAULT_CONFIG, ...content, ...this.userConfig };
+    const base = this.cfg.baseDir;
+    if (base) {
+      if (!isAbsolute(this.cfg.outputDir)) this.cfg.outputDir = resolve(base, this.cfg.outputDir);
+      if (!isAbsolute(this.cfg.assetsDir)) this.cfg.assetsDir = resolve(base, this.cfg.assetsDir);
+    }
+  }
+
+  /** Validate each step against the manifest and enqueue it by calling its method
+   *  (relative `visit` URLs resolve against `baseDir` first). */
+  private _loadSteps(steps: ScriptStep[]): void {
+    resolveVisitUrls(steps, this.cfg.baseDir);
+    steps.forEach((step, i) => {
+      const where = `step ${i} (${step?.action ?? "?"})`;
+      if (!step || typeof step !== "object") throw new Error(`${where}: not an object`);
+      let params: readonly Param[];
+      try {
+        params = validateStep(step);
+      } catch (err) {
+        throw new Error(`${where}: ${(err as Error).message}`);
+      }
+      (this as unknown as Record<string, (...a: unknown[]) => unknown>)[step.action](
+        ...buildArgs(step, params),
+      );
+    });
   }
 
   // ── Play-button gate ──
