@@ -112,6 +112,7 @@ function configSchema(): JSONSchema {
       outputDir: s,
       outputName: s,
       outputTimestamp: b,
+      assetsDir: s,
       headless: b,
       launchArgs: { type: "array", items: s },
       typingSpeed: n,

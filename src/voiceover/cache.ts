@@ -8,7 +8,7 @@ import type { Alignment, TTSResult } from "./types.js";
 // TTS is a paid network call; the same (voice, model, settings, format, text)
 // always yields the same audio, so we cache it. Re-runs become free, instant,
 // and byte-identical — preserving "a recording is code, it reproduces exactly".
-// Lives in a gitignored `.recordable-cache/` by default.
+// Lives in a gitignored `<assetsDir>/.cache` by default.
 
 /** The inputs that fully determine a synthesis result. */
 export interface CacheKeyParts {

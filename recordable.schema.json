@@ -65,6 +65,9 @@
         "outputTimestamp": {
           "type": "boolean"
         },
+        "assetsDir": {
+          "type": "string"
+        },
         "headless": {
           "type": "boolean"
         },

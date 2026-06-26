@@ -55,7 +55,7 @@ export function audioFilterGraph(clips: ClipPlacement[]): {
 /**
  * Clips that run past the video end (beyond `tolMs` slack). Per the timing
  * contract the video defines the length, so an overrun is the author's cue to
- * add a trailing `wait()`; the recorder warns and lets `-shortest` truncate.
+ * add a trailing `wait()`; the recorder warns and lets `-t` truncate.
  */
 export function audioOverruns(
   clips: ClipPlacement[],

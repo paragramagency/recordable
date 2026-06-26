@@ -14,7 +14,7 @@ export const PRESS_DOWN_MS = 120;
 /** …then settle back. clickEffect spends their sum. */
 export const PRESS_SETTLE_MS = 60;
 /** Total clickEffect cost. */
-export const CLICK_PRESS_MS = PRESS_DOWN_MS + PRESS_SETTLE_MS;
+const CLICK_PRESS_MS = PRESS_DOWN_MS + PRESS_SETTLE_MS;
 
 /** Settle beat between arriving at a target and pressing (jitter base). */
 export const PRE_CLICK_MS = 100;
@@ -23,8 +23,8 @@ export const PRE_CLICK_MS = 100;
 export const NAV_PROBE_MS = 200;
 
 /** Cursor-move duration bounds; the move eases from its current position. */
-export const CURSOR_MOVE_MIN_MS = 150;
-export const CURSOR_MOVE_MAX_MS = 700;
+const CURSOR_MOVE_MIN_MS = 150;
+const CURSOR_MOVE_MAX_MS = 700;
 
 /** Cursor-move duration for a known pixel distance — eased, clamped. */
 export function cursorMoveMs(dist: number): number {
@@ -35,7 +35,7 @@ export function cursorMoveMs(dist: number): number {
  *  DOM at compile). A single representative value: the true move is distance-
  *  based, so a marker may still land a few hundred ms off — the overrun warning
  *  catches the cases that matter. */
-export const CURSOR_MOVE_ESTIMATE_MS = 350;
+const CURSOR_MOVE_ESTIMATE_MS = 350;
 
 /** Estimated wall-clock an interactive step spends getting the cursor to its
  *  target and pressing — *before* its payload (the keystrokes of a `type`, the

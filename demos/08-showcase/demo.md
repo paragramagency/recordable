@@ -5,7 +5,8 @@ outputName: demo-08-showcase
 outputTimestamp: false
 voiceover:
   provider: elevenlabs
-  voiceId: EXAVITQu4vr4xnSDxMaL # Sarah
+  # voiceId: EXAVITQu4vr4xnSDxMaL # Sarah
+  voiceId: iafkp9lxsNHDdI6nbrA1 # Sarah
   modelId: eleven_multilingual_v2
 ---
 

@@ -107,8 +107,7 @@ demos, tightening rough edges so the whole thing is presentable.
 
 - **Commit the in-house-recorder work + this session's feature set** (uncommitted on
   `main`). Confirm before pushing to `main`.
-- **Demos are intentionally untracked** (kept locally in `demos/`, excluded from the repo)
-  — add better ones later. Flattened from the old `examples/` + `examples/demos/` split into
-  a single numbered `demos/` folder (plus `real-world-edtech.ts`, the one live-site script).
-  There's a throwaway `verify-capture.ts` in the root for smoke-testing capture; delete once
-  happy.
+- **Demos are tracked** (in `demos/`); only the generated artifacts — the output MP4s and any
+  audio — are gitignored (`demos/**/assets/`). Add better demos later. Flattened from the old
+  `examples/` + `examples/demos/` split into a single numbered `demos/` folder (plus
+  `real-world-edtech.ts`, the one live-site script).

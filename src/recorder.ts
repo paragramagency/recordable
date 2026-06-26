@@ -420,11 +420,11 @@ export class SegmentRecorder {
   /**
    * Mux the audio track onto the silent `videoPath` → `out`. Each clip is
    * delayed to its `startMs` (`adelay`), gained (`volume`), then `amix`ed; the
-   * video is stream-copied and `-shortest` clamps output to the video length.
+   * video is stream-copied and `-t` clamps output to the video length.
    *
    * Per the timing contract the video defines the length: a clip that runs past
    * the end is the author's cue to add a trailing `wait()`, so we warn and let
-   * `-shortest` truncate it rather than padding the video.
+   * `-t` truncate it rather than padding the video.
    */
   private async _mux(videoPath: string, out: string): Promise<void> {
     const videoMs = (await probeDuration(videoPath)) * 1000;

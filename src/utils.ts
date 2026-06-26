@@ -82,14 +82,6 @@ export function jitter(base: number, variance = 0.5): number {
   return base + (Math.random() - 0.5) * base * variance * 2;
 }
 
-/** Per-character keystroke delay (ms) for human-like typing at `speed` cps. */
-export function typeDelay(char: string, speed: number): number {
-  const base = speed > 0 ? 1000 / speed : 0;
-  const pause =
-    char === " " || char === "." || char === "," ? jitter(30, 1) : 0;
-  return Math.max(0, jitter(base, 0.35) + pause);
-}
-
 // ─── Deterministic typing ──────────────────────────────────────────────────────
 // `type` is jittered for realism yet deterministic in *total* time: the keystroke
 // delays vary, but they always sum to `typingDuration`. So the voiceover compiler

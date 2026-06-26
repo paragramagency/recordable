@@ -1,11 +1,8 @@
 ---
-typingSpeed: 14
 viewport: { width: 1280, height: 800 }
-outputName: demo-09-md-steps
-outputTimestamp: false
 ---
 
-```
+```js
 pause()
 visit("../site/new.html")
 resume()

@@ -4,51 +4,31 @@ import {
   normalizeAlignment,
   type ElevenLabsAlignment,
 } from "./alignment.js";
-import { cacheKey, FileCache } from "./cache.js";
 import type { SynthOptions, TTSProvider, TTSResult } from "./types.js";
 
 // ─── ElevenLabs provider ─────────────────────────────────────────────────────
 //
 // The first TTS implementation. The SDK is an optionalDependency, loaded with a
 // dynamic import only on this path, so a core record-JSON install never pulls it
-// in. Synthesis is wrapped in a hash-keyed file cache for free, deterministic
-// re-runs. Network calls run in the user's terminal (secret + connectivity).
+// in. Caching lives one level up in the compiler (keyed by the same inputs);
+// this provider just turns text into audio. Network calls run in the user's
+// terminal (secret + connectivity).
 
-const DEFAULT_MODEL = "eleven_multilingual_v2";
-const DEFAULT_FORMAT = "mp3_44100_128";
+export const DEFAULT_MODEL = "eleven_multilingual_v2";
+export const DEFAULT_FORMAT = "mp3_44100_128";
 const PACKAGE = "@elevenlabs/elevenlabs-js";
 
 export interface ElevenLabsOptions extends VoiceoverConfig {
   /** Required here — resolved from config/env before the provider is built. */
   voiceId: string;
-  /** Cache directory; when set, synthesis results are stored and reused. */
-  cacheDir?: string;
 }
 
 export class ElevenLabsProvider implements TTSProvider {
-  private readonly cache: FileCache | null;
-
-  constructor(private readonly cfg: ElevenLabsOptions) {
-    this.cache = cfg.cacheDir ? new FileCache(cfg.cacheDir) : null;
-  }
+  constructor(private readonly cfg: ElevenLabsOptions) {}
 
   async synthesize(text: string, opts: SynthOptions = {}): Promise<TTSResult> {
     const format = opts.format ?? this.cfg.format ?? DEFAULT_FORMAT;
-    const key = cacheKey({
-      provider: "elevenlabs",
-      voiceId: this.cfg.voiceId,
-      modelId: this.cfg.modelId ?? DEFAULT_MODEL,
-      voiceSettings: this.cfg.voiceSettings,
-      format,
-      text,
-    });
-
-    const hit = this.cache?.get(key);
-    if (hit) return hit;
-
-    const result = await this._synthesize(text, format);
-    this.cache?.put(key, result);
-    return result;
+    return this._synthesize(text, format);
   }
 
   /** The raw network call — isolated so everything around it stays testable. */

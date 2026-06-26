@@ -135,7 +135,7 @@ function narrationFromInline(children: Token[]): NarrationBlock {
       s += "`" + tok.content + "`";
     } else if (tok.type === "softbreak" || tok.type === "hardbreak") {
       s += " ";
-    } else if (tok.type === "text" || tok.type === "code_block") {
+    } else if (tok.type === "text") {
       s += tok.content;
     }
     // Emphasis/link wrappers (em_open, link_open, …) carry no text of their own;

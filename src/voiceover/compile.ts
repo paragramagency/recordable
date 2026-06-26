@@ -7,7 +7,11 @@ import { typingDuration, truncate, createLogger, type Logger } from "../utils.js
 import { probeDuration } from "../ffmpeg.js";
 import { gestureLeadMs } from "../timing.js";
 import { cacheKey, FileCache } from "./cache.js";
-import { ElevenLabsProvider } from "./elevenlabs.js";
+import {
+  ElevenLabsProvider,
+  DEFAULT_MODEL,
+  DEFAULT_FORMAT,
+} from "./elevenlabs.js";
 import { MockTTSProvider } from "./mock.js";
 import type { Alignment, TTSProvider } from "./types.js";
 
@@ -123,14 +127,17 @@ function wordAt(narration: string, offset: number): string {
   return word ? `"${word[0]}"` : "the end";
 }
 
-/** Cache/asset key for a block — narration is already the stripped, audible text. */
+/** Cache/asset key for a block — narration is already the stripped, audible text.
+ *  Model/format default to the same values the provider applies, so the key
+ *  captures what was actually synthesized (else changing the default would serve
+ *  stale audio, and naming the default explicitly would force a needless re-run). */
 function keyFor(narration: string, vo: VoiceoverConfig | undefined): string {
   return cacheKey({
     provider: vo?.provider ?? "mock",
     voiceId: vo?.voiceId ?? "",
-    modelId: vo?.modelId,
+    modelId: vo?.modelId ?? DEFAULT_MODEL,
     voiceSettings: vo?.voiceSettings,
-    format: vo?.format,
+    format: vo?.format ?? DEFAULT_FORMAT,
     text: narration,
   });
 }

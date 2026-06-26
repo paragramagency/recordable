@@ -1,7 +1,8 @@
 ---
 voiceover:
   provider: elevenlabs
-  voiceId: EXAVITQu4vr4xnSDxMaL # Sarah — a default voice usable on the free plan
+  # voiceId: EXAVITQu4vr4xnSDxMaL # Sarah — a default voice usable on the free plan
+  voiceId: iafkp9lxsNHDdI6nbrA1
   modelId: eleven_multilingual_v2
 ---
 

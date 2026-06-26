@@ -215,8 +215,8 @@ export function validateStep(step: ScriptStep): readonly Param[] {
  * Map a positional method call — `{ name, args }` as produced by the Markdown
  * parser — onto a flat keyed {@link ScriptStep}, the same IR the JSON layer
  * uses. Positional args are named by manifest order; a trailing options object
- * for a `gather` param is flattened to top-level keys; a `rest` param soaks up
- * the remaining args. The result is validated, so option-key typos throw here.
+ * for a `gather` param is flattened to top-level keys. The result is validated,
+ * so option-key typos throw here.
  */
 export function callToStep(name: string, args: readonly unknown[]): ScriptStep {
   const params = ACTIONS[name];
