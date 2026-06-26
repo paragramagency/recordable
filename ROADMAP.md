@@ -24,7 +24,7 @@ per-segment MP4 → concat) is the foundation the rest builds on.
   (or fades from/to black at the timeline ends).
 - **Declarative JSON format + schema + CLI.** Scripts can be authored as JSON — an
   array of flat `{ action, ... }` steps (or `{ config, steps }`) mapping ~1:1 to the
-  chain. A single typed manifest in `src/script.ts` is the source of truth: it drives
+  chain. A single typed manifest in `src/actions.ts` is the source of truth: it drives
   the interpreter (`fromJSON` / `runScript`) and generates the published
   `recordable.schema.json` (`npm run gen:schema`), which gives editor autocomplete +
   required/typo checking via a `$schema` reference — no TypeScript needed. Run via
@@ -82,7 +82,7 @@ still overriding. Document the full set of recognised keys (extend `.env.example
 layers** mixed into the final video — e.g. background music under the whole recording, plus
 manually-authored voiceover files dropped in by path. These don't need to join the
 automatic narration-timing system yet, but must work in the programmatic method chain
-(and ideally JSON/Markdown). Implies the audio layer (`audio/mix.ts` `addAudio`) mixes N
+(and ideally JSON/Markdown). Implies the mix step (`compose/mix.ts` `addAudio`) mixes N
 tracks (per-layer volume, loop/trim-to-length for music, start offsets) rather than one.
 
 ### 4. AI authoring

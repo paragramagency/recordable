@@ -63,7 +63,7 @@ export class Recordable {
   // content layers *under* the constructor config, so what you pass wins.
 
   /** Load a JSON script — an array of actions, a `{ config, actions }` object, or a
-   *  raw JSON string — enqueuing each step. Returns `this` to chain into `.run()`. */
+   *  raw JSON string — enqueuing each action. Returns `this` to chain into `.run()`. */
   fromJSON(script: Script | string): this {
     const parsed: Script =
       typeof script === "string" ? JSON.parse(script) : script;
@@ -387,7 +387,7 @@ export class Recordable {
     }
   }
 
-  /** Validate each step against the manifest and enqueue it by calling its method
+  /** Validate each action against the manifest and enqueue it by calling its method
    *  (relative `visit` URLs resolve against `baseDir` first). */
   private _loadActions(actions: Action[]): void {
     resolveVisitUrls(actions, this.cfg.baseDir);

@@ -24,7 +24,7 @@ npm run build && node dist/cli.js demos/07-md-voiceover/demo.md   # markdown + v
 node dist/cli.js demos/07-md-voiceover/demo.md --check            # validate only — no audio, no browser
 node dist/cli.js demos/08-showcase/demo.md       # narrated full walkthrough + branded intro/outro
 npx tsx demos/08-showcase/demo.ts                # same, programmatically
-node dist/cli.js demos/09-md-steps/demo.md       # markdown, no voiceover — a single fenced step block
+node dist/cli.js demos/09-md-actions/demo.md       # markdown, no voiceover — a single fenced action list
 ```
 
 All demos drive the shared `site/` mockup; the column notes which slice each uses.
@@ -40,7 +40,7 @@ All demos drive the shared `site/` mockup; the column notes which slice each use
 | 6 | `06-cli`            | new-shipment form → label       | the **CLI** — `demo.json` (type · select · waitFor) run through the `recordable` binary, no TypeScript |
 | 7 | `07-md-voiceover`   | new-shipment form → label       | the **Markdown** surface — `demo.md`: prose + inline markers → voiceover audio + computed waits, run straight through the CLI |
 | 8 | `08-showcase`       | full flow (sign in → track)     | the **finished-product** demo — a narrated `demo.md` walkthrough (sign in · new shipment · generate label · mark shipped · track) with branded `intro.mp4`/`outro.mp4` cards baked by `make-cards.mjs` and spliced in |
-| 9 | `09-md-steps`       | new-shipment form → label       | **Markdown without voiceover** — a single fenced step block (one call per line), no prose. Compiles through the core parser to a plain chain (same IR as JSON), records offline with zero TTS |
+| 9 | `09-md-actions`       | new-shipment form → label       | **Markdown without voiceover** — a single fenced action list (one call per line), no prose. Compiles through the core parser to a plain chain (same IR as JSON), records offline with zero TTS |
 
 ### Kitchen-sink reference (`00-kitchen-sink`)
 
@@ -52,7 +52,7 @@ API.
 
 ### JSON demo (`05-json`)
 
-`demo.json` is a declarative script — an array of flat `{ action, ... }` steps
+`demo.json` is a declarative script — an array of flat `{ action, ... }` actions
 under a top-level `config`. `demo.ts` runs it programmatically in one chain —
 `new Recordable({ baseDir }).fromJSON(script).run()` — with `baseDir` resolving
 the relative `visit` URL and `outputDir` against the script's folder.

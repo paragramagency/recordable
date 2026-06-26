@@ -61,14 +61,14 @@ fallback).
 ## Declarative scripts (JSON)
 
 You don't have to write TypeScript. A recording can be a plain **JSON** file — an
-array of `{ action, ... }` steps that map 1:1 onto the chainable API, optionally
+array of `{ action, ... }` actions that map 1:1 onto the chainable API, optionally
 wrapped with a `config`:
 
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/paragramagency/recordable/main/recordable.schema.json",
   "config": { "typingSpeed": 14 },
-  "steps": [
+  "actions": [
     { "action": "pause" },
     { "action": "visit", "url": "https://example.com" },
     { "action": "resume" },
@@ -295,7 +295,7 @@ node dist/cli.js demo.json   # run a JSON script through the CLI locally
 ```
 
 The JSON action set and its schema are both generated from one manifest in
-`src/script.ts`; run `npm run gen:schema` after changing it.
+`src/actions.ts`; run `npm run gen:schema` after changing it.
 
 ## License
 

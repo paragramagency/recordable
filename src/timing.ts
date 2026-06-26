@@ -5,7 +5,7 @@ import type { Action } from "./actions.js";
 //
 // An interactive action isn't instantaneous: the cursor eases to the target,
 // dips to "press", and a click waits a beat to see if it navigated. The runtime
-// (cursor.ts / main.ts) *spends* this time; the voiceover compiler must *predict*
+// (browser/cursor.ts / browser/runtime.ts) *spends* this time; the voiceover compiler must *predict*
 // it, or every wait it computes is short by a gesture and actions drift late.
 // Both import these constants so the prediction can't silently fall out of step.
 
@@ -37,7 +37,7 @@ export function cursorMoveMs(dist: number): number {
  *  catches the cases that matter. */
 const CURSOR_MOVE_ESTIMATE_MS = 350;
 
-/** Estimated wall-clock an interactive step spends getting the cursor to its
+/** Estimated wall-clock an interactive action spends getting the cursor to its
  *  target and pressing — *before* its payload (the keystrokes of a `type`, the
  *  value-set of a `select`). The compiler adds this to elapsed so the next
  *  narrated word is placed after the gesture, not on top of it. With the cursor

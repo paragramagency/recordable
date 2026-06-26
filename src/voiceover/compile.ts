@@ -55,7 +55,7 @@ function extFor(format: string): string {
   return format.split("_")[0] || "mp3";
 }
 
-/** How long a step occupies the timeline, so the next wait measures from its end.
+/** How long an action occupies the timeline, so the next wait measures from its end.
  *  Omitted durations use the config default, never an elastic fit (spec §C). The
  *  cursor's travel-and-press to a target (`gestureLeadMs`) is added on top, so a
  *  click/type doesn't silently push the rest of the paragraph late. */

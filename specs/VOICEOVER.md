@@ -1,6 +1,6 @@
 # Voiceover — design plan
 
-Roadmap #2. Planning only; implement later. Builds on the JSON layer (`script.ts`,
+Roadmap #2. Planning only; implement later. Builds on the JSON layer (`actions.ts`,
 done) and the Markdown parser (#1, in progress — preserves marker char-offsets).
 
 ## Guiding principle: compile down, don't add a system

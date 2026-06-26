@@ -17,8 +17,8 @@ import {
 //
 // A recording can be authored as Markdown: fluent-API calls as inline backtick
 // spans inside narration prose (voiceover/timed), or a fenced block of one call
-// per line (a pure step list, no narration). It's a *surface* over the same
-// keyed-step IR the JSON layer uses — every call goes through `callToAction`.
+// per line (a pure action list, no narration). It's a *surface* over the same
+// keyed-action IR the JSON layer uses — every call goes through `callToAction`.
 //
 // markdown-it tokenises the document, so the awkward cases (blank-line
 // boundaries, indented/`~~~` fences, code spans with commas or parens) are the
@@ -44,7 +44,7 @@ export interface NarrationBlock {
   markers: Marker[];
 }
 
-/** A fenced code block: a pure ordered step list, no narration or timing. */
+/** A fenced code block: a pure ordered action list, no narration or timing. */
 export interface ActionsBlock {
   type: "actions";
   actions: Action[];
@@ -93,7 +93,7 @@ export function parseMarkdown(md: string): ParsedMarkdown {
 
 /**
  * Tokenise the body and emit a block per top-level token: any fenced/indented
- * code block becomes a step list (the language tag is a visual aid only and is
+ * code block becomes an action list (the language tag is a visual aid only and is
  * ignored), and each paragraph becomes a narration block.
  */
 function parseBlocks(content: string): MarkdownBlock[] {
@@ -179,7 +179,7 @@ function narrationFromInline(children: Token[]): NarrationBlock {
   return { type: "narration", narration, markers };
 }
 
-/** Flatten parsed blocks to a plain step list (markers in order; no audio). */
+/** Flatten parsed blocks to a plain action list (markers in order; no audio). */
 export function flattenBlocks(blocks: MarkdownBlock[]): Action[] {
   const actions: Action[] = [];
   for (const b of blocks) {

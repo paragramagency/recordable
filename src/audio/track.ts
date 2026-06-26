@@ -20,7 +20,7 @@ export interface AudioClip {
 
 /**
  * The audio layered onto a recording: an ordered set of clips, each pinned to a
- * recorded-time position supplied by the caller (the video timeline). Muxed onto
+ * recorded-time position supplied by the caller (the video timeline). Mixed onto
  * the finished video at finalise via {@link ./mix.ts addAudio}.
  */
 export class AudioTrack {

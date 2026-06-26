@@ -5,7 +5,7 @@ import type { Logger } from "../utils.js";
 // ─── Compose layer: combining audio onto the video ───────────────────────────
 //
 // `addAudio` lays the finished audio track onto the silent video — combining the
-// two streams (the step a pro A/V tool would call "muxing"). It lives in the
+// two streams (the operation a pro A/V tool would call "muxing"). It lives in the
 // compose layer because it joins layers; the audio layer only models the clips.
 // Each clip is delayed to its position, gained, and mixed; the video is copied
 // untouched.

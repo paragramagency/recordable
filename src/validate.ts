@@ -7,8 +7,8 @@ import type { RecordableConfig, VoiceoverConfig } from "./config.js";
 // Untrusted config enters from JSON `config` blocks, Markdown frontmatter, and
 // programmatic callers. valibot checks the shape *at the boundary* so a bad value
 // (or a typo'd key) fails with a clear message here, not as a confusing crash
-// deep in a run. Step shapes are validated separately by the manifest in
-// `script.ts` (which also generates the published JSON Schema) — not duplicated here.
+// deep in a run. Action shapes are validated separately by the manifest in
+// `actions.ts` (which also generates the published JSON Schema) — not duplicated here.
 
 /** strictObject so an unknown key (usually a typo) is reported, matching the
  *  `additionalProperties: false` of the generated config schema. */

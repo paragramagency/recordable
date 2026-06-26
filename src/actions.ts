@@ -136,7 +136,7 @@ const norm = (p: Param): ParamObj =>
   typeof p === "string" ? { name: p, type: "string" } : p;
 const isOptional = (p: ParamObj) => "optional" in p && p.optional === true;
 
-/** A single step: the action name plus its flat named arguments. */
+/** A single action: the action name plus its flat named arguments. */
 export type Action = { action: string; [key: string]: unknown };
 
 /** A whole script: a bare array of actions, or an object pairing config + actions. */
@@ -156,7 +156,7 @@ function validKeys(params: readonly Param[]): Set<string> {
 }
 
 /**
- * Turn one flat step into the positional argument list for its method.
+ * Turn one flat action into the positional argument list for its method.
  *
  * Optional positionals that are absent become `undefined` — JavaScript default
  * parameters then apply, so a present later arg (e.g. `zoom` duration without
@@ -188,7 +188,7 @@ function buildArgs(step: Action, params: readonly Param[]): unknown[] {
 }
 
 /**
- * Validate one keyed step against the manifest: the action must exist and every
+ * Validate one keyed action against the manifest: the action must exist and every
  * key must be a recognised argument (catches typos like `orgin`). Returns the
  * action's parameter list. Shared by {@link fromJSON} and the Markdown mapper.
  */
@@ -260,7 +260,7 @@ export function callToAction(name: string, args: readonly unknown[]): Action {
   return step;
 }
 
-/** Split a `Script` into its optional config and step array. */
+/** Split a `Script` into its optional config and action array. */
 export function splitScript(script: Script): {
   config?: RecordableConfig;
   actions: Action[];
@@ -291,5 +291,5 @@ export function resolveVisitUrls(actions: Action[], baseDir: string): void {
 /** The action manifest, exported so schema/docs tooling can read it. */
 export { ACTIONS };
 
-/** Exported for unit tests: map a keyed step to its positional method args. */
+/** Exported for unit tests: map a keyed action to its positional method args. */
 export { buildArgs };
