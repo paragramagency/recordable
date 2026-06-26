@@ -1,5 +1,6 @@
 import * as z from "zod";
 import { RecordableError } from "./errors.js";
+import { ConfigSchema } from "./config.js";
 import type { RecordableConfig, VoiceoverConfig } from "./config.js";
 
 // ─── Boundary validation ─────────────────────────────────────────────────────
@@ -10,31 +11,19 @@ import type { RecordableConfig, VoiceoverConfig } from "./config.js";
 // deep in a run. Action shapes are validated separately by the manifest in
 // `actions.ts` (which also generates the published JSON Schema) — not duplicated here.
 
-/** strictObject so an unknown key (usually a typo) is reported, matching the
- *  `additionalProperties: false` of the generated config schema. */
-const ConfigSchema = z.strictObject({
-  viewport: z.strictObject({ width: z.number(), height: z.number() }).optional(),
-  fps: z.number().optional(),
-  outputDir: z.string().optional(),
-  assetsDir: z.string().optional(),
-  outputName: z.string().optional(),
-  outputTimestamp: z.boolean().optional(),
-  headless: z.boolean().optional(),
-  launchArgs: z.array(z.string()).optional(),
-  typingSpeed: z.number().optional(),
-  videoCrf: z.number().optional(),
-  videoCodec: z.string().optional(),
-  videoPreset: z.string().optional(),
-  zoomDuration: z.number().optional(),
-  actionDelay: z.number().optional(),
-  silent: z.boolean().optional(),
-  autoScroll: z.boolean().optional(),
-  scrollMargin: z.number().optional(),
-  scrollSpeed: z.number().optional(),
-  cursor: z.boolean().optional(),
-  visitTimeout: z.number().optional(),
-  baseDir: z.string().optional(),
-});
+// Validate against a copy of the config schema with every `.default()` stripped
+// and each field made optional. A provided config then passes through with only
+// its own keys (defaults are applied later, when resolving against DEFAULT_CONFIG),
+// so the config-layering in `Recordable` stays intact. `.partial()` alone is not
+// enough — the inner `.default()` still fills missing keys.
+const ConfigInputSchema = z.strictObject(
+  Object.fromEntries(
+    Object.entries(ConfigSchema.shape).map(([key, field]) => [
+      key,
+      (field instanceof z.ZodDefault ? field.def.innerType : field).optional(),
+    ]),
+  ),
+);
 
 const VoiceoverSchema = z.strictObject({
   provider: z.string().optional(),
@@ -57,14 +46,14 @@ function describe(label: string, issues: z.core.$ZodIssue[]): string {
 /** Validate a recording-config object (JSON `config`, frontmatter, or a caller).
  *  Returns it typed; throws {@link RecordableError} `CONFIG_INVALID` on a bad shape. */
 export function parseConfig(input: unknown): RecordableConfig {
-  const result = ConfigSchema.safeParse(input ?? {});
+  const result = ConfigInputSchema.safeParse(input ?? {});
   if (!result.success) {
     throw new RecordableError(
       "CONFIG_INVALID",
       `Invalid config — ${describe("config", result.error.issues)}`,
     );
   }
-  return result.data;
+  return result.data as RecordableConfig;
 }
 
 /** Validate a `voiceover` frontmatter block. Returns it typed; throws

@@ -175,7 +175,11 @@ export class Runtime {
     options: { duration?: number } = {},
   ): Promise<void> {
     this.log("Scroll", String(target));
-    await smoothScrollToTarget(page, target, options.duration ?? 1200);
+    await smoothScrollToTarget(
+      page,
+      target,
+      options.duration ?? this.getCfg().scrollDuration,
+    );
   }
 
   // ─── Zoom ──────────────────────────────────────────────────────────────────

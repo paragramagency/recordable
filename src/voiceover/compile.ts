@@ -80,7 +80,7 @@ async function actionDurationMs(
     case "resetZoom":
       return (step.duration as number) ?? cfg.zoomDuration ?? 600;
     case "scroll":
-      return (step.duration as number) ?? 1200;
+      return (step.duration as number) ?? cfg.scrollDuration ?? 1200;
     case "type": {
       // Travel to the field (lead) then the keystrokes. The runtime's `type` sums
       // its jittered delays to exactly `typingDuration`, so that part agrees.

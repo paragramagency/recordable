@@ -35,7 +35,6 @@
   "$defs": {
     "config": {
       "type": "object",
-      "additionalProperties": false,
       "properties": {
         "viewport": {
           "type": "object",
@@ -107,13 +106,17 @@
         "scrollSpeed": {
           "type": "number"
         },
+        "scrollDuration": {
+          "type": "number"
+        },
         "cursor": {
           "type": "boolean"
         },
         "visitTimeout": {
           "type": "number"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "action": {
       "type": "object",

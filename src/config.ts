@@ -1,52 +1,75 @@
-// ─── Config ──────────────────────────────────────────────────────────────────
+import * as z from "zod";
 
-export interface RecordableConfig {
+// ─── Config ──────────────────────────────────────────────────────────────────
+//
+// `ConfigSchema` is the single source of truth for the recording config: the
+// public input type, the fully-resolved type, the default values, and the
+// generated JSON Schema (`schema.ts`) are all derived from it. Each field's
+// `.default(...)` is the default; the doc comment above it is the user-facing
+// documentation.
+
+/** strictObject so an unknown key (usually a typo) fails validation, matching
+ *  the `additionalProperties: false` of the generated config schema. */
+export const ConfigSchema = z.strictObject({
   /** Browser viewport dimensions. Default: 1920×1080 */
-  viewport?: { width: number; height: number };
+  viewport: z
+    .strictObject({ width: z.number(), height: z.number() })
+    .default({ width: 1920, height: 1080 }),
   /** Recording frame rate. Default: 30 */
-  fps?: number;
+  fps: z.number().default(30),
   /** Output directory. Relative paths resolve against `baseDir`. Default: output */
-  outputDir?: string;
+  outputDir: z.string().default("output"),
+  /** Base filename (without extension or timestamp). Default: recordable */
+  outputName: z.string().default("recordable"),
+  /** Prepend an ISO timestamp to the filename. Default: true */
+  outputTimestamp: z.boolean().default(true),
   /** Where generated voiceover audio is written (voiceover documents only).
    *  Relative paths resolve against `baseDir`. Default: assets */
-  assetsDir?: string;
-  /** Base filename (without extension or timestamp). Default: recordable */
-  outputName?: string;
-  /** Prepend an ISO timestamp to the filename. Default: true */
-  outputTimestamp?: boolean;
+  assetsDir: z.string().default("assets"),
   /** Run without a visible browser window. Default: false */
-  headless?: boolean;
+  headless: z.boolean().default(false),
   /** Extra Chromium flags appended to the launch args, e.g. `["--no-sandbox"]`
    *  for CI / containers / sandboxed environments. Default: [] */
-  launchArgs?: string[];
+  launchArgs: z.array(z.string()).default([]),
   /** Typing speed in characters per second. Higher = faster. Default: 7 */
-  typingSpeed?: number;
+  typingSpeed: z.number().default(7),
   /** Constant Rate Factor — lower = better quality, larger file. Default: 18 */
-  videoCrf?: number;
+  videoCrf: z.number().default(18),
   /** FFmpeg video codec. Default: libx264 */
-  videoCodec?: string;
+  videoCodec: z.string().default("libx264"),
   /** FFmpeg encoding preset. Default: ultrafast */
-  videoPreset?: string;
+  videoPreset: z.string().default("ultrafast"),
   /** Default zoom transition duration in ms. Default: 600 */
-  zoomDuration?: number;
+  zoomDuration: z.number().default(600),
   /** Automatic pause inserted between every action in ms. Default: 300 */
-  actionDelay?: number;
+  actionDelay: z.number().default(300),
   /** Suppress all console output. Default: false */
-  silent?: boolean;
+  silent: z.boolean().default(false),
   /** Automatically scroll an element into view before clicking or typing. Default: true */
-  autoScroll?: boolean;
+  autoScroll: z.boolean().default(true),
   /** Minimum viewport margin (px) kept above/below element when auto-scrolling. Default: 120 */
-  scrollMargin?: number;
+  scrollMargin: z.number().default(120),
   /** Auto-scroll speed in px/s — faster = snappier short scrolls. Default: 1500 */
-  scrollSpeed?: number;
+  scrollSpeed: z.number().default(1500),
+  /** Default `scroll` action transition duration in ms. Default: 1200 */
+  scrollDuration: z.number().default(1200),
   /** Show an animated cursor overlay that moves to elements before interacting. Default: true */
-  cursor?: boolean;
+  cursor: z.boolean().default(true),
   /** Timeout in ms for page navigation. Default: 30000 */
-  visitTimeout?: number;
+  visitTimeout: z.number().default(30_000),
   /** Directory that relative `visit` URLs, `outputDir`, and `assetsDir` resolve
-   *  against (e.g. the script file's folder). Default: unset → resolve against cwd. */
-  baseDir?: string;
-}
+   *  against (e.g. the script file's folder). Default: "" → resolve against cwd. */
+  baseDir: z.string().default(""),
+});
+
+/** Public config input — every field optional (defaults fill the rest). */
+export type RecordableConfig = z.input<typeof ConfigSchema>;
+
+/** The full config with every field resolved — what the running instance holds. */
+export type ResolvedConfig = z.output<typeof ConfigSchema>;
+
+/** Default values for every config option (the schema's defaults, resolved). */
+export const DEFAULT_CONFIG: ResolvedConfig = ConfigSchema.parse({});
 
 /**
  * Voiceover settings, carried in Markdown frontmatter (non-secret only — the API
@@ -107,31 +130,3 @@ export interface WaitForOptions {
   /** Timeout in ms. Default: the `visitTimeout` config value. */
   timeout?: number;
 }
-
-/** The full config with every field resolved — what the running instance holds. */
-export type ResolvedConfig = Required<RecordableConfig>;
-
-/** Default values for every config option. */
-export const DEFAULT_CONFIG: ResolvedConfig = {
-  viewport: { width: 1920, height: 1080 },
-  fps: 30,
-  outputDir: "output",
-  assetsDir: "assets",
-  outputName: "recordable",
-  outputTimestamp: true,
-  headless: false,
-  launchArgs: [],
-  typingSpeed: 7,
-  videoCrf: 18,
-  videoCodec: "libx264",
-  videoPreset: "ultrafast",
-  zoomDuration: 600,
-  actionDelay: 300,
-  silent: false,
-  autoScroll: true,
-  scrollMargin: 120,
-  scrollSpeed: 1500,
-  cursor: true,
-  visitTimeout: 30_000,
-  baseDir: "",
-};

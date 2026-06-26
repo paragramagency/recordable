@@ -1,4 +1,6 @@
+import * as z from "zod";
 import { ACTIONS, type Param, type Typ } from "./actions.js";
+import { ConfigSchema } from "./config.js";
 
 // ─── JSON Schema generation ──────────────────────────────────────────────────
 //
@@ -93,42 +95,26 @@ function actionSchema(): JSONSchema {
   };
 }
 
-/** Schema for the `config` block — mirrors RecordableConfig. */
+/** Recursively delete every `key` from a JSON Schema object tree. */
+function stripKey(node: unknown, key: string): void {
+  if (Array.isArray(node)) {
+    node.forEach((n) => stripKey(n, key));
+  } else if (node && typeof node === "object") {
+    delete (node as Record<string, unknown>)[key];
+    Object.values(node).forEach((v) => stripKey(v, key));
+  }
+}
+
+/** Schema for the `config` block — derived from the Zod {@link ConfigSchema}.
+ *  Uses the input view (every field optional) and strips the emitted defaults so
+ *  the authoring schema stays type-only. `baseDir` is set by the CLI/runtime, not
+ *  authored in script files, so it's omitted. */
 function configSchema(): JSONSchema {
-  const n = { type: "number" } as const;
-  const s = { type: "string" } as const;
-  const b = { type: "boolean" } as const;
-  return {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      viewport: {
-        type: "object",
-        properties: { width: n, height: n },
-        required: ["width", "height"],
-        additionalProperties: false,
-      },
-      fps: n,
-      outputDir: s,
-      outputName: s,
-      outputTimestamp: b,
-      assetsDir: s,
-      headless: b,
-      launchArgs: { type: "array", items: s },
-      typingSpeed: n,
-      videoCrf: n,
-      videoCodec: s,
-      videoPreset: s,
-      zoomDuration: n,
-      actionDelay: n,
-      silent: b,
-      autoScroll: b,
-      scrollMargin: n,
-      scrollSpeed: n,
-      cursor: b,
-      visitTimeout: n,
-    },
-  };
+  const schema = z.toJSONSchema(ConfigSchema, { io: "input" }) as JSONSchema;
+  delete schema.$schema;
+  stripKey(schema, "default");
+  delete (schema.properties as Record<string, unknown>).baseDir;
+  return schema;
 }
 
 /** Build the full JSON Schema for a Recordable script file. */
