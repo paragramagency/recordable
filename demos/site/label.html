@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dispatch — Label</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body class="app" data-active="shipments">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="content">
+        <h1 class="page">Label ready</h1>
+        <p class="lead">Tracking number <strong>PRC-8F3K2D</strong> assigned. Print the label, then mark as shipped.</p>
+
+        <section class="panel">
+          <div class="label-sheet" id="label">
+            <div class="row">
+              <div class="carrier">DISPATCH EXPRESS</div>
+              <div class="svc">EXPRESS</div>
+            </div>
+            <div class="addr">
+              <div class="to">SHIP TO</div>
+              Priya Anand<br />
+              48 Marlow Road<br />
+              Bristol, BS6 7QR
+            </div>
+            <div class="barcode"></div>
+            <div class="track-no">PRC-8F3K2D</div>
+          </div>
+
+          <div style="display: flex; gap: 0.625rem; margin-top: 1.25rem;">
+            <button class="btn ghost" id="printLabel" onclick="document.getElementById('toast').classList.add('show')">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect width="12" height="8" x="6" y="14" /></svg>
+              Print label
+            </button>
+            <button class="btn" id="markShipped" onclick="window.location.href='track.html'">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" /><path d="M15 18H9" /><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" /><circle cx="17" cy="18" r="2" /><circle cx="7" cy="18" r="2" /></svg>
+              Mark as shipped
+            </button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast">
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+      Label sent to printer
+    </div>
+
+    <script src="shell.js"></script>
+  </body>
+</html>

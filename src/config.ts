@@ -16,6 +16,9 @@ export interface RecordableConfig {
   outputTimestamp?: boolean;
   /** Run without a visible browser window. Default: false */
   headless?: boolean;
+  /** Extra Chromium flags appended to the launch args, e.g. `["--no-sandbox"]`
+   *  for CI / containers / sandboxed environments. Default: [] */
+  launchArgs?: string[];
   /** Typing speed in characters per second. Higher = faster. Default: 7 */
   typingSpeed?: number;
   /** Constant Rate Factor — lower = better quality, larger file. Default: 18 */
@@ -24,8 +27,6 @@ export interface RecordableConfig {
   videoCodec?: string;
   /** FFmpeg encoding preset. Default: ultrafast */
   videoPreset?: string;
-  /** Output aspect ratio. Default: 16:9 */
-  aspectRatio?: string;
   /** Default zoom transition duration in ms. Default: 600 */
   zoomDuration?: number;
   /** Automatic pause inserted between every action in ms. Default: 300 */
@@ -53,8 +54,11 @@ export interface RecordableConfig {
  * core only needs the type to round-trip frontmatter.
  */
 export interface VoiceoverConfig {
-  provider: string;
-  voiceId: string;
+  /** TTS backend. Omit to take `RECORDABLE_TTS_PROVIDER` (default: elevenlabs). */
+  provider?: string;
+  /** Voice to synthesize with. Omit to take `RECORDABLE_VOICE_ID`. */
+  voiceId?: string;
+  /** Omit to take `RECORDABLE_MODEL_ID`, else the provider default. */
   modelId?: string;
   /** Prefer `ELEVENLABS_API_KEY` in the environment over inlining a key here. */
   apiKey?: string;
@@ -116,11 +120,11 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
   outputName: "recordable",
   outputTimestamp: true,
   headless: false,
+  launchArgs: [],
   typingSpeed: 7,
   videoCrf: 18,
   videoCodec: "libx264",
   videoPreset: "ultrafast",
-  aspectRatio: "16:9",
   zoomDuration: 600,
   actionDelay: 300,
   silent: false,

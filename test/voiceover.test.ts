@@ -4,17 +4,31 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cacheKey, FileCache } from "../src/voiceover/cache.js";
-import { alignmentDurationMs, normalizeAlignment } from "../src/voiceover/alignment.js";
+import {
+  alignmentDurationMs,
+  normalizeAlignment,
+} from "../src/voiceover/alignment.js";
 import { MockTTSProvider, silentWav } from "../src/voiceover/mock.js";
 import type { TTSResult } from "../src/voiceover/types.js";
 
 // ─── Cache key ───────────────────────────────────────────────────────────────
 
-const base = { provider: "elevenlabs", voiceId: "v1", modelId: "m1", format: "mp3_44100_128" };
+const base = {
+  provider: "elevenlabs",
+  voiceId: "v1",
+  modelId: "m1",
+  format: "mp3_44100_128",
+};
 
 test("cacheKey: identical inputs hash identically; text change differs", () => {
-  assert.equal(cacheKey({ ...base, text: "hello" }), cacheKey({ ...base, text: "hello" }));
-  assert.notEqual(cacheKey({ ...base, text: "hello" }), cacheKey({ ...base, text: "world" }));
+  assert.equal(
+    cacheKey({ ...base, text: "hello" }),
+    cacheKey({ ...base, text: "hello" }),
+  );
+  assert.notEqual(
+    cacheKey({ ...base, text: "hello" }),
+    cacheKey({ ...base, text: "world" }),
+  );
 });
 
 test("cacheKey: voiceId / modelId / format each affect the key", () => {
@@ -25,8 +39,16 @@ test("cacheKey: voiceId / modelId / format each affect the key", () => {
 });
 
 test("cacheKey: voiceSettings order does not change the key", () => {
-  const a = cacheKey({ ...base, text: "x", voiceSettings: { stability: 0.5, similarityBoost: 0.8 } });
-  const b = cacheKey({ ...base, text: "x", voiceSettings: { similarityBoost: 0.8, stability: 0.5 } });
+  const a = cacheKey({
+    ...base,
+    text: "x",
+    voiceSettings: { stability: 0.5, similarityBoost: 0.8 },
+  });
+  const b = cacheKey({
+    ...base,
+    text: "x",
+    voiceSettings: { similarityBoost: 0.8, stability: 0.5 },
+  });
   assert.equal(a, b);
 });
 
@@ -61,7 +83,11 @@ test("normalizeAlignment: seconds → ms, snake_case keys", () => {
     character_start_times_seconds: [0, 0.25],
     character_end_times_seconds: [0.25, 0.5],
   });
-  assert.deepEqual(a, { chars: ["H", "i"], startMs: [0, 250], endMs: [250, 500] });
+  assert.deepEqual(a, {
+    chars: ["H", "i"],
+    startMs: [0, 250],
+    endMs: [250, 500],
+  });
   assert.equal(alignmentDurationMs(a), 500);
 });
 
@@ -72,7 +98,11 @@ test("normalizeAlignment: tolerates camelCase keys and empty input", () => {
     characterEndTimesSeconds: [1.5],
   });
   assert.deepEqual(a, { chars: ["a"], startMs: [1234], endMs: [1500] });
-  assert.deepEqual(normalizeAlignment({}), { chars: [], startMs: [], endMs: [] });
+  assert.deepEqual(normalizeAlignment({}), {
+    chars: [],
+    startMs: [],
+    endMs: [],
+  });
   assert.equal(alignmentDurationMs({ chars: [], startMs: [], endMs: [] }), 0);
 });
 

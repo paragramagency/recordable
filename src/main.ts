@@ -1,6 +1,7 @@
 import puppeteer, {
   type Browser,
   type Page,
+  type Frame,
   type GoToOptions,
 } from "puppeteer";
 import {
@@ -18,8 +19,9 @@ import {
   resolveTarget,
   sleep,
   truncate,
-  typeDelay,
-  type LogFn,
+  typingDuration,
+  typingGaps,
+  type Logger,
 } from "./utils.js";
 import {
   getElementCenter,
@@ -28,9 +30,10 @@ import {
   smoothScrollToTarget,
 } from "./dom.js";
 import { Cursor, type ZoomState } from "./cursor.js";
+import { NAV_PROBE_MS, PRE_CLICK_MS } from "./timing.js";
 import { SegmentRecorder } from "./recorder.js";
 import {
-  injectPlayButton,
+  playButtonScript,
   PLAY_BINDING,
   PLAY_BUTTON_ID,
 } from "./play-button.js";
@@ -56,13 +59,12 @@ export class Recordable {
   // comes from a loaded document (frontmatter / script `config`), which layers
   // underneath it.
   private readonly userConfig: RecordableConfig;
-  private readonly log: LogFn = createLogger(() => this.cfg.silent);
+  private readonly log: Logger = createLogger(() => this.cfg.silent);
   private readonly recorder = new SegmentRecorder(() => this.cfg, this.log);
   private readonly cursor = new Cursor();
   private queue: { run: Action; control: boolean }[] = [];
-  // Async load work (voiceover synthesis) deferred from a builder call to run(),
-  // so `fromMarkdown` stays a synchronous, chainable step. Stored as thunks and
-  // only invoked by run(), so building a script never triggers synthesis.
+  // Deferred load work (voiceover synthesis), run by run() — so `fromMarkdown`
+  // stays synchronous and building a script never triggers synthesis.
   private pending: Array<() => Promise<void>> = [];
   private browser: Browser | null = null;
   private zoomState: ZoomState = { tx: 0, ty: 0, s: 1 };
@@ -94,22 +96,22 @@ export class Recordable {
   /** Load a JSON script — an array of steps, a `{ config, steps }` object, or a
    *  raw JSON string — enqueuing each step. Returns `this` to chain into `.run()`. */
   fromJSON(script: Script | string): this {
-    const parsed: Script = typeof script === "string" ? JSON.parse(script) : script;
+    const parsed: Script =
+      typeof script === "string" ? JSON.parse(script) : script;
     const { config, steps } = splitScript(parsed);
-    if (!Array.isArray(steps)) throw new Error("Script must be an array of steps, or { steps: [...] }");
+    if (!Array.isArray(steps))
+      throw new Error("Script must be an array of steps, or { steps: [...] }");
     this._applyContentConfig(config ?? {});
     this._loadSteps(steps);
     return this;
   }
 
   /**
-   * Load a Markdown document's contents — a synchronous, chainable builder step
-   * (`new Recordable(cfg).fromMarkdown(md).run()`). The `voiceover` frontmatter
-   * key decides the path: present → synthesize narration audio + computed waits
-   * (the add-on, dynamically imported so a no-audio run never loads TTS) written
-   * to `config.assetsDir`; absent → flatten markers to a plain chain. Synthesis
-   * is async, so it's **deferred to `run()`**; everything else (config, frontmatter
-   * parsing) happens now. Relative `visit`/`outputDir`/`assetsDir` resolve against
+   * Load a Markdown document — a synchronous, chainable builder step. The
+   * `voiceover` frontmatter key picks the path: present → synthesize narration
+   * audio + computed waits (the add-on, dynamically imported so a no-audio run
+   * never loads TTS), deferred to `run()`; absent → flatten markers to a plain
+   * chain now. Relative `visit`/`outputDir`/`assetsDir` resolve against
    * `config.baseDir`. The caller reads the file (and loads any `.env`).
    */
   fromMarkdown(md: string): this {
@@ -132,12 +134,18 @@ export class Recordable {
     // Pick up secrets (ELEVENLABS_API_KEY) from a .env beside the document.
     if (this.cfg.baseDir) {
       try {
-        process.loadEnvFile(resolve(this.cfg.baseDir, ".env")); // no-op if absent
-      } catch {}
+        process.loadEnvFile(resolve(this.cfg.baseDir, ".env"));
+      } catch {
+        // No .env beside the document — fine, secrets may already be in the env.
+      }
     }
 
     const { compileMarkdown } = await import("./voiceover/index.js");
-    const compiled = await compileMarkdown(md, { assetsDir: this.cfg.assetsDir, configOverride: this.cfg });
+    const compiled = await compileMarkdown(md, {
+      assetsDir: this.cfg.assetsDir,
+      configOverride: this.cfg,
+      log: this.log,
+    });
     this.cfg = { ...this.cfg, actionDelay: 0 }; // computed waits assume no inter-action delay
 
     // Build the compiled steps in isolation (the chain methods push to `queue`),
@@ -150,7 +158,7 @@ export class Recordable {
     this.queue.splice(insertAt, 0, ...items);
   }
 
-  /** Merge additional config options at runtime. Enqueue as an action so it takes effect at the right point in the sequence. */
+  /** Merge config mid-sequence — enqueued so it takes effect at this point. */
   setConfig(config: RecordableConfig): this {
     return this._enqueue(async () => {
       this.cfg = { ...this.cfg, ...config };
@@ -200,7 +208,7 @@ export class Recordable {
       this.recording = true;
       await this.recorder.begin(page);
       // The page may have navigated during the manual step — re-inject cursor.
-      if (this.cfg.cursor) await this.cursor.inject(page);
+      if (this.cfg.cursor) await this.cursor.inject(page, this.zoomState);
     }, true);
   }
 
@@ -218,8 +226,9 @@ export class Recordable {
    */
   insert(path: string, options: InsertOptions = {}): this {
     return this._enqueue(async () => {
-      this.log("Insert", path);
-      await this.recorder.insert(path, options);
+      const file = this._resolveFile(path);
+      this.log("Insert", file);
+      await this.recorder.insert(file, options);
     }, true);
   }
 
@@ -236,8 +245,14 @@ export class Recordable {
   audio(path: string, options: AudioOptions = {}): this {
     return this._enqueue(async () => {
       const { wait = true, volume } = options;
-      const { startMs, durationMs } = await this.recorder.addAudio(path, { volume });
-      this.log("Audio", `${truncate(path)} @ ${Math.round(startMs)}ms (${Math.round(durationMs)}ms)`);
+      const file = this._resolveFile(path);
+      const { startMs, durationMs } = await this.recorder.addAudio(file, {
+        volume,
+      });
+      this.log(
+        "Audio",
+        `${truncate(file)} @ ${Math.round(startMs)}ms (${Math.round(durationMs)}ms)`,
+      );
       if (wait) await sleep(durationMs);
     });
   }
@@ -253,7 +268,10 @@ export class Recordable {
         timeout: this.cfg.visitTimeout,
         ...options,
       });
-      if (this.cfg.cursor) await this.cursor.inject(page);
+      // A fresh document carries no zoom transform — drop any stale state so the
+      // overlay (and later moves) position against the new page's viewport.
+      this.zoomState = { tx: 0, ty: 0, s: 1 };
+      if (this.cfg.cursor) await this.cursor.inject(page, this.zoomState);
     });
   }
 
@@ -273,7 +291,7 @@ export class Recordable {
         visible: state === "visible",
         hidden: state === "hidden",
       });
-      if (this.cfg.cursor) await this.cursor.inject(page);
+      if (this.cfg.cursor) await this.cursor.inject(page, this.zoomState);
     });
   }
 
@@ -309,28 +327,28 @@ export class Recordable {
    * - CSS selector → `#id`, `input[name="field[0]"]`, `.class`, or any valid selector
    * - `text:` prefix → `"text:Label"` matches by visible text
    *
-   * Pass `{ duration }` (ms) to type **deterministically**: the keystrokes are
-   * spread evenly across exactly that long, with no jitter. The compiler uses
-   * this to make `type` fill a known narration window predictably.
+   * Timing is **jittered yet deterministic in total**: keystroke delays vary for
+   * a human feel, but always sum to `typingDuration(text, speed)` — so the
+   * voiceover compiler can predict this action's length from the text alone. Pass
+   * `{ duration }` (ms) to override that total (e.g. to fill a known narration
+   * window); the jitter is redistributed within it either way.
    */
-  type(target: string, text: string, options: { duration?: number } = {}): this {
+  type(
+    target: string,
+    text: string,
+    options: { duration?: number } = {},
+  ): this {
     return this._enqueue(async (page) => {
       this.log("Type", `${target}  "${truncate(text)}"`);
       await this._click(page, target);
-      const { duration } = options;
-      if (duration != null) {
-        // Deterministic: even spacing, no pre-type jitter, exact total duration.
-        const per = text.length ? duration / text.length : 0;
-        for (const char of text) {
-          await page.keyboard.type(char);
-          await sleep(per);
-        }
-        return;
-      }
-      await sleep(jitter(150));
+      const total = options.duration ?? typingDuration(text, this.cfg.typingSpeed);
+      const gaps = typingGaps(text, this.cfg.typingSpeed, total);
+      if (gaps.length === 0) return;
+      await sleep(gaps[0]); // lead beat before the first keystroke
+      let i = 1;
       for (const char of text) {
         await page.keyboard.type(char);
-        await sleep(typeDelay(char, this.cfg.typingSpeed));
+        await sleep(gaps[i++] ?? 0);
       }
     });
   }
@@ -352,15 +370,26 @@ export class Recordable {
   }
 
   /**
-   * Select one or more options in a native `<select>` element.
-   * Values are matched against the option `value` attribute.
-   * For custom dropdowns, use a combination of `click()` and `key("Escape")`.
+   * Choose an option in a native `<select>`. `value` is matched against the
+   * option's `value` attribute. The cursor animates to the control before the
+   * value is set, just like `click()`.
+   *
+   * Note: a browser renders the open `<option>` list with the OS, *outside* the
+   * page, so the screencast can't capture it — the dropdown won't appear in the
+   * recording (only the cursor landing and the value changing will). For a
+   * dropdown that shows on camera, build a custom one from `click()`s instead.
    */
-  select(target: string, ...values: string[]): this {
+  select(target: string, value: string): this {
     return this._enqueue(async (page) => {
-      this.log("Select", `${target}  [${values.join(", ")}]`);
+      this.log("Select", `${target}  ${value}`);
       if (this.cfg.autoScroll) await this._scrollIntoView(page, target);
-      await page.select(target, ...values);
+      const { x, y } = await getElementCenter(page, target);
+      if (this.cfg.cursor) {
+        await this.cursor.moveTo(page, x, y, this.zoomState);
+        await sleep(jitter(PRE_CLICK_MS));
+        await this.cursor.clickEffect(page);
+      }
+      await page.select(target, value);
     });
   }
 
@@ -420,7 +449,10 @@ export class Recordable {
    *
    * `duration` overrides the `zoomDuration` config value for this call only.
    */
-  zoom(level: number, options: { origin?: string; duration?: number } = {}): this {
+  zoom(
+    level: number,
+    options: { origin?: string; duration?: number } = {},
+  ): this {
     return this._enqueue(async (page) => {
       const { origin = "center", duration } = options;
       this.log("Zoom", `${level}x  ${origin}`);
@@ -484,6 +516,8 @@ export class Recordable {
 
   /** Execute the queued action sequence, then finalise the recording. */
   async run(): Promise<void> {
+    this.log("Start", "recording…");
+    let ok = true;
     // Finish any deferred load work (voiceover synthesis) before recording.
     for (const job of this.pending) await job();
     this.pending = [];
@@ -493,11 +527,26 @@ export class Recordable {
       headless: this.cfg.headless,
       args: [
         `--window-size=${this.cfg.viewport.width},${this.cfg.viewport.height}`,
+        ...this.cfg.launchArgs,
       ],
     });
 
     const page = await this.browser.newPage();
     await page.setViewport({ ...this.cfg.viewport, deviceScaleFactor: 1 });
+
+    // A navigation wipes the in-page cursor overlay and any zoom transform. Re-
+    // inject (at the carried position) and reset zoom on every main-frame nav,
+    // so click-triggered navigations stay covered without an explicit re-inject.
+    if (this.cfg.cursor) {
+      page.on("framenavigated", (frame) => {
+        if (frame !== page.mainFrame()) return;
+        this.zoomState = { tx: 0, ty: 0, s: 1 };
+        // Only mask the real pointer while recording — a paused / wait-for-user
+        // step is driven by hand, so the `cursor: none` overlay stays off.
+        if (!this.recording) return;
+        void this.cursor.inject(page, this.zoomState).catch(() => {});
+      });
+    }
 
     // Finalise the recording and close the browser on SIGINT / SIGTERM.
     const onSignal = () => {
@@ -518,12 +567,15 @@ export class Recordable {
         if (this.cfg.actionDelay > 0) await sleep(this.cfg.actionDelay);
       }
     } catch (err) {
-      this.log("Error", String(err));
+      ok = false;
+      this.log.error(String(err));
     } finally {
       process.off("SIGINT", onSignal);
       process.off("SIGTERM", onSignal);
       await this._cleanup();
       this.log("Output", this.outputPath);
+      // Bookends the "Start" line; green only when the run actually succeeded.
+      if (ok) this.log.success("Done", "recording complete");
     }
   }
 
@@ -538,24 +590,57 @@ export class Recordable {
     }
   }
 
-  /** Click at a target's centre: autoScroll → cursor move + press → coordinate click.
-   *  Uses page.mouse.click() rather than ElementHandle.click() to avoid Puppeteer's built-in
-   *  scrollIntoView, which would override our centred scroll position. */
+  /** Click a target's centre. Uses page.mouse.click() not ElementHandle.click()
+   *  to avoid Puppeteer's built-in scrollIntoView overriding our centred scroll. */
   private async _click(page: Page, target: string): Promise<void> {
     if (this.cfg.autoScroll) await this._scrollIntoView(page, target);
     const { x, y } = await getElementCenter(page, target);
     if (this.cfg.cursor) {
       await this.cursor.moveTo(page, x, y, this.zoomState);
-      await sleep(jitter(100));
+      await sleep(jitter(PRE_CLICK_MS));
       await this.cursor.clickEffect(page);
     }
-    await page.mouse.click(x, y);
+    await this._clickPoint(page, x, y);
+  }
+
+  /**
+   * Click at viewport coords and, if the click triggers a navigation, wait for
+   * the new page to settle before returning — so a navigating `click()` behaves
+   * like a `visit()` and the next action (typing, a move, a zoom) lands on the
+   * loaded page rather than racing it. In-page clicks pay only a short probe.
+   */
+  private async _clickPoint(page: Page, x: number, y: number): Promise<void> {
+    let navStarted = false;
+    const onNav = (frame: Frame) => {
+      if (frame === page.mainFrame()) navStarted = true;
+    };
+    page.on("framenavigated", onNav);
+    try {
+      await page.mouse.click(x, y);
+      // Give a navigation a brief moment to commit; most clicks don't navigate,
+      // so we can't block on a full navigation wait unconditionally.
+      await sleep(NAV_PROBE_MS);
+      if (navStarted) {
+        await page
+          .waitForNetworkIdle({ idleTime: 500, timeout: this.cfg.visitTimeout })
+          .catch(() => {});
+      }
+    } finally {
+      page.off("framenavigated", onNav);
+    }
   }
 
   /** Move to viewport coords, animating the overlay when the cursor is enabled. */
   private async _moveTo(page: Page, x: number, y: number): Promise<void> {
     if (this.cfg.cursor) await this.cursor.moveTo(page, x, y, this.zoomState);
     else await page.mouse.move(x, y);
+  }
+
+  /** Resolve a local asset path (insert/audio clip) against `baseDir` so a
+   *  Markdown/JSON script and its clips travel together; absolute paths pass
+   *  through. `baseDir` empty → resolve against cwd (the programmatic default). */
+  private _resolveFile(path: string): string {
+    return isAbsolute(path) ? path : resolve(this.cfg.baseDir, path);
   }
 
   /** Scroll a target into view using the configured margin/speed. */
@@ -579,8 +664,10 @@ export class Recordable {
     this.cfg = { ...DEFAULT_CONFIG, ...content, ...this.userConfig };
     const base = this.cfg.baseDir;
     if (base) {
-      if (!isAbsolute(this.cfg.outputDir)) this.cfg.outputDir = resolve(base, this.cfg.outputDir);
-      if (!isAbsolute(this.cfg.assetsDir)) this.cfg.assetsDir = resolve(base, this.cfg.assetsDir);
+      if (!isAbsolute(this.cfg.outputDir))
+        this.cfg.outputDir = resolve(base, this.cfg.outputDir);
+      if (!isAbsolute(this.cfg.assetsDir))
+        this.cfg.assetsDir = resolve(base, this.cfg.assetsDir);
     }
   }
 
@@ -590,22 +677,28 @@ export class Recordable {
     resolveVisitUrls(steps, this.cfg.baseDir);
     steps.forEach((step, i) => {
       const where = `step ${i} (${step?.action ?? "?"})`;
-      if (!step || typeof step !== "object") throw new Error(`${where}: not an object`);
+      if (!step || typeof step !== "object")
+        throw new Error(`${where}: not an object`);
       let params: readonly Param[];
       try {
         params = validateStep(step);
       } catch (err) {
-        throw new Error(`${where}: ${(err as Error).message}`);
+        throw new Error(`${where}: ${(err as Error).message}`, { cause: err });
       }
-      (this as unknown as Record<string, (...a: unknown[]) => unknown>)[step.action](
-        ...buildArgs(step, params),
-      );
+      (this as unknown as Record<string, (...a: unknown[]) => unknown>)[
+        step.action
+      ](...buildArgs(step, params));
     });
   }
 
   // ── Play-button gate ──
 
-  /** Block until the user clicks the in-page ▶ Play button or presses Enter. */
+  /**
+   * Block until the user resumes — by clicking the in-page ▶ Play button, or by
+   * pressing Enter in the *terminal*. The in-page button is click-only so the
+   * live page keeps its own keyboard (Enter to submit a form, etc.); the terminal
+   * fallback means a resume is still reachable if the button fails to render.
+   */
   private async _waitForPlay(page: Page, message: string): Promise<void> {
     let settle!: () => void;
     const played = new Promise<void>((resolve) => (settle = resolve));
@@ -619,23 +712,43 @@ export class Recordable {
       this.playBindingExposed = true;
     }
 
-    // Inject the button now, and on every future document so it survives the
-    // navigations of a login flow.
-    const { identifier } = await page.evaluateOnNewDocument(
-      injectPlayButton,
-      message,
-      PLAY_BUTTON_ID,
-      PLAY_BINDING,
-    );
-    await page
-      .evaluate(injectPlayButton, message, PLAY_BUTTON_ID, PLAY_BINDING)
-      .catch(() => {});
+    // Terminal fallback: resume on Enter from stdin (TTY only). Works even if the
+    // in-page button never renders.
+    const stdin = process.stdin;
+    const onStdin = (chunk: Buffer) => {
+      if (chunk.includes(0x0a) || chunk.includes(0x0d)) settle();
+    };
+    const stdinFallback = Boolean(stdin.isTTY);
+    if (stdinFallback) {
+      stdin.resume();
+      stdin.on("data", onStdin);
+    }
 
-    this.log("Resume", "waiting for ▶ Play…");
+    // Inject the button now, and on every future document so it survives the
+    // navigations of a login flow. A failure here is non-fatal — the terminal
+    // fallback still resumes — but surface it so a broken button is visible.
+    const script = playButtonScript(message, PLAY_BUTTON_ID, PLAY_BINDING);
+    const { identifier } = await page.evaluateOnNewDocument(script);
+    await page
+      .evaluate(script)
+      .catch((e) =>
+        this.log.warn(`could not inject ▶ Play button: ${String(e)}`),
+      );
+
+    this.log(
+      "Resume",
+      stdinFallback
+        ? "waiting for ▶ Play (or press Enter here)…"
+        : "waiting for ▶ Play…",
+    );
     await played;
 
-    // Clean up: stop re-injecting, remove the button.
+    // Clean up: stop the stdin listener, stop re-injecting, remove the button.
     this.playResolver = null;
+    if (stdinFallback) {
+      stdin.off("data", onStdin);
+      stdin.pause();
+    }
     await page.removeScriptToEvaluateOnNewDocument(identifier).catch(() => {});
     await page
       .evaluate((id) => document.getElementById(id)?.remove(), PLAY_BUTTON_ID)

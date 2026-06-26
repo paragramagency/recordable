@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dispatch — Settings</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body class="app" data-active="settings" data-search="Search settings…">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="content">
+        <h1 class="page">Settings</h1>
+        <p class="lead">Manage your workspace and shipping defaults.</p>
+
+        <section class="panel" style="margin-bottom: 1.25rem;">
+          <div class="head"><h2>Workspace</h2></div>
+          <div class="form">
+            <div class="field">
+              <label for="ws-name">Workspace name</label>
+              <input class="text" id="ws-name" type="text" value="Northwind Goods" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="tz">Timezone</label>
+              <select id="tz">
+                <option value="utc">UTC</option>
+                <option value="london">Europe / London</option>
+                <option value="newyork">America / New York</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="carrier">Default carrier</label>
+              <select id="carrier">
+                <option value="dispatch-express">Dispatch Express</option>
+                <option value="dispatch-economy">Dispatch Economy</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" style="margin-bottom: 1.25rem;">
+          <div class="head"><h2>Notifications</h2></div>
+          <div class="toggle-row" onclick="this.querySelector('.switch').classList.toggle('on')">
+            <div>
+              <div class="label">Delivery alerts</div>
+              <div class="desc">Email me when a shipment is delivered.</div>
+            </div>
+            <div class="switch on" id="t-delivery"></div>
+          </div>
+          <div class="toggle-row" onclick="this.querySelector('.switch').classList.toggle('on')">
+            <div>
+              <div class="label">Auto-print labels</div>
+              <div class="desc">Send labels to the default printer on creation.</div>
+            </div>
+            <div class="switch" id="t-autoprint"></div>
+          </div>
+          <div class="toggle-row" onclick="this.querySelector('.switch').classList.toggle('on')">
+            <div>
+              <div class="label">Exception alerts</div>
+              <div class="desc">Notify me when a shipment is delayed or stuck.</div>
+            </div>
+            <div class="switch" id="t-exception"></div>
+          </div>
+        </section>
+
+        <button class="btn" id="save" onclick="document.getElementById('toast').classList.add('show')">Save changes</button>
+      </main>
+    </div>
+
+    <div class="toast" id="toast">
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+      Settings saved
+    </div>
+
+    <script src="shell.js"></script>
+  </body>
+</html>

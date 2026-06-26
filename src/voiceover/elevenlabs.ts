@@ -1,5 +1,9 @@
 import type { VoiceoverConfig } from "../config.js";
-import { alignmentDurationMs, normalizeAlignment, type ElevenLabsAlignment } from "./alignment.js";
+import {
+  alignmentDurationMs,
+  normalizeAlignment,
+  type ElevenLabsAlignment,
+} from "./alignment.js";
 import { cacheKey, FileCache } from "./cache.js";
 import type { SynthOptions, TTSProvider, TTSResult } from "./types.js";
 
@@ -15,6 +19,8 @@ const DEFAULT_FORMAT = "mp3_44100_128";
 const PACKAGE = "@elevenlabs/elevenlabs-js";
 
 export interface ElevenLabsOptions extends VoiceoverConfig {
+  /** Required here — resolved from config/env before the provider is built. */
+  voiceId: string;
   /** Cache directory; when set, synthesis results are stored and reused. */
   cacheDir?: string;
 }
@@ -49,7 +55,9 @@ export class ElevenLabsProvider implements TTSProvider {
   private async _synthesize(text: string, format: string): Promise<TTSResult> {
     const apiKey = this.cfg.apiKey ?? process.env.ELEVENLABS_API_KEY;
     if (!apiKey) {
-      throw new Error("ElevenLabs: no API key — set ELEVENLABS_API_KEY (or voiceover.apiKey)");
+      throw new Error(
+        "ElevenLabs: no API key — set ELEVENLABS_API_KEY (or voiceover.apiKey)",
+      );
     }
 
     // Non-literal specifier so tsc doesn't try to resolve the optional dep; it's
@@ -64,15 +72,19 @@ export class ElevenLabsProvider implements TTSProvider {
       );
     }
 
-    const ElevenLabsClient = mod.ElevenLabsClient ?? mod.default?.ElevenLabsClient ?? mod.default;
+    const ElevenLabsClient =
+      mod.ElevenLabsClient ?? mod.default?.ElevenLabsClient ?? mod.default;
     const client = new ElevenLabsClient({ apiKey });
 
-    const res = await client.textToSpeech.convertWithTimestamps(this.cfg.voiceId, {
-      text,
-      modelId: this.cfg.modelId ?? DEFAULT_MODEL,
-      voiceSettings: this.cfg.voiceSettings,
-      outputFormat: format,
-    });
+    const res = await client.textToSpeech.convertWithTimestamps(
+      this.cfg.voiceId,
+      {
+        text,
+        modelId: this.cfg.modelId ?? DEFAULT_MODEL,
+        voiceSettings: this.cfg.voiceSettings,
+        outputFormat: format,
+      },
+    );
 
     // Response is the object directly in current SDKs, `.data`-wrapped in older.
     // Audio field is `audioBase64` (camelCase SDK) / `audio_base64` (raw REST).

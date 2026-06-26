@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dispatch — New shipment</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body class="app" data-active="shipments">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="content">
+        <h1 class="page">New shipment</h1>
+        <p class="lead">Enter the recipient's details and we'll generate a label.</p>
+
+        <form class="form panel" onsubmit="event.preventDefault(); window.location.href='label.html';">
+          <div class="field">
+            <label for="recipient">Recipient name</label>
+            <input class="text" id="recipient" name="recipient" type="text" placeholder="Full name" autocomplete="off" />
+          </div>
+
+          <div class="field">
+            <label for="address">Address</label>
+            <input class="text" id="address" name="address" type="text" placeholder="Street address" autocomplete="off" />
+          </div>
+
+          <div class="field half">
+            <label for="city">City</label>
+            <input class="text" id="city" name="city" type="text" placeholder="City" autocomplete="off" />
+          </div>
+          <div class="field half">
+            <label for="postcode">Postcode</label>
+            <input class="text" id="postcode" name="postcode" type="text" placeholder="Postcode" autocomplete="off" />
+          </div>
+
+          <div class="field half">
+            <label for="weight">Weight (kg)</label>
+            <input class="text" id="weight" name="weight" type="text" placeholder="0.0" autocomplete="off" />
+          </div>
+          <div class="field half">
+            <label for="service">Service</label>
+            <select id="service" name="service">
+              <option value="">Choose a service…</option>
+              <option value="standard">Standard</option>
+              <option value="express">Express</option>
+              <option value="next-day">Next-day</option>
+            </select>
+          </div>
+
+          <button class="btn block" id="createLabel" type="submit">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" /><circle cx="7.5" cy="7.5" r=".5" fill="currentColor" /></svg>
+            Generate label
+          </button>
+        </form>
+      </main>
+    </div>
+
+    <script src="shell.js"></script>
+  </body>
+</html>

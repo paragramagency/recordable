@@ -7,26 +7,24 @@ voiceover:
 
 ```
 pause()
-visit("./index.html")
+visit("../site/new.html")
 resume()
 ```
 
-Welcome to Lumen — the tool that turns weeks of manual marking into minutes. 
+Welcome to Dispatch — create a shipment and print a label in seconds.
 
-`click("text:New evaluation")` Let's create your first evaluation `type("#title", "Year 9 Persuasive Writing")` and call it Year 9 Persuasive Writing.
+`type("#recipient", "Priya Anand")` Start with who it's going to, `type("#address", "48 Marlow Road")` and where.
 
-Now choose what to mark agains, in this case the `select("#rubric", "aqa-gcse-english")` AQA GCSE English descriptors.
-
-Upload a class set `hover("#upload")` `wait(300)` `click("text:Upload class set")` and Lumen reads every script, scoring against each criterion.
+Now pick a service — `select("#service", "express")` Express, in this case — then `click("text:Generate label")` generate the label.
 
 ```
-waitFor("text:Scoring complete", { state: "visible", timeout: 20000 })
+waitFor("text:Label ready", { state: "visible", timeout: 20000 })
 ```
 
-`scroll("#results")` `zoom(1.5, { origin: "#rationale", duration: 800 })` Here are the results.  Every grade comes with a rationale you can audit, so nothing is a black box.
+`zoom(1.4, { origin: "#label", duration: 800 })` And there it is — a label with a tracking number, ready to print and ship.
 
 ```
 wait(2000)
 ```
 
-`resetZoom()` From cold open to graded class set in under two minutes.
+`resetZoom()` From empty form to ready-to-ship in well under a minute.

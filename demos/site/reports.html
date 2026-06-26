@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dispatch — Reports</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body class="app" data-active="reports" data-search="Search reports…">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="content">
+        <h1 class="page">Reports</h1>
+        <p class="lead">Shipment performance over the last 30 days.</p>
+
+        <section class="panel" style="margin-bottom: 1.25rem;">
+          <div class="head">
+            <h2>Shipping volume</h2>
+            <div class="spacer"></div>
+            <button class="btn" id="new-report">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+              New report
+            </button>
+          </div>
+          <div class="chart">
+            <svg viewBox="0 0 600 220" preserveAspectRatio="none">
+              <polyline fill="none" stroke="#4f46e5" stroke-width="3" points="0,170 60,150 120,160 180,120 240,135 300,90 360,100 420,60 480,75 540,40 600,55" />
+            </svg>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="head"><h2>Saved reports</h2></div>
+          <table>
+            <thead>
+              <tr><th>Report</th><th>Type</th><th>Updated</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Weekly volume</td><td>Volume</td><td><span class="mono">2 days ago</span></td></tr>
+              <tr><td>Delivery times by region</td><td>Delivery</td><td><span class="mono">5 days ago</span></td></tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+
+    <!-- New report modal -->
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <h2>New report</h2>
+        <div class="field">
+          <label for="r-title">Title</label>
+          <input class="text" id="r-title" type="text" placeholder="Name this report" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="r-type">Type</label>
+          <select id="r-type">
+            <option value="">Choose a type…</option>
+            <option value="volume">Shipping volume</option>
+            <option value="delivery">Delivery times</option>
+            <option value="returns">Returns</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="r-desc">Description</label>
+          <textarea id="r-desc" placeholder="What should this report track?"></textarea>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" onclick="document.getElementById('overlay').classList.remove('open')">Cancel</button>
+          <button class="btn" onclick="createReport()">Create report</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast">
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+      Report created
+    </div>
+
+    <script src="shell.js"></script>
+    <script>
+      document.getElementById("new-report").onclick = () => {
+        document.getElementById("overlay").classList.add("open");
+      };
+      function createReport() {
+        document.getElementById("overlay").classList.remove("open");
+        document.getElementById("toast").classList.add("show");
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dispatch — Shipments</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body class="app" data-active="shipments">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="content">
+        <h1 class="page">Shipments</h1>
+        <p class="lead">Good afternoon, Maya. Here's what's moving today.</p>
+
+        <section class="cards">
+          <div class="card" id="card-toship">
+            <div class="k">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15" /><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" /></svg>
+              To ship
+            </div>
+            <div class="v">6</div>
+            <div class="delta">3 labels ready</div>
+          </div>
+          <div class="card">
+            <div class="k">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" /><path d="M15 18H9" /><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" /><circle cx="17" cy="18" r="2" /><circle cx="7" cy="18" r="2" /></svg>
+              In transit
+            </div>
+            <div class="v">14</div>
+            <div class="delta">2 out for delivery</div>
+          </div>
+          <div class="card">
+            <div class="k">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+              Delivered (30d)
+            </div>
+            <div class="v">312</div>
+            <div class="delta">▲ 8.1%</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="head">
+            <h2>Recent shipments</h2>
+            <div class="spacer"></div>
+            <a class="btn" href="new.html">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+              New shipment
+            </a>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Recipient</th><th>Tracking</th><th>Service</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Priya Anand</td><td><span class="mono">PRC-7K2M9A</span></td><td>Express</td><td><span class="pill transit"><span class="dot"></span> In transit</span></td></tr>
+              <tr><td>Tom Becker</td><td><span class="mono">PRC-3X8Q1D</span></td><td>Standard</td><td><span class="pill done"><span class="dot"></span> Delivered</span></td></tr>
+              <tr><td>Lena Ortiz</td><td><span class="mono">PRC-9F4B7C</span></td><td>Next-day</td><td><span class="pill transit"><span class="dot"></span> Out for delivery</span></td></tr>
+              <tr><td>Sam Reyes</td><td><span class="mono">—</span></td><td>Standard</td><td><span class="pill draft"><span class="dot"></span> Draft</span></td></tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+
+    <script src="shell.js"></script>
+  </body>
+</html>

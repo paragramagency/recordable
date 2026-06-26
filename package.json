@@ -38,6 +38,10 @@
     "test": "tsx --test test/**/*.test.ts",
     "clean": "rm -rf dist",
     "gen:schema": "tsx scripts/gen-schema.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "prepublishOnly": "npm run clean && npm run gen:schema && npm run build"
   },
   "keywords": [
@@ -65,10 +69,15 @@
     "puppeteer": "^22.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.0.0",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.4",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.62.0"
   },
   "optionalDependencies": {
     "@elevenlabs/elevenlabs-js": "^2.0.0"

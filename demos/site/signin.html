@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dispatch — Sign in</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <div class="signin-wrap">
+      <form class="signin" onsubmit="event.preventDefault(); window.location.href='index.html';">
+        <div class="brand">
+          <svg class="logo-mark" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="url(#lg)" />
+            <path d="M9 12.5 16 9l7 3.5v7L16 23l-7-3.5z" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" />
+            <path d="M9 12.5 16 16l7-3.5M16 16v7" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" />
+            <defs><linearGradient id="lg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop stop-color="#818cf8" /><stop offset="1" stop-color="#4f46e5" /></linearGradient></defs>
+          </svg>
+          Dispatch
+        </div>
+        <h1>Welcome back</h1>
+        <p class="sub">Sign in to create labels and track your shipments.</p>
+
+        <div class="field">
+          <label for="email">Work email</label>
+          <input class="text" id="email" type="email" placeholder="you@northwindgoods.com" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input class="text" id="password" type="password" placeholder="Password" autocomplete="off" />
+        </div>
+        <button class="btn block" id="signInBtn" type="submit">Sign in</button>
+      </form>
+    </div>
+  </body>
+</html>

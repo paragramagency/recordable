@@ -1,7 +1,6 @@
 {
   "$schema": "../../recordable.schema.json",
   "config": {
-    "cursor": true,
     "typingSpeed": 14,
     "viewport": { "width": 1280, "height": 800 },
     "outputDir": "./output",
@@ -10,19 +9,24 @@
   },
   "steps": [
     { "action": "pause" },
-    { "action": "visit", "url": "./index.html" },
+    { "action": "visit", "url": "../site/new.html" },
     { "action": "resume" },
 
-    { "action": "zoom", "level": 1.4, "origin": "#email" },
-    { "action": "type", "target": "#email", "text": "helo@studio.com" },
+    { "action": "zoom", "level": 1.4, "origin": "#recipient" },
+    { "action": "type", "target": "#recipient", "text": "Pirya Anand" },
     { "action": "wait", "ms": 400 },
 
-    { "action": "clear", "target": "#email" },
-    { "action": "type", "target": "#email", "text": "hello@studio.com" },
+    { "action": "clear", "target": "#recipient" },
+    { "action": "type", "target": "#recipient", "text": "Priya Anand" },
     { "action": "wait", "ms": 400 },
 
-    { "action": "click", "target": "text:Subscribe" },
-    { "action": "waitFor", "target": "text:You're in", "state": "visible" },
+    { "action": "type", "target": "#address", "text": "48 Marlow Road" },
+    { "action": "wait", "ms": 300 },
+    { "action": "select", "target": "#service", "value": "express" },
+    { "action": "wait", "ms": 400 },
+
+    { "action": "click", "target": "text:Generate label" },
+    { "action": "waitFor", "target": "text:Label ready", "state": "visible" },
     { "action": "wait", "ms": 1200 },
     { "action": "resetZoom" },
     { "action": "wait", "ms": 800 }

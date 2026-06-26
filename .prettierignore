@@ -1,0 +1,11 @@
+dist
+node_modules
+output
+demos
+.vscode
+recordable.schema.json
+package-lock.json
+
+# Markdown fixtures embed the recordable DSL (method-call syntax with no trailing
+# semicolons) — Prettier would "fix" it into invalid scripts.
+test/fixtures

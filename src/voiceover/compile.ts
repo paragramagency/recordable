@@ -1,8 +1,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { parseMarkdown, type NarrationBlock } from "../markdown/parse.js";
 import type { ScriptStep } from "../script.js";
 import type { RecordableConfig, VoiceoverConfig } from "../config.js";
+import { typingDuration, truncate, createLogger, type Logger } from "../utils.js";
+import { probeDuration } from "../ffmpeg.js";
+import { gestureLeadMs } from "../timing.js";
 import { cacheKey, FileCache } from "./cache.js";
 import { ElevenLabsProvider } from "./elevenlabs.js";
 import { MockTTSProvider } from "./mock.js";
@@ -28,8 +31,11 @@ export interface CompileOptions {
   configOverride?: RecordableConfig;
   /** Gitignored timing cache. Default: `<assetsDir>/.cache`. */
   cacheDir?: string;
-  /** Where overrun / drift warnings go. Default: `console.warn`. */
+  /** Where overrun / drift warnings go. Default: the universal `[Recordable]` warn logger. */
   warn?: (message: string) => void;
+  /** Progress logger for synthesis/cache events. Omit for silent (progress is opt-in);
+   *  pass the host's logger to surface the whole voiceover flow. */
+  log?: Logger;
 }
 
 /** The compiled artifact: a runnable script plus the audio files it references. */
@@ -46,23 +52,41 @@ function extFor(format: string): string {
 }
 
 /** How long a step occupies the timeline, so the next wait measures from its end.
- *  Omitted durations use the config default, never an elastic fit (spec §C). */
-function stepDurationMs(step: ScriptStep, cfg: RecordableConfig): number {
+ *  Omitted durations use the config default, never an elastic fit (spec §C). The
+ *  cursor's travel-and-press to a target (`gestureLeadMs`) is added on top, so a
+ *  click/type doesn't silently push the rest of the paragraph late. */
+async function stepDurationMs(
+  step: ScriptStep,
+  cfg: RecordableConfig,
+): Promise<number> {
+  const lead = gestureLeadMs(step, cfg);
   switch (step.action) {
     case "wait":
       return (step.ms as number) ?? 0;
+    case "insert": {
+      // An inserted clip advances the recorded timeline by its full length; the
+      // overlaid narration plays across it, so this much audio-relative time is
+      // consumed and the next marker's wait is only the remainder. Resolve the
+      // clip against baseDir, the same as the runtime's `_resolveFile`.
+      const p = step.path as string;
+      const file = isAbsolute(p) ? p : resolve(cfg.baseDir ?? "", p);
+      return (await probeDuration(file)) * 1000;
+    }
     case "zoom":
     case "resetZoom":
       return (step.duration as number) ?? cfg.zoomDuration ?? 600;
     case "scroll":
       return (step.duration as number) ?? 1200;
     case "type": {
-      if (step.duration != null) return step.duration as number;
-      const len = (step.text as string)?.length ?? 0;
-      return Math.round((len / (cfg.typingSpeed ?? 7)) * 1000);
+      // Travel to the field (lead) then the keystrokes. The runtime's `type` sums
+      // its jittered delays to exactly `typingDuration`, so that part agrees.
+      const keys =
+        (step.duration as number) ??
+        typingDuration((step.text as string) ?? "", cfg.typingSpeed ?? 7);
+      return lead + keys;
     }
     default:
-      return 0; // click / hover / key / select / waitFor … — a short gesture
+      return lead; // click / select / hover travel; key / waitFor … are 0
   }
 }
 
@@ -86,6 +110,19 @@ function markerFireMs(
   return alignment.startMs[w] ?? durationMs;
 }
 
+/** A marker as the author wrote it, e.g. `click("#signInBtn")` — for diagnostics. */
+function markerLabel(step: ScriptStep): string {
+  const arg = (step.target ?? step.path ?? "") as string;
+  return arg ? `${step.action}("${arg}")` : `${step.action}()`;
+}
+
+/** The narrated word a marker is anchored to (or "the end" for a trailing one). */
+function wordAt(narration: string, offset: number): string {
+  if (offset >= narration.length) return "the end";
+  const word = narration.slice(wordStart(narration, offset)).match(/^\S+/);
+  return word ? `"${word[0]}"` : "the end";
+}
+
 /** Cache/asset key for a block — narration is already the stripped, audible text. */
 function keyFor(narration: string, vo: VoiceoverConfig | undefined): string {
   return cacheKey({
@@ -106,15 +143,29 @@ async function compileNarration(
     voiceover?: VoiceoverConfig;
     cache: FileCache;
     cfg: RecordableConfig;
+    log: Logger;
+    providerName: string;
   },
 ): Promise<{ steps: ScriptStep[]; asset: string }> {
   const { narration, markers } = block;
   const key = keyFor(narration, opts.voiceover);
+  const preview = truncate(narration);
 
   let result = opts.cache.get(key);
-  if (!result) {
-    result = await opts.provider.synthesize(narration, { format: opts.voiceover?.format });
+  if (result) {
+    opts.log("Voice", `cache hit   "${preview}"`);
+  } else {
+    // A miss means a real synthesis — for a network provider, an external API call.
+    opts.log("Voice", `synthesize  "${preview}" via ${opts.providerName}`);
+    result = await opts.provider.synthesize(narration, {
+      format: opts.voiceover?.format,
+    });
     opts.cache.put(key, result);
+    const kb = (result.audio.length / 1024).toFixed(0);
+    opts.log(
+      "Voice",
+      `generated   "${preview}" (${Math.round(result.durationMs)}ms, ${kb} KB)`,
+    );
   }
 
   const asset = join(opts.assetsDir, `${key}.${extFor(result.format)}`);
@@ -123,23 +174,43 @@ async function compileNarration(
 
   const steps: ScriptStep[] = [{ action: "audio", path: asset, wait: false }];
 
-  const alignment: Alignment = result.alignment ?? { chars: [], startMs: [], endMs: [] };
+  const alignment: Alignment = result.alignment ?? {
+    chars: [],
+    startMs: [],
+    endMs: [],
+  };
   let elapsed = 0;
+  let prevOffset = -1;
   for (const m of markers) {
-    const fire = markerFireMs(m.offset, narration, alignment, result.durationMs);
+    const fire = markerFireMs(
+      m.offset,
+      narration,
+      alignment,
+      result.durationMs,
+    );
     const gap = Math.round(fire - elapsed);
     if (gap > 0) {
       steps.push({ action: "wait", ms: gap });
       elapsed += gap;
     } else if (gap < 0) {
+      // The action can't land on its word: earlier actions in this paragraph
+      // (their cursor travel, typing, inserts) already ran `-gap`ms past it, so
+      // this one and everything after it lag. Point at the exact spot and say why.
+      const stacked = m.offset === prevOffset;
+      const cause = stacked
+        ? `it shares a spot in the narration with the action before it`
+        : `the actions before it overrun by that much`;
+      const fix = stacked
+        ? `move ${markerLabel(m.step)} to the word it actually describes, or add narration between the two`
+        : `add words before it, space the actions out, or move it into a fenced block (no audio)`;
       opts.warn(
-        `Voiceover overrun: "${m.step.action}" starts ${-gap}ms after its narrated word ` +
-          `(the rest of this paragraph lags). Shorten the action, lengthen the narration, ` +
-          `or move it into a fenced pause block.`,
+        `Voiceover timing — ${markerLabel(m.step)} can't start on ${wordAt(narration, m.offset)} ` +
+          `(paragraph "${preview}"): ${cause}, so it and the rest lag ${-gap}ms. Fix: ${fix}.`,
       );
     }
     steps.push(m.step);
-    elapsed += stepDurationMs(m.step, opts.cfg);
+    elapsed += await stepDurationMs(m.step, opts.cfg);
+    prevOffset = m.offset;
   }
 
   // Let the narration finish before the next block begins.
@@ -152,11 +223,14 @@ async function compileNarration(
 /** Apply env defaults to a voiceover block — frontmatter always wins. The env
  *  vars let many files share a provider/voice/model without repeating it; a file
  *  stays fully reproducible by spelling the values out. No-op without a block. */
-function withEnvDefaults(vo: VoiceoverConfig | undefined): VoiceoverConfig | undefined {
+function withEnvDefaults(
+  vo: VoiceoverConfig | undefined,
+): VoiceoverConfig | undefined {
   if (!vo) return vo;
   return {
     ...vo,
-    provider: vo.provider || process.env.RECORDABLE_TTS_PROVIDER || "elevenlabs",
+    provider:
+      vo.provider || process.env.RECORDABLE_TTS_PROVIDER || "elevenlabs",
     voiceId: vo.voiceId || process.env.RECORDABLE_VOICE_ID || "",
     modelId: vo.modelId ?? process.env.RECORDABLE_MODEL_ID,
   };
@@ -185,18 +259,35 @@ function resolveProvider(
         "the document) or `voiceover.apiKey`, or use RECORDABLE_TTS_PROVIDER=mock for silent audio.",
     );
   }
-  return new ElevenLabsProvider(voiceover);
+  const voiceId = voiceover.voiceId;
+  if (!voiceId) {
+    throw new Error(
+      "Voiceover: ElevenLabs needs a voice — set RECORDABLE_VOICE_ID (e.g. in a .env beside " +
+        "the document) or `voiceover.voiceId`.",
+    );
+  }
+  return new ElevenLabsProvider({ ...voiceover, voiceId });
 }
 
 /** Compile a Markdown document into a runnable core script plus generated audio.
  *  Paragraphs become synthesized clips with computed waits; fenced blocks between
  *  them are narrative-level pauses. `actionDelay` is forced to 0 to keep timing exact. */
-export async function compileMarkdown(md: string, options: CompileOptions): Promise<CompiledScript> {
+export async function compileMarkdown(
+  md: string,
+  options: CompileOptions,
+): Promise<CompiledScript> {
   const parsed = parseMarkdown(md);
-  const warn = options.warn ?? ((m: string) => console.warn(m));
+  // Progress is opt-in (silent default); warnings always surface.
+  const log = options.log ?? createLogger(() => true);
+  const warn = options.warn ?? options.log?.warn ?? createLogger(() => false).warn;
   const voiceover = withEnvDefaults(options.voiceover ?? parsed.voiceover);
   const provider = resolveProvider(options.provider, voiceover);
-  const cache = new FileCache(options.cacheDir ?? join(options.assetsDir, ".cache"));
+  const providerName =
+    provider.constructor?.name?.replace(/(TTS)?Provider$/, "").toLowerCase() ||
+    "provider";
+  const cache = new FileCache(
+    options.cacheDir ?? join(options.assetsDir, ".cache"),
+  );
 
   const config: RecordableConfig = {
     ...parsed.config,
@@ -206,6 +297,9 @@ export async function compileMarkdown(md: string, options: CompileOptions): Prom
 
   const steps: ScriptStep[] = [];
   const assets: string[] = [];
+
+  const narrationCount = parsed.blocks.filter((b) => b.type !== "steps").length;
+  log("Voice", `compiling ${narrationCount} narration block(s) → ${providerName}`);
 
   for (const block of parsed.blocks) {
     if (block.type === "steps") {
@@ -219,10 +313,14 @@ export async function compileMarkdown(md: string, options: CompileOptions): Prom
       cache,
       cfg: config,
       warn,
+      log,
+      providerName,
     });
     steps.push(...compiled.steps);
     assets.push(compiled.asset);
   }
+
+  log.success("Voice", `done — compiled ${assets.length} clip(s)`);
 
   return { config, steps, assets };
 }

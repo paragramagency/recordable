@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dispatch — Tracking</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body class="app" data-active="tracking">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="content">
+        <h1 class="page">Tracking PRC-8F3K2D</h1>
+        <p class="lead">Priya Anand · Express · Bristol, BS6 7QR <span class="pill transit"><span class="dot"></span> In transit</span></p>
+
+        <section class="panel" id="track">
+          <div class="head"><h2>Status</h2></div>
+          <ul class="timeline">
+            <li class="done">
+              <span class="ico" id="label-created"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg></span>
+              <div class="stage">Label created</div>
+              <div class="when">Today, 09:14 — Bristol depot</div>
+            </li>
+            <li class="done">
+              <span class="ico" id="picked-up"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg></span>
+              <div class="stage">Picked up</div>
+              <div class="when">Today, 11:42 — collected by courier</div>
+            </li>
+            <li class="current">
+              <span class="ico" id="in-transit"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" /><path d="M15 18H9" /><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" /><circle cx="17" cy="18" r="2" /><circle cx="7" cy="18" r="2" /></svg></span>
+              <div class="stage">In transit</div>
+              <div class="when">Now — en route to local hub</div>
+            </li>
+            <li class="pending">
+              <span class="ico" id="out-for-delivery"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg></span>
+              <div class="stage">Out for delivery</div>
+              <div class="when">Expected tomorrow</div>
+            </li>
+            <li class="pending">
+              <span class="ico"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15" /><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" /><path d="m3.3 7 8.7 5 8.7-5" /><path d="M12 22V12" /></svg></span>
+              <div class="stage">Delivered</div>
+              <div class="when">Expected tomorrow by 18:00</div>
+            </li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <script src="shell.js"></script>
+  </body>
+</html>

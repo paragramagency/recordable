@@ -72,7 +72,10 @@ export class FileCache {
   /** Store `result` under `key` (audio file + JSON sidecar). */
   put(key: string, result: TTSResult): void {
     mkdirSync(this.dir, { recursive: true });
-    writeFileSync(join(this.dir, `${key}.${extFor(result.format)}`), result.audio);
+    writeFileSync(
+      join(this.dir, `${key}.${extFor(result.format)}`),
+      result.audio,
+    );
     const meta: CacheMeta = {
       format: result.format,
       durationMs: result.durationMs,

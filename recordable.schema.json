@@ -68,6 +68,12 @@
         "headless": {
           "type": "boolean"
         },
+        "launchArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "typingSpeed": {
           "type": "number"
         },
@@ -78,9 +84,6 @@
           "type": "string"
         },
         "videoPreset": {
-          "type": "string"
-        },
-        "aspectRatio": {
           "type": "string"
         },
         "zoomDuration": {
@@ -231,6 +234,12 @@
               },
               "path": {
                 "type": "string"
+              },
+              "fadeIn": {
+                "type": "number"
+              },
+              "fadeOut": {
+                "type": "number"
               }
             },
             "required": [
@@ -514,16 +523,14 @@
               "target": {
                 "type": "string"
               },
-              "values": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
+              "value": {
+                "type": "string"
               }
             },
             "required": [
               "action",
-              "target"
+              "target",
+              "value"
             ],
             "additionalProperties": false
           }

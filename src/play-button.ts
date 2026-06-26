@@ -19,7 +19,9 @@ export function injectPlayButton(
     wrap.style.cssText = [
       "position:fixed",
       "left:50%",
-      "bottom:32px",
+      // Top-anchored: a headful window is shorter than the emulated viewport, so
+      // a bottom pill renders below the fold, out of the user's reach.
+      "top:24px",
       "transform:translateX(-50%)",
       "z-index:2147483647",
       "pointer-events:auto",
@@ -54,14 +56,35 @@ export function injectPlayButton(
       "font-size:14px;line-height:1;white-space:nowrap;cursor:default";
     wrap.appendChild(btn);
     wrap.appendChild(label);
+    let fired = false;
     const fire = () => {
+      if (fired) return;
+      fired = true;
       wrap.remove();
       const fn = (window as unknown as Record<string, () => void>)[binding];
       if (typeof fn === "function") fn();
     };
+    // Click only — no Enter/Space binding, so the live page keeps its own
+    // keyboard (e.g. Enter to submit a form) during the manual step.
     btn.addEventListener("click", fire);
     document.body.appendChild(wrap);
   };
   if (document.body) build();
   else document.addEventListener("DOMContentLoaded", build);
+}
+
+/**
+ * The button injection as a *string*, not the `injectPlayButton` function object.
+ * esbuild/tsx (via `keepNames`) rewrites the inner arrows to `__name(() => …)`;
+ * Puppeteer injects a function via `.toString()`, so that `__name` call would leak
+ * into the page and throw (it's undefined there). Wrapping in a closure that
+ * defines an `__name` shim makes the snippet bundler-proof.
+ */
+export function playButtonScript(
+  message: string,
+  id: string,
+  binding: string,
+): string {
+  const args = [message, id, binding].map((a) => JSON.stringify(a)).join(",");
+  return `(() => { const __name = (f) => f; (${injectPlayButton.toString()})(${args}); })()`;
 }

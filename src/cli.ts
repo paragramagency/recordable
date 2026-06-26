@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import { resolve, basename, dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { Recordable } from "./index.js";
+import { createLogger } from "./utils.js";
 import type { RecordableConfig } from "./config.js";
+
+// CLI-level messages always print (the recorder's own `silent` governs run output).
+const log = createLogger(() => false);
 
 // ─── recordable CLI ──────────────────────────────────────────────────────────
 //
@@ -72,7 +76,8 @@ function parseCliArgs(argv: string[]): Args {
     console.log(USAGE);
     process.exit(0);
   }
-  if (positionals.length > 1) fail(`unexpected extra argument: ${positionals[1]}`);
+  if (positionals.length > 1)
+    fail(`unexpected extra argument: ${positionals[1]}`);
 
   const config: RecordableConfig = {};
   if (values.headless) config.headless = true;
@@ -86,7 +91,7 @@ function parseCliArgs(argv: string[]): Args {
 }
 
 function fail(message: string): never {
-  console.error(`recordable: ${message}`);
+  log.error(message);
   process.exit(1);
 }
 
@@ -120,7 +125,7 @@ async function main(): Promise<void> {
   }
 
   if (args.check) {
-    console.log(`OK — ${basename(file)} is valid`);
+    log("OK", `${basename(file)} is valid`);
     return;
   }
 

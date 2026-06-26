@@ -1,6 +1,22 @@
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 
+/** Probe a clip's duration in seconds by parsing ffmpeg's stderr banner. 0 if unreadable. */
+export function probeDuration(path: string): Promise<number> {
+  return new Promise((resolve) => {
+    const proc = spawn(FFMPEG_PATH, ["-i", path], {
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+    let err = "";
+    proc.stderr?.on("data", (d) => (err += String(d)));
+    proc.on("error", () => resolve(0));
+    proc.on("close", () => {
+      const m = err.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+      resolve(m ? +m[1] * 3600 + +m[2] * 60 + parseFloat(m[3]) : 0);
+    });
+  });
+}
+
 // Prefer the ffmpeg binary bundled by @ffmpeg-installer/ffmpeg; fall back to a
 // system `ffmpeg` on PATH if it isn't present for some reason.
 function resolveFfmpegPath(): string {

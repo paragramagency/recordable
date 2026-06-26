@@ -1,0 +1,21 @@
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+import prettier from "eslint-config-prettier";
+
+export default tseslint.config(
+  { ignores: ["dist", "node_modules", "output", "demos"] },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    rules: {
+      // The `injectPlayButton`/cursor scripts cast `window` to call exposed
+      // bindings — `any`-ish casts are deliberate and self-contained.
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
+  prettier,
+);

@@ -4,24 +4,27 @@ import type Token from "markdown-it/lib/token.mjs";
 import { Recordable } from "../main.js";
 import { callToStep, fromJSON, type ScriptStep } from "../script.js";
 import type { RecordableConfig, VoiceoverConfig } from "../config.js";
-import { isMethodCall, parseMethodCall, parseMethodCalls, type MethodCall } from "./method.js";
+import {
+  isMethodCall,
+  parseMethodCall,
+  parseMethodCalls,
+  type MethodCall,
+} from "./method.js";
 
 // ─── Markdown authoring surface ──────────────────────────────────────────────
 //
-// A recording can be authored as Markdown: fluent-API calls embedded as inline
-// backtick spans inside narration prose (voiceover/timed), or as a fenced code
-// block of one call per line (a pure step list, no narration). This module is
-// the *surface* over the same keyed-step IR the JSON layer uses — every call is
-// mapped through the ACTIONS manifest (`callToStep`) and validated there.
+// A recording can be authored as Markdown: fluent-API calls as inline backtick
+// spans inside narration prose (voiceover/timed), or a fenced block of one call
+// per line (a pure step list, no narration). It's a *surface* over the same
+// keyed-step IR the JSON layer uses — every call goes through `callToStep`.
 //
-// Document structure (frontmatter, paragraphs, code spans, fenced blocks) is
-// tokenised by markdown-it rather than walked by hand, so the awkward cases —
-// blank-line boundaries, indented/`~~~` fences, code spans containing commas or
-// parens — are the library's problem, not ours. We only interpret the tokens.
+// markdown-it tokenises the document, so the awkward cases (blank-line
+// boundaries, indented/`~~~` fences, code spans with commas or parens) are the
+// library's problem; we only interpret the tokens.
 //
-// It is pure and browser-free: no TTS, no ffmpeg. The voiceover add-on consumes
-// the offset-bearing narration blocks to compute timing; the core path here just
-// flattens markers to a plain chain (no audio), exactly as JSON would run.
+// Pure and browser-free: no TTS, no ffmpeg. The voiceover add-on consumes the
+// offset-bearing narration blocks to compute timing; the core path here flattens
+// markers to a plain chain, exactly as JSON would run.
 
 const md = new MarkdownIt();
 
@@ -66,12 +69,17 @@ const SENTINEL = "\u0000";
 export function parseMarkdown(md: string): ParsedMarkdown {
   const { data, content } = matter(md);
   const { voiceover, ...config } = (data ?? {}) as RecordableConfig & {
-    voiceover?: VoiceoverConfig;
+    voiceover?: VoiceoverConfig | boolean;
   };
+
+  // `voiceover: true` opts in with everything from the environment (provider,
+  // voice, model); `false`/absent stays a plain, audio-free recording.
+  const vo =
+    voiceover === true ? {} : voiceover === false ? undefined : voiceover;
 
   return {
     config: config as RecordableConfig,
-    voiceover,
+    voiceover: vo,
     blocks: parseBlocks(content),
   };
 }
@@ -86,7 +94,9 @@ function parseBlocks(content: string): MarkdownBlock[] {
 
   for (const t of md.parse(content, {})) {
     if (t.type === "fence" || t.type === "code_block") {
-      const steps = parseMethodCalls(t.content).map((c) => callToStep(c.name, c.args));
+      const steps = parseMethodCalls(t.content).map((c) =>
+        callToStep(c.name, c.args),
+      );
       if (steps.length) blocks.push({ type: "steps", steps });
     } else if (t.type === "inline") {
       // The `inline` token carries a paragraph's (or heading's) content.
@@ -114,8 +124,7 @@ function narrationFromInline(children: Token[]): NarrationBlock {
   const calls: MethodCall[] = [];
 
   // Flatten the inline tokens to text, replacing each method-call span with a
-  // single sentinel and keeping non-call code spans — and any other prose — as
-  // literal text. A NUL never appears in prose and survives `\s+` collapsing.
+  // single sentinel and keeping non-call code spans (and other prose) verbatim.
   // Each span holds at most one call, so a call span maps to exactly one marker.
   let s = "";
   for (const tok of children) {
@@ -145,7 +154,10 @@ function narrationFromInline(children: Token[]): NarrationBlock {
   for (const ch of s) {
     if (ch === SENTINEL) {
       const c = calls[ci++];
-      markers.push({ step: callToStep(c.name, c.args), offset: narration.length });
+      markers.push({
+        step: callToStep(c.name, c.args),
+        offset: narration.length,
+      });
     } else {
       narration += ch;
     }
@@ -154,7 +166,8 @@ function narrationFromInline(children: Token[]): NarrationBlock {
   // A trailing marker leaves a dangling space ("Lumen. ▮"); drop it and clamp
   // any offset that now points past the end so it fires after the last word.
   narration = narration.replace(/\s+$/, "");
-  for (const m of markers) if (m.offset > narration.length) m.offset = narration.length;
+  for (const m of markers)
+    if (m.offset > narration.length) m.offset = narration.length;
 
   return { type: "narration", narration, markers };
 }
@@ -175,7 +188,10 @@ export function flattenBlocks(blocks: MarkdownBlock[]): ScriptStep[] {
  * any `voiceover` frontmatter. For the voiceover-aware entry use the async
  * {@link Recordable.fromMarkdown}. `configOverride` wins over frontmatter config.
  */
-export function flattenMarkdown(md: string, configOverride: RecordableConfig = {}): Recordable {
+export function flattenMarkdown(
+  md: string,
+  configOverride: RecordableConfig = {},
+): Recordable {
   const { config, blocks } = parseMarkdown(md);
   return fromJSON({ config, steps: flattenBlocks(blocks) }, configOverride);
 }

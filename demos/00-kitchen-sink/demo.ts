@@ -26,10 +26,9 @@ await new Recordable({
   videoCodec: "libx264", //        ffmpeg video codec. Default: libx264
   videoCrf: 18, //                 quality; lower = better/larger. Default: 18
   videoPreset: "ultrafast", //     encoding preset. Default: ultrafast
-  aspectRatio: "16:9", //          output aspect ratio. Default: 16:9
 
   // ── Motion / feel ──
-  cursor: false, //                animated cursor overlay before interactions. Default: false
+  cursor: true, //                 animated cursor overlay before interactions. Default: true
   typingSpeed: 7, //               typing speed, chars/sec. Default: 7
   zoomDuration: 600, //            default zoom transition (ms). Default: 600
   actionDelay: 300, //             automatic pause between every action (ms). Default: 300
@@ -74,8 +73,7 @@ await new Recordable({
   .type("#email", "hello@studio.com") //             type with human-like timing
   .type("#title", "My model", { duration: 4000 }) // type deterministically over 4s
   .clear("#email") //                                select-all + delete a field
-  .select("#country", "us") //                       pick one <select> option (by value)
-  .select("#tags", "a", "b", "c") //                 …or several (multi-select)
+  .select("#country", "us") //                       pick a <select> option (by value)
   .key("Enter") //                                   press a key: "Escape", "Tab", …
   .mouse("text:Logo") //                             move cursor to an element
   .mouse({ x: 960, y: 540 }) //                      …or to absolute viewport coords

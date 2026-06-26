@@ -32,7 +32,10 @@ export function timelineMs(
  * applies volume, and mixes them. Input index `i+1` (input 0 is the video).
  * Returns the filter parts and the label to `-map` as the output audio.
  */
-export function audioFilterGraph(clips: ClipPlacement[]): { filters: string[]; mapLabel: string } {
+export function audioFilterGraph(clips: ClipPlacement[]): {
+  filters: string[];
+  mapLabel: string;
+} {
   const labels: string[] = [];
   const filters = clips.map((c, i) => {
     const chain = [`adelay=${Math.round(c.startMs)}:all=1`];
@@ -43,7 +46,9 @@ export function audioFilterGraph(clips: ClipPlacement[]): { filters: string[]; m
 
   if (clips.length === 1) return { filters, mapLabel: "a0" };
 
-  filters.push(`${labels.join("")}amix=inputs=${clips.length}:normalize=0[aout]`);
+  filters.push(
+    `${labels.join("")}amix=inputs=${clips.length}:normalize=0[aout]`,
+  );
   return { filters, mapLabel: "aout" };
 }
 

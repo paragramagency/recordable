@@ -3,8 +3,8 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { type Page, type CDPSession } from "puppeteer";
-import { FFMPEG_PATH, runFfmpeg } from "./ffmpeg.js";
-import { moveFile, type LogFn } from "./utils.js";
+import { FFMPEG_PATH, probeDuration, runFfmpeg } from "./ffmpeg.js";
+import { moveFile, type Logger } from "./utils.js";
 import { type InsertOptions, type ResolvedConfig } from "./config.js";
 import { audioFilterGraph, audioOverruns, timelineMs } from "./mux.js";
 
@@ -60,7 +60,7 @@ export class SegmentRecorder {
 
   constructor(
     private readonly getCfg: () => ResolvedConfig,
-    private readonly log: LogFn,
+    private readonly log: Logger,
   ) {}
 
   /** True while a segment is actively capturing frames. */
@@ -89,7 +89,7 @@ export class SegmentRecorder {
 
   /** Begin capturing into a fresh segment. No-op if already capturing. */
   async begin(page: Page): Promise<void> {
-    if (this.ffmpegProc) return; // already capturing
+    if (this.ffmpegProc) return;
     const cfg = this.getCfg();
     const idx = this.segments.length;
     const file = join(this.tmpDir, `seg-${String(idx).padStart(3, "0")}.mp4`);
@@ -101,20 +101,29 @@ export class SegmentRecorder {
       FFMPEG_PATH,
       [
         "-y",
-        "-f", "image2pipe",
-        "-framerate", String(fps),
-        "-i", "pipe:0",
-        "-r", String(fps),
-        "-c:v", cfg.videoCodec,
-        "-preset", cfg.videoPreset,
-        "-crf", String(cfg.videoCrf),
-        "-pix_fmt", "yuv420p",
-        "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", // libx264 needs even dimensions
+        "-f",
+        "image2pipe",
+        "-framerate",
+        String(fps),
+        "-i",
+        "pipe:0",
+        "-r",
+        String(fps),
+        "-c:v",
+        cfg.videoCodec,
+        "-preset",
+        cfg.videoPreset,
+        "-crf",
+        String(cfg.videoCrf),
+        "-pix_fmt",
+        "yuv420p",
+        "-vf",
+        "pad=ceil(iw/2)*2:ceil(ih/2)*2", // libx264 needs even dimensions
         file,
       ],
       { stdio: ["pipe", "ignore", "ignore"] },
     );
-    proc.on("error", (e) => this.log("Error", `ffmpeg: ${String(e)}`));
+    proc.on("error", (e) => this.log.error(`ffmpeg: ${String(e)}`));
     this.ffmpegProc = proc;
     this.currentSegment = file;
     this.segmentFrames = 0;
@@ -131,12 +140,15 @@ export class SegmentRecorder {
       maxHeight: height,
       everyNthFrame: 1,
     });
-    this.frameTicker = setInterval(() => {
-      const p = this.ffmpegProc;
-      if (!p || !p.stdin?.writable || !this.latestFrame) return;
-      p.stdin.write(this.latestFrame);
-      this.segmentFrames++;
-    }, Math.max(1, Math.round(1000 / fps)));
+    this.frameTicker = setInterval(
+      () => {
+        const p = this.ffmpegProc;
+        if (!p || !p.stdin?.writable || !this.latestFrame) return;
+        p.stdin.write(this.latestFrame);
+        this.segmentFrames++;
+      },
+      Math.max(1, Math.round(1000 / fps)),
+    );
 
     this.log("Record", idx === 0 ? "start" : `resume (segment ${idx + 1})`);
   }
@@ -169,7 +181,8 @@ export class SegmentRecorder {
     // Only keep segments that actually captured frames (avoids empty/invalid mp4).
     if (this.currentSegment && frames > 0) {
       this.segments.push({ path: this.currentSegment, fadeIn: 0, fadeOut: 0 });
-      this.completedMs += (frames / (this.segmentFps || this.getCfg().fps)) * 1000;
+      this.completedMs +=
+        (frames / (this.segmentFps || this.getCfg().fps)) * 1000;
     }
     this.currentSegment = "";
     this.latestFrame = null;
@@ -204,15 +217,20 @@ export class SegmentRecorder {
     // clip is concat-compatible with the captured segments.
     await runFfmpeg([
       "-y",
-      "-i", path,
+      "-i",
+      path,
       "-an",
       "-vf",
       `scale=${width}:${height}:force_original_aspect_ratio=decrease,` +
         `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${cfg.fps}`,
-      "-c:v", cfg.videoCodec,
-      "-preset", cfg.videoPreset,
-      "-crf", String(cfg.videoCrf),
-      "-pix_fmt", "yuv420p",
+      "-c:v",
+      cfg.videoCodec,
+      "-preset",
+      cfg.videoPreset,
+      "-crf",
+      String(cfg.videoCrf),
+      "-pix_fmt",
+      "yuv420p",
       file,
     ]);
 
@@ -221,7 +239,7 @@ export class SegmentRecorder {
       fadeIn: Math.max(0, options.fadeIn ?? 0) / 1000,
       fadeOut: Math.max(0, options.fadeOut ?? 0) / 1000,
     });
-    this.completedMs += (await this._probeDuration(file)) * 1000;
+    this.completedMs += (await probeDuration(file)) * 1000;
   }
 
   /**
@@ -233,10 +251,13 @@ export class SegmentRecorder {
    * Note: don't `pause()` mid-clip — paused time is dropped from the video, so
    * the audio (placed in recorded time) would desync.
    */
-  async addAudio(path: string, options: { volume?: number } = {}): Promise<{ startMs: number; durationMs: number }> {
+  async addAudio(
+    path: string,
+    options: { volume?: number } = {},
+  ): Promise<{ startMs: number; durationMs: number }> {
     if (!existsSync(path)) throw new Error(`audio: file not found: ${path}`);
     const startMs = this._currentTimelineMs();
-    const durationMs = (await this._probeDuration(path)) * 1000;
+    const durationMs = (await probeDuration(path)) * 1000;
     this.audioTrack.push({ path, startMs, durationMs, volume: options.volume });
     return { startMs, durationMs };
   }
@@ -244,7 +265,12 @@ export class SegmentRecorder {
   /** Recorded-time position now: finalised segments + the in-flight segment. */
   private _currentTimelineMs(): number {
     const fps = this.segmentFps || this.getCfg().fps;
-    return timelineMs(this.completedMs, this.segmentFrames, fps, this.capturing);
+    return timelineMs(
+      this.completedMs,
+      this.segmentFrames,
+      fps,
+      this.capturing,
+    );
   }
 
   /** Stop the active segment, stitch all segments into `outputPath`, clean up temp. */
@@ -330,7 +356,7 @@ export class SegmentRecorder {
   private async _assemble(segs: Segment[], out: string): Promise<void> {
     const cfg = this.getCfg();
     const n = segs.length;
-    const dur = await Promise.all(segs.map((s) => this._probeDuration(s.path)));
+    const dur = await Promise.all(segs.map((s) => probeDuration(s.path)));
 
     // The outer ends have no neighbour to dissolve with, so an edge clip's fade
     // there is a fade against black; interior boundaries cross-fade two pieces.
@@ -345,7 +371,9 @@ export class SegmentRecorder {
       if (i === 0 && startBlack > 0)
         f.push(`fade=t=in:st=0:d=${startBlack.toFixed(3)}`);
       if (i === n - 1 && endBlack > 0)
-        f.push(`fade=t=out:st=${(dur[i] - endBlack).toFixed(3)}:d=${endBlack.toFixed(3)}`);
+        f.push(
+          `fade=t=out:st=${(dur[i] - endBlack).toFixed(3)}:d=${endBlack.toFixed(3)}`,
+        );
       parts.push(`[${i}:v]${f.length ? f.join(",") : "null"}[v${i}]`);
     }
 
@@ -372,12 +400,18 @@ export class SegmentRecorder {
     await runFfmpeg([
       "-y",
       ...segs.flatMap((s) => ["-i", s.path]),
-      "-filter_complex", parts.join(";"),
-      "-map", `[${acc}]`,
-      "-c:v", cfg.videoCodec,
-      "-preset", cfg.videoPreset,
-      "-crf", String(cfg.videoCrf),
-      "-pix_fmt", "yuv420p",
+      "-filter_complex",
+      parts.join(";"),
+      "-map",
+      `[${acc}]`,
+      "-c:v",
+      cfg.videoCodec,
+      "-preset",
+      cfg.videoPreset,
+      "-crf",
+      String(cfg.videoCrf),
+      "-pix_fmt",
+      "yuv420p",
       out,
     ]);
     this.log("Record", `joined ${n} segments (cross-faded)`);
@@ -393,7 +427,7 @@ export class SegmentRecorder {
    * `-shortest` truncate it rather than padding the video.
    */
   private async _mux(videoPath: string, out: string): Promise<void> {
-    const videoMs = (await this._probeDuration(videoPath)) * 1000;
+    const videoMs = (await probeDuration(videoPath)) * 1000;
     for (const { path, overMs } of audioOverruns(this.audioTrack, videoMs)) {
       this.log(
         "Audio",
@@ -405,35 +439,26 @@ export class SegmentRecorder {
     const { filters, mapLabel } = audioFilterGraph(this.audioTrack);
     await runFfmpeg([
       "-y",
-      "-i", videoPath,
+      "-i",
+      videoPath,
       ...this.audioTrack.flatMap((a) => ["-i", a.path]),
-      "-filter_complex", filters.join(";"),
-      "-map", "0:v",
-      "-map", `[${mapLabel}]`,
-      "-c:v", "copy",
-      "-c:a", "aac",
+      "-filter_complex",
+      filters.join(";"),
+      "-map",
+      "0:v",
+      "-map",
+      `[${mapLabel}]`,
+      "-c:v",
+      "copy",
+      "-c:a",
+      "aac",
       // The video defines the length: `-t` clamps the muxed output to it, so
       // short audio leaves trailing silence and an overrun is cut (not padded).
       // (`-shortest` would wrongly truncate the video when the audio is shorter.)
-      "-t", (videoMs / 1000).toFixed(3),
+      "-t",
+      (videoMs / 1000).toFixed(3),
       out,
     ]);
     this.log("Record", `muxed ${this.audioTrack.length} audio clip(s)`);
-  }
-
-  /** Probe a clip's duration in seconds by parsing ffmpeg's stderr banner. */
-  private _probeDuration(path: string): Promise<number> {
-    return new Promise((resolve) => {
-      const proc = spawn(FFMPEG_PATH, ["-i", path], {
-        stdio: ["ignore", "ignore", "pipe"],
-      });
-      let err = "";
-      proc.stderr?.on("data", (d) => (err += String(d)));
-      proc.on("error", () => resolve(0));
-      proc.on("close", () => {
-        const m = err.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
-        resolve(m ? +m[1] * 3600 + +m[2] * 60 + parseFloat(m[3]) : 0);
-      });
-    });
   }
 }

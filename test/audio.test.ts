@@ -25,9 +25,13 @@ test("audioFilterGraph: single clip delays, no amix, maps a0", () => {
 });
 
 test("audioFilterGraph: volume only emitted when not 1", () => {
-  const withVol = audioFilterGraph([{ path: "a", startMs: 0, durationMs: 1, volume: 0.5 }]);
+  const withVol = audioFilterGraph([
+    { path: "a", startMs: 0, durationMs: 1, volume: 0.5 },
+  ]);
   assert.equal(withVol.filters[0], "[1:a]adelay=0:all=1,volume=0.5[a0]");
-  const unity = audioFilterGraph([{ path: "a", startMs: 0, durationMs: 1, volume: 1 }]);
+  const unity = audioFilterGraph([
+    { path: "a", startMs: 0, durationMs: 1, volume: 1 },
+  ]);
   assert.equal(unity.filters[0], "[1:a]adelay=0:all=1[a0]");
 });
 
@@ -51,19 +55,30 @@ test("audioOverruns: flags clips past the video end beyond tolerance", () => {
     { path: "fits.mp3", startMs: 0, durationMs: 5000 },
     { path: "over.mp3", startMs: 4000, durationMs: 3000 }, // ends at 7000
   ];
-  assert.deepEqual(audioOverruns(clips, 6000), [{ path: "over.mp3", overMs: 1000 }]);
+  assert.deepEqual(audioOverruns(clips, 6000), [
+    { path: "over.mp3", overMs: 1000 },
+  ]);
   // Within 50ms slack → not flagged.
-  assert.deepEqual(audioOverruns([{ path: "x", startMs: 0, durationMs: 6030 }], 6000), []);
+  assert.deepEqual(
+    audioOverruns([{ path: "x", startMs: 0, durationMs: 6030 }], 6000),
+    [],
+  );
 });
 
 // ─── Manifest mapping ────────────────────────────────────────────────────────
 
 test("callToStep: audio path + gathered options", () => {
-  assert.deepEqual(callToStep("audio", ["vo.mp3"]), { action: "audio", path: "vo.mp3" });
-  assert.deepEqual(callToStep("audio", ["vo.mp3", { wait: false, volume: 0.8 }]), {
+  assert.deepEqual(callToStep("audio", ["vo.mp3"]), {
     action: "audio",
     path: "vo.mp3",
-    wait: false,
-    volume: 0.8,
   });
+  assert.deepEqual(
+    callToStep("audio", ["vo.mp3", { wait: false, volume: 0.8 }]),
+    {
+      action: "audio",
+      path: "vo.mp3",
+      wait: false,
+      volume: 0.8,
+    },
+  );
 });

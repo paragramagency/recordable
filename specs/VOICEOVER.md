@@ -28,7 +28,7 @@ Three layers, decoupled:
 
 ## Package boundary: core vs add-on (one-way dependency)
 
-TTS / audio *generation* is an **extra feature, not core**. Draw the line so **core
+TTS / audio _generation_ is an **extra feature, not core**. Draw the line so **core
 never imports voiceover; voiceover imports core.** That one rule isolates the network
 dependency and makes a later package split nearly free.
 
@@ -37,15 +37,15 @@ dependency and makes a later package split nearly free.
   the CLI. **Zero network, no ElevenLabs.**
 - **Voiceover add-on (`recordable/voiceover`, optional dep)** — the TTS adapter (B) + the
   compile step (C) that synthesizes narration → audio files and computes waits from
-  alignment. Its *output is a plain core script* (`audio()`/`wait()`/action steps), so the
+  alignment. Its _output is a plain core script_ (`audio()`/`wait()`/action steps), so the
   add-on only ever produces core artifacts.
 
 Consequences:
 
-- **`audio()` is core, not voiceover** — it plays an *existing* file (your own mp3, no
-  TTS). Only *generating* the audio is the add-on.
+- **`audio()` is core, not voiceover** — it plays an _existing_ file (your own mp3, no
+  TTS). Only _generating_ the audio is the add-on.
 - **The markdown parser is core; only TTS+timing is the add-on.** So **narrative-free
-  markdown** (markers, no prose) compiles through the *core* parser to plain steps — no
+  markdown** (markers, no prose) compiles through the _core_ parser to plain steps — no
   audio, no network. Narration is the only thing that pulls in the add-on. (JSON is
   usually the better choice there, but it works under the hood for free.)
 
@@ -66,11 +66,11 @@ The split is deliberate and is the core of the design:
 - **JSON / method chain = low-level.** You write the `wait`s yourself. `audio()` just
   places an existing file. No magic, fully explicit.
 - **Markdown = authoring surface.** You **don't write waits, you write words.** Prose
-  length between markers *is* the timing language. A **compile step** (Layer C) generates
+  length between markers _is_ the timing language. A **compile step** (Layer C) generates
   the audio and turns word positions into concrete `wait`s.
 
 Auto-timing therefore lives entirely in **one place**: the `markdown → JSON` compiler.
-Its output is a *normal script* (`steps[]` with computed waits + `audio()` calls) plus a
+Its output is a _normal script_ (`steps[]` with computed waits + `audio()` calls) plus a
 folder of generated audio assets. So:
 
 - The compiled artifact re-runs **offline, deterministically, with zero TTS calls** — even commitable.
@@ -95,7 +95,7 @@ audio(path: string, opts?: { wait?: boolean; volume?: number }): this
 
 - **`wait` (default `true`)** — block the chain until the clip finishes (implicit
   `wait(durationMs)`). Opt out with `{ wait: false }` for the voiceover case, where
-  the clip plays *over* subsequent interleaved actions.
+  the clip plays _over_ subsequent interleaved actions.
 - Audio is **not** literally sounded during capture (recording is silent frames,
   often headless). `audio()` records `{ path, startMs }` where `startMs` is the
   clip's position on the final timeline; the recorder **muxes it in at finalise**.
@@ -103,35 +103,43 @@ audio(path: string, opts?: { wait?: boolean; volume?: number }): this
 ### Recorder changes
 
 - Track a **timeline clock**: `startMs = (sum of finalised segment durations) +
-  (frames in current segment / fps × 1000)` at the moment `audio()` runs. Store
+(frames in current segment / fps × 1000)` at the moment `audio()` runs. Store
   `{ path, startMs }` in an `audioTrack[]`.
 - New final **mux** step after concat: for each entry `adelay=startMs` → `amix`
   all clips → mux onto the silent video with `-c:v copy`. (Reuses `runFfmpeg`.)
 - **Tail handling:** if the last clip runs past video end (non-blocking + no trailing
-  `wait`), pad the video by freezing the last frame so narration isn't cut. *(decision — see below)*
+  `wait`), pad the video by freezing the last frame so narration isn't cut. _(decision — see below)_
 - Pause edge case: pausing mid-clip drops off-camera time the audio assumes. Document
   as "don't `pause()` inside a narration block."
 
-### Deterministic `type` (the timing enabler)
+### Deterministic `type` (the timing enabler) — IMPLEMENTED
 
 The compiler must predict each action's duration to lay out waits. Most actions are
 already deterministic (`scroll`/`zoom` take an explicit `duration`; `click`/`key` are
-~fixed). The outlier is human-jittered `type`. Add a duration mode:
+~fixed). The outlier was human-jittered `type`. **Resolved (implemented):** `type` is
+now jittered *and* deterministic in total — the jitter is **zero-sum**, redistributing
+time within a fixed budget rather than changing it.
 
 ```ts
 type(target, text, { duration?: number }): this
 ```
 
-When `duration` is set, spread the keystrokes evenly across exactly that many ms
-(no jitter) → deterministic, and the compiler knows it up front. (Alternative: a
-global `typingJitter: false` config + `length / typingSpeed`. Recommend the
-per-call `duration` — the compiler sets it explicitly per action.)
+- **Total budget** = `typingDuration(text, speed)` = `round(text.length / speed × 1000)`
+  (`src/utils.ts`). A pure function of the text — the compiler estimates against the
+  *same* function (`stepDurationMs` in `compile.ts` imports it), so predicted == actual.
+- **Jitter** (`typingGaps`) draws seeded per-key weights (punctuation heavier, a lead
+  beat), then **normalises them back onto the budget** so the delays always sum to the
+  total. Seeded by `hashString(text)` (mulberry32) → same text types with the same rhythm
+  every run, so recordings stay reproducible. No more no-jitter robotic branch.
+- **`{ duration }` overrides the total** (e.g. fill a narration window); jitter is
+  redistributed within it. Omitted → the natural per-length budget, the common path.
 
-**This dissolves the typing-duration problem in the markdown path:** the compiler
-knows the gap to the next marker from alignment, so it *sets* `type(target, text,
-{ duration: gap })` to fill the narration window — the author never guesses. The
-primitive still exists for the JSON/chain author to set manually (consistent with
-"you own your own timing there").
+**This dissolves the typing-duration problem without elastic surgery:** typing is
+*always* deterministic, so the compiler reads `typingDuration(text)` to lay out waits and
+only sets `{ duration }` when it deliberately wants a non-natural length. (Decided this
+session: omitted duration = the natural budget, same meaning across chain/JSON/markdown —
+not a compiler-controlled elastic fit.) Tests: `test/typing.test.ts` (sum-invariant,
+reproducibility, structural weighting — all browser-free).
 
 Also: the compiler should run with `actionDelay: 0` (the 300ms inter-action default
 would silently desync the timeline) and bake any needed gaps into explicit `wait`s.
@@ -148,14 +156,15 @@ interface TTSProvider {
   synthesize(text: string, opts?: SynthOptions): Promise<TTSResult>;
 }
 interface TTSResult {
-  audio: Buffer;            // decoded bytes
-  format: string;          // e.g. "mp3_44100_128"
+  audio: Buffer; // decoded bytes
+  format: string; // e.g. "mp3_44100_128"
   durationMs: number;
-  alignment?: Alignment;   // optional — degrade gracefully if absent
+  alignment?: Alignment; // optional — degrade gracefully if absent
 }
-interface Alignment {      // provider-agnostic, normalised
+interface Alignment {
+  // provider-agnostic, normalised
   chars: string[];
-  startMs: number[];       // per character
+  startMs: number[]; // per character
   endMs: number[];
 }
 ```
@@ -243,7 +252,7 @@ narration. Per block:
 2. For each marker at char `offset` → snap to the enclosing **word boundary** →
    `fireMs = alignment.startMs[wordStartChar]`.
 3. **Emit the chain**, accounting for action durations so narration words line up
-   with action *starts*:
+   with action _starts_:
 
    ```
    emit  audio(file, { wait: false })
@@ -262,14 +271,14 @@ narration. Per block:
 
 The compiler does **placement + loud warnings**, never silent timing surgery.
 
-- **Start-on-word, no lead.** A marker's action *starts* at its word's `fireMs`. Want it
+- **Start-on-word, no lead.** A marker's action _starts_ at its word's `fireMs`. Want it
   earlier (a resultative reveal — "here's the result")? Move the marker earlier in the
-  prose. Marker position *is* the timing control. (A per-marker `lead` was rejected: it
+  prose. Marker position _is_ the timing control. (A per-marker `lead` was rejected: it
   would be a markdown-only concept with no meaning in the chain/JSON surfaces, breaking
   the one-mental-model rule.)
 
 - **Pinned/default, never elastic.** Explicit `duration` is respected exactly. Omitted
-  `duration` uses **the default** — the *same* meaning as in the chain and JSON surfaces
+  `duration` uses **the default** — the _same_ meaning as in the chain and JSON surfaces
   (not "compiler fits it to the window"). `type()` with no duration runs at default speed.
   The compiler never silently changes a zoom/fade/typing to fit. (A "fit to window" mode,
   if ever wanted, is an explicit per-action opt-in flag — never the default.)
@@ -279,7 +288,7 @@ The compiler does **placement + loud warnings**, never silent timing surgery.
   (their durations sum), narration resumes at the next paragraph. This is the explicit
   "let the animation finish however long, while the narrator waits" mechanism — no new
   syntax, just the `07`/`08` surfaces composed. It's also the pressure valve that lets
-  actions *inside* a narration paragraph stay short gestures.
+  actions _inside_ a narration paragraph stay short gestures.
 
   - **Any fence, language tag ignored.** A code block is a step list regardless of its
     info string — ` ``` `, ` ```ts `, ` ```recordable ` all parse identically. The tag is
@@ -291,7 +300,7 @@ The compiler does **placement + loud warnings**, never silent timing surgery.
 
 - **Overrun → keep the duration, lag, and warn precisely.** If a pinned action inside a
   paragraph is longer than its narration window, `gap < 0`: the wait is skipped and the
-  rest of *that paragraph* lags its words. The compiler **warns** with specifics (which
+  rest of _that paragraph_ lags its words. The compiler **warns** with specifics (which
   action, by how much, and the three fixes: shorten action / lengthen narration / move it
   into a pause block). It does **not** auto-fix.
 
@@ -322,21 +331,23 @@ two modes:
   compile-then-run.
 - `recordable compile <file.md> [-o demo.json]` — **compile only**: emit the
   schema-valid JSON script + an audio-assets folder, no recording. `recordable
-  demo.json` then runs it **offline, with zero TTS calls**.
+demo.json` then runs it **offline, with zero TTS calls**.
 
-The `compile` subcommand *is* the "narrative step that wraps the generator", but
+The `compile` subcommand _is_ the "narrative step that wraps the generator", but
 in-process — no subprocess shelling. It also yields the inspectable/cacheable/
 commitable artifact, and sidesteps naming a second tool.
 
 **Config carrier for markdown:** YAML **frontmatter** (markdown has no config block
-today; JSON has `{ config, steps }`). Holds recording config *and* the non-secret
+today; JSON has `{ config, steps }`). Holds recording config _and_ the non-secret
 voiceover settings:
 
 ```md
 ---
-voiceover: { provider: elevenlabs, voiceId: "21m00…", modelId: eleven_multilingual_v2 }
+voiceover:
+  { provider: elevenlabs, voiceId: "21m00…", modelId: eleven_multilingual_v2 }
 cursor: true
 ---
+
 Welcome to Lumen. {{click "text:Start"}} …
 ```
 
@@ -351,7 +362,7 @@ pattern `fromJSON` already uses, extended to frontmatter.
 - API key → **`ELEVENLABS_API_KEY`** env var (primary, CI-friendly), with **`.env`
   auto-loaded** from the script's dir (Node `--env-file`, no dep). `--eleven-key`
   flag optional but discouraged (shell-history leak).
-- Only the *key* is secret; provider/voiceId/model live in frontmatter (above).
+- Only the _key_ is secret; provider/voiceId/model live in frontmatter (above).
 - **Skip** a global `~/.recordable/credentials` store for now — env + `.env` covers
   the vast majority; add the `gh`-style store later only if cross-project reuse demands.
 
@@ -361,18 +372,18 @@ lean and never loads it.
 
 ## Decisions
 
-1. **`audio()` default** — *decided:* block until the clip finishes (`wait: true`); opt
+1. **`audio()` default** — _decided:_ block until the clip finishes (`wait: true`); opt
    out (`wait: false`) for the voiceover case.
-2. **`type` duration mechanism** — *decided:* per-call `{ duration }`, pinned. Omitted =
+2. **`type` duration mechanism** — _decided:_ per-call `{ duration }`, pinned. Omitted =
    default speed (see Timing model). No elastic auto-fit.
-3. **Audio tail past video end** — *decided:* require a trailing `wait` and **warn** if
+3. **Audio tail past video end** — _decided:_ require a trailing `wait` and **warn** if
    the last clip overruns the video (no silent freeze-pad — consistent with warn-don't-fix).
 4. **Captions** — deferred. Same `Alignment` data drives a timed-text overlay later;
    leave the seam, don't build now.
 5. **Timing: start-on-word, pinned/default, pauses-as-fenced-blocks, warn-don't-fix** —
-   *decided.* See "Timing model (decided)" in §C.
+   _decided._ See "Timing model (decided)" in §C.
 6. **Caching: per-paragraph, mp3 default, audio+alignment entry, atomic/parallel** —
-   *decided.* See "Caching (decided)" in §B.
+   _decided._ See "Caching (decided)" in §B.
 
 ## Build order
 

@@ -1,5 +1,6 @@
 import { type Page } from "puppeteer";
 import { sleep } from "./utils.js";
+import { cursorMoveMs, PRESS_DOWN_MS, PRESS_SETTLE_MS } from "./timing.js";
 
 const CURSOR_ID = "__sr_cursor__";
 
@@ -16,43 +17,68 @@ export interface ZoomState {
  * press effect. Also drives the real Puppeteer mouse so hover/click still fire.
  */
 export class Cursor {
+  // Persisted across injects so the overlay survives navigation: a fresh page
+  // re-injects, and we want the cursor to reappear where it last was (like a
+  // real pointer) rather than snapping to the top-left corner.
   private pos = { x: 0, y: 0 };
 
-  /** Draw the cursor SVG and hide the native pointer. Idempotent per document. */
-  async inject(page: Page): Promise<void> {
-    await page.evaluate((id) => {
-      // Skip if already injected or running inside an iframe
-      if (document.getElementById(id) || window !== window.parent) return;
+  /**
+   * Draw the cursor SVG and hide the native pointer. Idempotent per document.
+   * Renders the overlay at the last-known position (carried across navigations)
+   * and syncs the real mouse there so hover state stays consistent.
+   */
+  async inject(page: Page, zoom: ZoomState = { tx: 0, ty: 0, s: 1 }): Promise<void> {
+    // Bail early when there's nothing to do or we can't yet: already present, an
+    // iframe, or the new document's <body> hasn't parsed. A too-early call (e.g.
+    // from a navigation event) is a no-op; the next moveTo re-injects when ready.
+    const skip = await page.evaluate(
+      (id) =>
+        window !== window.parent ||
+        !document.body ||
+        !!document.getElementById(id),
+      CURSOR_ID,
+    );
+    if (skip) return;
 
-      const style = document.createElement("style");
-      style.textContent = `
-        * { cursor: none !important; }
-        #${id} {
-          position: fixed;
-          top: 0; left: 0;
-          margin: -2px 0 0 -4px;
-          z-index: 2147483647;
-          pointer-events: none;
-          will-change: transform;
-          transition: transform 0.15s;
-          filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
-        }
-        #${id}.pressing {
-          transform: var(--sr-pos) scale(0.88) !important;
-          transition: transform 0.08s !important;
-        }
-      `;
-      document.head.appendChild(style);
+    const { cx, cy } = await this._toDocCoords(page, this.pos.x, this.pos.y, zoom);
+    await page.evaluate(
+      ({ id, cx, cy }) => {
+        const style = document.createElement("style");
+        style.textContent = `
+          * { cursor: none !important; }
+          #${id} {
+            position: fixed;
+            top: 0; left: 0;
+            margin: -2px 0 0 -4px;
+            z-index: 2147483647;
+            pointer-events: none;
+            will-change: transform;
+            transition: transform 0.15s;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+          }
+          #${id}.pressing {
+            transform: var(--sr-pos) scale(0.88) !important;
+            transition: transform 0.08s !important;
+          }
+        `;
+        document.head.appendChild(style);
 
-      const cursor = document.createElement("div");
-      cursor.id = id;
-      cursor.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-        <path d="M4 2 L4 19 L8.5 14.5 L12 22 L14 21 L10.5 13.5 L17 13.5 Z"
-              fill="white" stroke="#1e1b4b" stroke-width="1.2" stroke-linejoin="round"/>
-      </svg>`;
-      document.body.appendChild(cursor);
-    }, CURSOR_ID);
-    this.pos = { x: 0, y: 0 };
+        const cursor = document.createElement("div");
+        cursor.id = id;
+        // Place at the carried-over position with no transition, so it appears
+        // there immediately instead of animating in from the corner.
+        cursor.style.transition = "none";
+        cursor.style.setProperty("--sr-pos", `translate(${cx}px, ${cy}px)`);
+        cursor.style.transform = `translate(${cx}px, ${cy}px)`;
+        cursor.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+          <path d="M4 2 L4 19 L8.5 14.5 L12 22 L14 21 L10.5 13.5 L17 13.5 Z"
+                fill="white" stroke="#1e1b4b" stroke-width="1.2" stroke-linejoin="round"/>
+        </svg>`;
+        document.body.appendChild(cursor);
+      },
+      { id: CURSOR_ID, cx, cy },
+    );
+    await page.mouse.move(this.pos.x, this.pos.y);
   }
 
   /** Ease the overlay (and the real mouse) to viewport coords `toX,toY`. */
@@ -62,22 +88,17 @@ export class Cursor {
     toY: number,
     zoom: ZoomState,
   ): Promise<void> {
+    // Self-heal: a navigation (incl. click-triggered ones with no following
+    // visit/waitFor) wipes the overlay. Re-inject at the carried position before
+    // animating, so the move is always visible — never an instant, cursor-less jump.
+    await this.inject(page, zoom);
+
     const dx = toX - this.pos.x;
     const dy = toY - this.pos.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const dur = Math.min(700, Math.max(150, dist * 0.5));
+    const dur = cursorMoveMs(dist);
 
-    // When documentElement has a CSS transform, position:fixed children are
-    // positioned relative to that ancestor (not the viewport), so they scroll
-    // with the page. Convert viewport coords → document coords first, then
-    // apply the inverse zoom transform.
-    const { tx, ty, s } = zoom;
-    const hasTransform = s !== 1 || tx !== 0 || ty !== 0;
-    const scroll = hasTransform
-      ? await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }))
-      : { x: 0, y: 0 };
-    const cx = (toX + scroll.x - tx) / s;
-    const cy = (toY + scroll.y - ty) / s;
+    const { cx, cy } = await this._toDocCoords(page, toX, toY, zoom);
 
     await page.evaluate(
       ({ id, cx, cy, dur }) =>
@@ -99,6 +120,25 @@ export class Cursor {
     this.pos = { x: toX, y: toY };
   }
 
+  /**
+   * Convert viewport coords → document coords for the overlay's transform.
+   * When documentElement has a CSS transform (zoom), position:fixed children
+   * are positioned relative to that ancestor (not the viewport) and scroll with
+   * the page, so we add scroll and apply the inverse zoom transform.
+   */
+  private async _toDocCoords(
+    page: Page,
+    x: number,
+    y: number,
+    { tx, ty, s }: ZoomState,
+  ): Promise<{ cx: number; cy: number }> {
+    const hasTransform = s !== 1 || tx !== 0 || ty !== 0;
+    const scroll = hasTransform
+      ? await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }))
+      : { x: 0, y: 0 };
+    return { cx: (x + scroll.x - tx) / s, cy: (y + scroll.y - ty) / s };
+  }
+
   /** Briefly scale the cursor down to signal a press. */
   async clickEffect(page: Page): Promise<void> {
     await page.evaluate((id) => {
@@ -107,10 +147,10 @@ export class Cursor {
       cursor.classList.add("pressing");
       void cursor.offsetWidth;
     }, CURSOR_ID);
-    await sleep(120);
+    await sleep(PRESS_DOWN_MS);
     await page.evaluate((id) => {
       document.getElementById(id)?.classList.remove("pressing");
     }, CURSOR_ID);
-    await sleep(60);
+    await sleep(PRESS_SETTLE_MS);
   }
 }

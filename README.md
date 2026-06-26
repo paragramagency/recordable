@@ -12,7 +12,7 @@ documentation GIFs, release notes, or visual regression footage.
 ```ts
 import { Recordable } from "recordable";
 
-await new Recordable({ cursor: true, typingSpeed: 120 })
+await new Recordable({ typingSpeed: 120 })
   .pause() // skip the initial page load
   .visit("https://example.com")
   .resume()
@@ -67,7 +67,7 @@ wrapped with a `config`:
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/paragramagency/recordable/main/recordable.schema.json",
-  "config": { "cursor": true, "typingSpeed": 14 },
+  "config": { "typingSpeed": 14 },
   "steps": [
     { "action": "pause" },
     { "action": "visit", "url": "https://example.com" },
@@ -82,8 +82,8 @@ wrapped with a `config`:
 ```
 
 Each step's keys are the named arguments of the matching method — `type(target, text)`
-→ `{ "action": "type", "target": …, "text": … }`. Variadic `select` takes a
-`values` array; `waitFor`'s `state`/`timeout` are top-level keys.
+→ `{ "action": "type", "target": …, "text": … }`; `waitFor`'s `state`/`timeout` are
+top-level keys.
 
 **Editor support.** Add the `"$schema"` line above (a URL, or a relative path to a
 local copy) and your editor gives you autocomplete, required-key checking, and
@@ -151,7 +151,7 @@ camera off while you sign in by hand, then `resumeOnInput()` waits for you to
 click an **in-page ▶ Play button** (or press Enter) before recording resumes:
 
 ```ts
-await new Recordable({ headless: false, cursor: true })
+await new Recordable({ headless: false })
   .pause() // camera off — the login isn't recorded
   .visit("https://app.example.com/login")
   .resumeOnInput("Log in, then click ▶ Play to start recording")
@@ -209,12 +209,12 @@ Create an instance with optional [config](#configuration), chain actions, then
 Recording is on by default and finalises automatically on `.run()`. These control
 what lands on camera:
 
-| Method                   | Description                                                                  |
-| ------------------------ | ---------------------------------------------------------------------------- |
-| `pause()`                | Stop capturing; the chain keeps running off-camera.                          |
-| `resume()`               | Resume capturing in a fresh segment, immediately.                            |
-| `resumeOnInput(message?)`| Resume only after the user clicks the in-page ▶ Play button (or presses Enter). |
-| `insert(path, opts?)`    | Splice an external clip (intro / outro / mid-roll) into the timeline; `opts.fadeIn`/`fadeOut` (ms) cross-fade it. |
+| Method                    | Description                                                                                                       |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `pause()`                 | Stop capturing; the chain keeps running off-camera.                                                               |
+| `resume()`                | Resume capturing in a fresh segment, immediately.                                                                 |
+| `resumeOnInput(message?)` | Resume only after the user clicks the in-page ▶ Play button (or presses Enter).                                   |
+| `insert(path, opts?)`     | Splice an external clip (intro / outro / mid-roll) into the timeline; `opts.fadeIn`/`fadeOut` (ms) cross-fade it. |
 
 ### Navigation & waiting
 
@@ -226,24 +226,29 @@ what lands on camera:
 
 ### Interactions
 
-| Method                      | Description                                               |
-| --------------------------- | --------------------------------------------------------- |
-| `click(target)`             | Click an element.                                         |
-| `hover(target)`             | Move onto an element to reveal `:hover` state (no click). |
+| Method                              | Description                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `click(target)`                     | Click an element.                                                                                   |
+| `hover(target)`                     | Move onto an element to reveal `:hover` state (no click).                                           |
 | `type(target, text, { duration? })` | Type into a field with human-like timing; `duration` (ms) spreads keystrokes evenly with no jitter. |
-| `clear(target)`             | Select-all + delete the contents of a field.              |
-| `select(target, ...values)` | Choose options in a native `<select>`.                    |
-| `key(key)`                  | Press a key, e.g. `"Escape"`, `"Enter"`, `"Tab"`.         |
-| `mouse(target \| {x, y})`   | Move the cursor to an element or coordinates.             |
+| `clear(target)`                     | Select-all + delete the contents of a field.                                                        |
+| `select(target, value)`             | Choose an option in a native `<select>` (the OS-drawn option list isn't captured — see note below). |
+| `key(key)`                          | Press a key, e.g. `"Escape"`, `"Enter"`, `"Tab"`.                                                   |
+| `mouse(target \| {x, y})`           | Move the cursor to an element or coordinates.                                                       |
+
+> The browser draws an open `<select>`'s option list with the OS, outside the page,
+> so the screencast can't capture it — `select()` shows the cursor and the value
+> changing, but not the dropdown. For an on-camera dropdown, build a custom one from
+> `click()`s.
 
 ### Camera
 
-| Method                            | Description                                                       |
-| --------------------------------- | ----------------------------------------------------------------- |
-| `scroll(target, { duration? })`           | Smooth-scroll to `"top"`/`"bottom"`, a selector, or a Y position. |
-| `zoom(level, { origin?, duration? })`     | Smoothly scale from an origin (keyword, `%`, or selector).        |
-| `resetZoom({ duration? })`                | Smoothly return to 1×.                                            |
-| `setConfig(config)`               | Merge config mid-sequence (takes effect at that point).           |
+| Method                                | Description                                                       |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| `scroll(target, { duration? })`       | Smooth-scroll to `"top"`/`"bottom"`, a selector, or a Y position. |
+| `zoom(level, { origin?, duration? })` | Smoothly scale from an origin (keyword, `%`, or selector).        |
+| `resetZoom({ duration? })`            | Smoothly return to 1×.                                            |
+| `setConfig(config)`                   | Merge config mid-sequence (takes effect at that point).           |
 
 ### Targeting
 
@@ -274,7 +279,7 @@ new Recordable({
   autoScroll: true, // scroll elements into view before interacting
   scrollMargin: 120, // px kept around an element when auto-scrolling
   scrollSpeed: 1500, // px/s
-  cursor: false, // show the animated cursor overlay
+  cursor: true, // show the animated cursor overlay
   visitTimeout: 30_000, // ms for navigation / waitFor
 });
 ```

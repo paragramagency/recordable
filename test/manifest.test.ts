@@ -10,7 +10,10 @@ import { ACTIONS, buildArgs } from "../src/script.js";
 
 test("zoom: origin+duration gather into the options object", () => {
   assert.deepEqual(
-    buildArgs({ action: "zoom", level: 1.5, origin: "#hero", duration: 800 }, ACTIONS.zoom),
+    buildArgs(
+      { action: "zoom", level: 1.5, origin: "#hero", duration: 800 },
+      ACTIONS.zoom,
+    ),
     [1.5, { origin: "#hero", duration: 800 }],
   );
 });
@@ -28,26 +31,36 @@ test("zoom: duration without origin still lands in the options object", () => {
 
 test("scroll: duration gathers; bare target trims the empty options", () => {
   assert.deepEqual(
-    buildArgs({ action: "scroll", target: "top", duration: 500 }, ACTIONS.scroll),
+    buildArgs(
+      { action: "scroll", target: "top", duration: 500 },
+      ACTIONS.scroll,
+    ),
     ["top", { duration: 500 }],
   );
-  assert.deepEqual(buildArgs({ action: "scroll", target: "top" }, ACTIONS.scroll), ["top"]);
+  assert.deepEqual(
+    buildArgs({ action: "scroll", target: "top" }, ACTIONS.scroll),
+    ["top"],
+  );
 });
 
 test("resetZoom: lone optional gather", () => {
-  assert.deepEqual(buildArgs({ action: "resetZoom", duration: 300 }, ACTIONS.resetZoom), [
-    { duration: 300 },
-  ]);
+  assert.deepEqual(
+    buildArgs({ action: "resetZoom", duration: 300 }, ACTIONS.resetZoom),
+    [{ duration: 300 }],
+  );
   assert.deepEqual(buildArgs({ action: "resetZoom" }, ACTIONS.resetZoom), []);
 });
 
 test("type: duration gathers after the two required positionals", () => {
   assert.deepEqual(
-    buildArgs({ action: "type", target: "#t", text: "hi", duration: 4000 }, ACTIONS.type),
+    buildArgs(
+      { action: "type", target: "#t", text: "hi", duration: 4000 },
+      ACTIONS.type,
+    ),
     ["#t", "hi", { duration: 4000 }],
   );
-  assert.deepEqual(buildArgs({ action: "type", target: "#t", text: "hi" }, ACTIONS.type), [
-    "#t",
-    "hi",
-  ]);
+  assert.deepEqual(
+    buildArgs({ action: "type", target: "#t", text: "hi" }, ACTIONS.type),
+    ["#t", "hi"],
+  );
 });

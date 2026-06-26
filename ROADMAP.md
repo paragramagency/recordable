@@ -30,61 +30,83 @@ per-segment MP4 → concat) is the foundation the rest builds on.
   required/typo checking via a `$schema` reference — no TypeScript needed. Run via
   `npx recordable demo.json` (the `recordable` bin), with `--check` to validate without
   a browser. Methods keep positional essentials + a trailing options bag for expansion.
+- **Markdown authoring + timing-driven voiceover.** Narration prose with inline backtick
+  markers compiles to a timed core script (ElevenLabs TTS + per-word alignment → computed
+  waits). Provider/voice/model default from `RECORDABLE_TTS_PROVIDER` / `RECORDABLE_VOICE_ID`
+  / `RECORDABLE_MODEL_ID`, so a document opts in with just `voiceover: true` (frontmatter
+  overrides). `insert` now takes `fadeIn`/`fadeOut` in JSON/markdown too, and `insert`/`audio`
+  paths resolve against `baseDir`.
+- **Showcase demo (`08-showcase`).** Finished-product walkthrough — narrated `demo.md`
+  (sign in → evaluation → mark → audit → export) bookended by branded intro/outro cards
+  baked from the bundled ffmpeg (`make-cards.mjs`).
+- **Tooling: Prettier + ESLint** (flat config, npm scripts, CI steps) applied across the
+  codebase. **Logging** is a level-aware `[Recordable]`-prefixed logger (info/warn/error,
+  honours `silent`; errors always surface). **`launchArgs`** config passes extra Chromium
+  flags (`--no-sandbox`, …).
+- **`select` redesigned.** Single value (the variadic/`multiple` system is gone, incl. the
+  manifest `rest` machinery); the cursor now animates to the control like `click`. (Native
+  `<select>` option lists are OS-drawn and can't be captured — documented; build custom
+  dropdowns from `click`s for on-camera menus.)
+
+## Bugs
+
+- **`resumeOnInput()` — in-page ▶ Play button may not render.** _Hardened (this
+  session):_ added a **terminal Enter fallback** (press Enter in the shell to resume,
+  works even if the button never renders), wired up the documented **Enter/Space**
+  key handling in the injected button, and stopped swallowing injection errors (they
+  now log a warning). Still **needs a real headful browser to confirm** whether the
+  on-page button itself now renders — couldn't verify in the sandbox.
 
 ## Next
 
-### 1. Declarative Markdown format
+> The original keystones (JSON format, Markdown authoring, timing-driven voiceover) have
+> shipped — see Done. Design notes live in [VOICEOVER.md](VOICEOVER.md). What's left:
 
-The JSON half of the original keystone is done (above). Remaining: **Markdown** as the
-authoring surface.
+### 1. Voiceover polish
 
-- Narration prose with **inline action markers** in a small custom syntax, e.g.
-  `Welcome. {{click "text:Start"}} Let's name it {{type "#title" "My model"}}.`
-  The markers reuse the JSON action manifest, so the marker parser maps onto the same
-  source of truth (positional args in the marker, mapped via the manifest).
-- Markdown is narration-spine-with-actions, **not** a flat action list — designed this
-  way so it doubles as the voiceover script (see #2).
-- **AI writes the scripts.** With the JSON schema + docs already shipped, this is mostly
-  "clean formats an AI (or person) produces trivially," now extended to Markdown. A small
-  docs/schema MCP server is a possible later nicety (likely overkill).
+- **Narration-text auto-detection** — infer voiceover from prose alone, dropping even the
+  `voiceover: true` flag.
+- **On-screen captions** rendered from the same narration + alignment.
 
-### 2. Voiceover (ElevenLabs, timing-driven)
+### 2. Env file for default configuration
 
-> **Design plan: [VOICEOVER.md](VOICEOVER.md)** — full architecture for this item
-> (compiles to existing primitives; core/add-on boundary; CLI & credentials). The
-> notes below are the original sketch.
+Today `.env` is loaded only on the voiceover path (ElevenLabs secrets + `RECORDABLE_*`
+voice/provider/model defaults, read from a `.env` beside the document). Broaden it into a
+general default-configuration file so non-voiceover config (e.g. resolution, fps, output
+paths, `launchArgs`) can also be defaulted from env, with frontmatter / explicit config
+still overriding. Document the full set of recognised keys (extend `.env.example`).
 
-Timing is the hard part. Audio-first:
+### 3. Audio layers (background music, manual overlays)
 
-- Generate each narration line's TTS up front and request **per-character/word
-  alignment** (ElevenLabs supports this) — not just the total duration.
-- Schedule actions at word-level offsets *within* a line, so narration and actions run
-  **concurrently** — not a strict voice → action → voice pattern. The video timeline
-  follows the audio; insert waits to fill gaps so lengths match. ffmpeg muxes the
-  concatenated audio onto the video track.
-- The Markdown inline-action syntax (#1) is the natural authoring surface: marker text
-  position → word alignment → fire time.
-- Needs a **TTS provider abstraction** (ElevenLabs first; API key via config/env), and
-  pairs naturally with on-screen captions.
-- **Open decision:** confirm audio-leads-video (recommended — perfect sync, video waits)
-  vs placing clips onto a finished-video timeline.
+`audio` is currently a single overlay (`path`, `wait`, `volume`). Support **multiple
+layers** mixed into the final mux — e.g. background music under the whole recording, plus
+manually-authored voiceover files dropped in by path. These don't need to join the
+automatic narration-timing system yet, but must work in the programmatic method chain
+(and ideally JSON/Markdown). Implies the mux step mixes N audio tracks (per-layer volume,
+loop/trim-to-length for music, start offsets) rather than overlaying one.
 
-### 3. AI authoring
+### 4. AI authoring
 
-Folds into #1 — "great docs + clean formats," not a separate tool. Optional later:
-**record-mode codegen** (watch a human click through once, emit the JSON script) as a
-more reliable alternative to LLM-from-scratch.
+Mostly "great docs + clean formats" (an AI emits the JSON/Markdown). Optional later:
+**record-mode codegen** — watch a human click through once, emit the script — as a more
+reliable alternative to LLM-from-scratch.
+
+### 5. Demo-ready product
+
+The showcase (`08-showcase`) covers the headline flow. Remaining is general polish: more
+demos, tightening rough edges so the whole thing is presentable.
+
+## Code quality
+
+- **General code cleanup and reorganization** (ongoing).
+- **Proper, thorough error handling** throughout — the obvious paths now surface errors
+  (logging, play-button injection, step validation with `cause`); a deliberate sweep of
+  the rest is still worth doing.
 
 ## Cleanup / tech debt
 
-- **`aspectRatio` config is now unused** (the old recorder consumed it). Removed from the
-  README; still in `RecordableConfig` — either delete it or implement via an ffmpeg
-  filter.
-- **Expose Puppeteer launch args** (e.g. `launchArgs` / `puppeteerOptions`) so
-  `--no-sandbox` etc. can be passed — needed for some headless / CI / sandbox envs.
-- **Commit the in-house-recorder work + this session's feature set** (currently
-  uncommitted on `main`); fold in the pending README lint tweak. Confirm before pushing
-  to `main`.
+- **Commit the in-house-recorder work + this session's feature set** (uncommitted on
+  `main`). Confirm before pushing to `main`.
 - **Demos are intentionally untracked** (kept locally in `demos/`, excluded from the repo)
   — add better ones later. Flattened from the old `examples/` + `examples/demos/` split into
   a single numbered `demos/` folder (plus `real-world-edtech.ts`, the one live-site script).

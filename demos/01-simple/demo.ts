@@ -1,17 +1,17 @@
-// Demo 1 — Simple: a single-page newsletter signup.
+// Demo 1 — Simple: the core happy path on the shared Dispatch site.
 //
-// Exercises the core happy path: visit → zoom → type → click → result.
-// Mockup is local + static, so the capture is fully self-contained.
+// Exercises: visit → zoom → type → click → result. Fills in a new shipment and
+// generates a label. The mockup (../site) is local + static, so the capture is
+// fully self-contained.
 //
 // Run in your own terminal (headful so you can watch):
 //   npx tsx demos/01-simple/demo.ts
 import { fileURLToPath } from "node:url";
 import { Recordable } from "../../src/index.js";
 
-const page = new URL("./index.html", import.meta.url).href;
+const page = new URL("../site/new.html", import.meta.url).href;
 
 await new Recordable({
-  cursor: true,
   typingSpeed: 14,
   viewport: { width: 1280, height: 800 },
   outputDir: fileURLToPath(new URL("./output", import.meta.url)),
@@ -22,11 +22,13 @@ await new Recordable({
   .visit(page)
   .resume()
 
-  .zoom(1.4, { origin: "#email" })
-  .type("#email", "hello@studio.com")
+  .zoom(1.4, { origin: "#recipient" })
+  .type("#recipient", "Priya Anand")
   .wait(400)
-  .click("text:Subscribe")
-  .waitFor("text:You're in", { state: "visible" })
+  .type("#address", "48 Marlow Road")
+  .wait(400)
+  .click("text:Generate label")
+  .waitFor("text:Label ready", { state: "visible" })
   .wait(1200)
   .resetZoom()
   .wait(800)

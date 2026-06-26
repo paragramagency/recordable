@@ -12,7 +12,8 @@ type JSONSchema = Record<string, unknown>;
 
 const SCHEMA_URL = "https://json-schema.org/draft/2020-12/schema";
 
-const norm = (p: Param) => (typeof p === "string" ? { name: p, type: "string" as Typ } : p);
+const norm = (p: Param) =>
+  typeof p === "string" ? { name: p, type: "string" as Typ } : p;
 const paramType = (p: Exclude<Param, string>): Typ =>
   "type" in p && p.type ? p.type : "string";
 
@@ -24,7 +25,8 @@ function typeToSchema(t: Typ): JSONSchema {
   if ("configRef" in t) return { $ref: "#/$defs/config" };
   // object
   const properties: JSONSchema = {};
-  for (const [k, v] of Object.entries(t.object)) properties[k] = typeToSchema(v);
+  for (const [k, v] of Object.entries(t.object))
+    properties[k] = typeToSchema(v);
   return {
     type: "object",
     properties,
@@ -34,7 +36,10 @@ function typeToSchema(t: Typ): JSONSchema {
 }
 
 /** The properties + required keys an action contributes (beyond `action`). */
-function actionShape(params: readonly Param[]): { properties: JSONSchema; required: string[] } {
+function actionShape(params: readonly Param[]): {
+  properties: JSONSchema;
+  required: string[];
+} {
   const properties: JSONSchema = {};
   const required: string[] = [];
 
@@ -42,12 +47,9 @@ function actionShape(params: readonly Param[]): { properties: JSONSchema; requir
     const p = norm(raw);
 
     if ("gather" in p) {
-      for (const [k, v] of Object.entries(p.gather)) properties[k] = typeToSchema(v);
+      for (const [k, v] of Object.entries(p.gather))
+        properties[k] = typeToSchema(v);
       continue; // gathered keys are always optional
-    }
-    if ("rest" in p) {
-      properties[p.name] = { type: "array", items: typeToSchema(paramType(p)) };
-      continue; // variadic tail is optional
     }
     properties[p.name] = typeToSchema(paramType(p));
     if (!("optional" in p && p.optional)) required.push(p.name);
@@ -84,7 +86,9 @@ function stepSchema(): JSONSchema {
   return {
     type: "object",
     required: ["action"],
-    properties: { action: { enum: actions, description: "The action to perform." } },
+    properties: {
+      action: { enum: actions, description: "The action to perform." },
+    },
     allOf,
   };
 }
@@ -109,11 +113,11 @@ function configSchema(): JSONSchema {
       outputName: s,
       outputTimestamp: b,
       headless: b,
+      launchArgs: { type: "array", items: s },
       typingSpeed: n,
       videoCrf: n,
       videoCodec: s,
       videoPreset: s,
-      aspectRatio: s,
       zoomDuration: n,
       actionDelay: n,
       silent: b,
@@ -141,13 +145,17 @@ export function buildSchema(): JSONSchema {
     },
   };
 
-  const arrayForm: JSONSchema = { type: "array", items: { $ref: "#/$defs/step" } };
+  const arrayForm: JSONSchema = {
+    type: "array",
+    items: { $ref: "#/$defs/step" },
+  };
 
   return {
     $schema: SCHEMA_URL,
     $id: "https://raw.githubusercontent.com/paragramagency/recordable/main/recordable.schema.json",
     title: "Recordable script",
-    description: "A declarative recording script: config + an array of action steps.",
+    description:
+      "A declarative recording script: config + an array of action steps.",
     oneOf: [objectForm, arrayForm],
     $defs: {
       config: configSchema(),

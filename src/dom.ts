@@ -54,8 +54,10 @@ export async function originToCoords(
     if (tokens.length === 1) {
       const [t] = tokens;
       const p = t in kw ? kw[t] : parseFloat(t);
-      if (t === "top" || t === "bottom") return { x: vw / 2, y: (vh * p) / 100 };
-      if (t === "left" || t === "right") return { x: (vw * p) / 100, y: vh / 2 };
+      if (t === "top" || t === "bottom")
+        return { x: vw / 2, y: (vh * p) / 100 };
+      if (t === "left" || t === "right")
+        return { x: (vw * p) / 100, y: vh / 2 };
       return { x: (vw * p) / 100, y: (vh * p) / 100 };
     }
     const yAxis = ["top", "bottom"];

@@ -16,13 +16,16 @@ export interface ElevenLabsAlignment {
   characterEndTimesSeconds?: number[];
 }
 
-const toMs = (secs: number[]): number[] => secs.map((s) => Math.round(s * 1000));
+const toMs = (secs: number[]): number[] =>
+  secs.map((s) => Math.round(s * 1000));
 
 /** Normalise a raw ElevenLabs alignment to ms-based {@link Alignment}. */
 export function normalizeAlignment(raw: ElevenLabsAlignment): Alignment {
   const chars = raw.characters ?? [];
-  const startSecs = raw.character_start_times_seconds ?? raw.characterStartTimesSeconds ?? [];
-  const endSecs = raw.character_end_times_seconds ?? raw.characterEndTimesSeconds ?? [];
+  const startSecs =
+    raw.character_start_times_seconds ?? raw.characterStartTimesSeconds ?? [];
+  const endSecs =
+    raw.character_end_times_seconds ?? raw.characterEndTimesSeconds ?? [];
   return { chars, startMs: toMs(startSecs), endMs: toMs(endSecs) };
 }
 

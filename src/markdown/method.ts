@@ -35,7 +35,8 @@ export function parseMethodCall(src: string): MethodCall {
   const s = src.trim();
   const head = /^([A-Za-z_]\w*)\s*\(/.exec(s);
   if (!head) throw new Error(`Not a method call: ${src.trim()}`);
-  if (!s.endsWith(")")) throw new Error(`A method call must end with ")": ${src.trim()}`);
+  if (!s.endsWith(")"))
+    throw new Error(`A method call must end with ")": ${src.trim()}`);
 
   const open = head[0].length - 1; // index of the first "("
   const close = s.length - 1; // index of the trailing ")"
@@ -64,6 +65,9 @@ export function parseArgList(src: string): unknown[] {
   try {
     return JSON5.parse(`[${src}]`);
   } catch (e) {
-    throw new Error(`Invalid arguments "${src.trim()}": ${(e as Error).message}`);
+    throw new Error(
+      `Invalid arguments "${src.trim()}": ${(e as Error).message}`,
+      { cause: e },
+    );
   }
 }

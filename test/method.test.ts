@@ -28,7 +28,9 @@ test("parseArgList: objects with bare keys, nested objects and arrays", () => {
   assert.deepEqual(parseArgList(`{ origin: "#hero", duration: 800 }`), [
     { origin: "#hero", duration: 800 },
   ]);
-  assert.deepEqual(parseArgList(`{ a: [1, 2], b: { c: "x" } }`), [{ a: [1, 2], b: { c: "x" } }]);
+  assert.deepEqual(parseArgList(`{ a: [1, 2], b: { c: "x" } }`), [
+    { a: [1, 2], b: { c: "x" } },
+  ]);
 });
 
 test("parseArgList: commas and parens inside strings are not split", () => {
@@ -58,17 +60,29 @@ test("isMethodCall: only call-shaped strings qualify", () => {
 });
 
 test("parseMethodCall: one call, trimmed; no-arg call yields empty args", () => {
-  assert.deepEqual(parseMethodCall(`select("#r", "a")`), { name: "select", args: ["#r", "a"] });
-  assert.deepEqual(parseMethodCall(`  resetZoom()  `), { name: "resetZoom", args: [] });
+  assert.deepEqual(parseMethodCall(`select("#r", "a")`), {
+    name: "select",
+    args: ["#r", "a"],
+  });
+  assert.deepEqual(parseMethodCall(`  resetZoom()  `), {
+    name: "resetZoom",
+    args: [],
+  });
 });
 
 test("parseMethodCall: the trailing ')' delimits args, so inner parens are literal", () => {
   // The whole span is one call; commas/parens inside a string never split it.
-  assert.deepEqual(parseMethodCall(`click("a(b),c")`), { name: "click", args: ["a(b),c"] });
+  assert.deepEqual(parseMethodCall(`click("a(b),c")`), {
+    name: "click",
+    args: ["a(b),c"],
+  });
 });
 
 test("parseMethodCall: two calls in one span is rejected (one call per span/line)", () => {
-  assert.throws(() => parseMethodCall(`a() b()`), /Invalid arguments|must end with/);
+  assert.throws(
+    () => parseMethodCall(`a() b()`),
+    /Invalid arguments|must end with/,
+  );
   assert.throws(() => parseMethodCall(`#title`), /Not a method call/);
 });
 
