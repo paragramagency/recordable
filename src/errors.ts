@@ -11,8 +11,7 @@ export type ErrorCode =
   | "FILE_NOT_FOUND" // a referenced asset (insert/audio/script) is missing
   | "FFMPEG_FAILED" // an ffmpeg invocation exited non-zero or couldn't spawn
   | "TTS_FAILED" // the voiceover provider (network / SDK) failed
-  | "BROWSER_LAUNCH" // Chromium failed to launch
-  | "CLI_USAGE"; // bad CLI arguments
+  | "BROWSER_LAUNCH"; // Chromium failed to launch
 
 /** An expected, user-facing failure. `message` should say what went wrong *and*
  *  how to fix it; `cause` keeps the original error for debugging. */

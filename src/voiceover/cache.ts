@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Alignment, TTSResult } from "./types.js";
+import { extFor, type Alignment, type TTSResult } from "./types.js";
 
 // ─── Synthesis cache (hash-keyed, on disk) ───────────────────────────────────
 //
@@ -35,12 +35,6 @@ export function cacheKey(parts: CacheKeyParts): string {
     text: parts.text,
   });
   return createHash("sha256").update(canonical).digest("hex");
-}
-
-/** File extension for an encoded format string, e.g. "mp3_44100_128" → "mp3". */
-function extFor(format: string): string {
-  const head = format.split("_")[0];
-  return head || "mp3";
 }
 
 /** Sidecar metadata stored alongside each cached audio file. */

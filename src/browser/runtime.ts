@@ -4,15 +4,9 @@ import {
   type GoToOptions,
 } from "puppeteer";
 import type { ResolvedConfig, WaitForOptions } from "../config.js";
-import {
-  jitter,
-  resolveTarget,
-  sleep,
-  truncate,
-  typingDuration,
-  typingGaps,
-  type Logger,
-} from "../utils.js";
+import { sleep, truncate } from "../utils.js";
+import { resolveTarget } from "../targets.js";
+import { type Logger } from "../logger.js";
 import {
   getElementCenter,
   originToCoords,
@@ -20,7 +14,13 @@ import {
   smoothScrollToTarget,
 } from "./dom.js";
 import { Cursor, type ZoomState } from "./cursor.js";
-import { NAV_PROBE_MS, PRE_CLICK_MS } from "../timing.js";
+import {
+  jitter,
+  typingDuration,
+  typingGaps,
+  NAV_PROBE_MS,
+  PRE_CLICK_MS,
+} from "../timing.js";
 import {
   playButtonScript,
   PLAY_BINDING,

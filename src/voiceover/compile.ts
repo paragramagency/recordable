@@ -1,11 +1,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { join } from "node:path";
 import { parseMarkdown, type NarrationBlock } from "../formats/markdown/parse.js";
 import type { Action } from "../actions.js";
 import type { RecordableConfig, VoiceoverConfig } from "../config.js";
-import { typingDuration, truncate, createLogger, type Logger } from "../utils.js";
-import { getDuration } from "../ffmpeg.js";
-import { gestureLeadMs } from "../timing.js";
+import { truncate } from "../utils.js";
+import { createLogger, type Logger } from "../logger.js";
+import { actionDurationMs } from "../timing.js";
 import { cacheKey, FileCache } from "./cache.js";
 import {
   ElevenLabsProvider,
@@ -13,7 +13,7 @@ import {
   DEFAULT_FORMAT,
 } from "./elevenlabs.js";
 import { MockTTSProvider } from "./mock.js";
-import type { Alignment, TTSProvider } from "./types.js";
+import { extFor, type Alignment, type TTSProvider } from "./types.js";
 
 // ─── Layer C: the markdown → timed-chain compiler ────────────────────────────
 //
@@ -48,50 +48,6 @@ export interface CompiledScript {
   actions: Action[];
   /** Paths of every audio asset written, in document order (deduped by content). */
   assets: string[];
-}
-
-/** Map an encoded format ("mp3_44100_128", "wav") to a file extension. */
-function extFor(format: string): string {
-  return format.split("_")[0] || "mp3";
-}
-
-/** How long an action occupies the timeline, so the next wait measures from its end.
- *  Omitted durations use the config default, never an elastic fit (spec §C). The
- *  cursor's travel-and-press to a target (`gestureLeadMs`) is added on top, so a
- *  click/type doesn't silently push the rest of the paragraph late. */
-async function actionDurationMs(
-  step: Action,
-  cfg: RecordableConfig,
-): Promise<number> {
-  const lead = gestureLeadMs(step, cfg);
-  switch (step.action) {
-    case "wait":
-      return (step.ms as number) ?? 0;
-    case "insert": {
-      // An inserted clip advances the recorded timeline by its full length; the
-      // overlaid narration plays across it, so this much audio-relative time is
-      // consumed and the next marker's wait is only the remainder. Resolve the
-      // clip against baseDir, the same as the runtime's `_resolveFile`.
-      const p = step.path as string;
-      const file = isAbsolute(p) ? p : resolve(cfg.baseDir ?? "", p);
-      return (await getDuration(file)) * 1000;
-    }
-    case "zoom":
-    case "resetZoom":
-      return (step.duration as number) ?? cfg.zoomDuration ?? 600;
-    case "scroll":
-      return (step.duration as number) ?? cfg.scrollDuration ?? 1200;
-    case "type": {
-      // Travel to the field (lead) then the keystrokes. The runtime's `type` sums
-      // its jittered delays to exactly `typingDuration`, so that part agrees.
-      const keys =
-        (step.duration as number) ??
-        typingDuration((step.text as string) ?? "", cfg.typingSpeed ?? 7);
-      return lead + keys;
-    }
-    default:
-      return lead; // click / select / hover travel; key / waitFor … are 0
-  }
 }
 
 /** First-character index of the word containing `offset` (scan back to whitespace). */

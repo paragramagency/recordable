@@ -5,7 +5,7 @@ import {
   rng,
   typingDuration,
   typingGaps,
-} from "../src/utils.js";
+} from "../src/timing.js";
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 

@@ -35,3 +35,8 @@ export interface SynthOptions {
 export interface TTSProvider {
   synthesize(text: string, opts?: SynthOptions): Promise<TTSResult>;
 }
+
+/** File extension for an encoded format string, e.g. "mp3_44100_128" → "mp3". */
+export function extFor(format: string): string {
+  return format.split("_")[0] || "mp3";
+}

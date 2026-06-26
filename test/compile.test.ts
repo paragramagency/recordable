@@ -6,8 +6,7 @@ import { join } from "node:path";
 import { compileMarkdown } from "../src/voiceover/compile.js";
 import { MockTTSProvider } from "../src/voiceover/mock.js";
 import { getDuration, runFfmpeg } from "../src/ffmpeg.js";
-import { gestureLeadMs } from "../src/timing.js";
-import { typingDuration } from "../src/utils.js";
+import { gestureLeadMs, typingDuration } from "../src/timing.js";
 
 // 100ms/char keeps the alignment maths legible in assertions.
 const provider = new MockTTSProvider({ msPerChar: 100 });

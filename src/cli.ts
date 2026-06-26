@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve, basename, dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { Recordable } from "./index.js";
-import { createLogger } from "./utils.js";
+import { createLogger } from "./logger.js";
 import { isRecordableError } from "./errors.js";
 import type { RecordableConfig } from "./config.js";
 

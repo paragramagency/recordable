@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { type Page, type CDPSession } from "puppeteer";
 import { FFMPEG_PATH, getDuration, runFfmpeg } from "../ffmpeg.js";
 import { RecordableError } from "../errors.js";
-import { type Logger } from "../utils.js";
+import { type Logger } from "../logger.js";
 import { type InsertOptions, type ResolvedConfig } from "../config.js";
 import { type Segment } from "./stitch.js";
 

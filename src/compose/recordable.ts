@@ -8,7 +8,8 @@ import {
   type ResolvedConfig,
   type WaitForOptions,
 } from "../config.js";
-import { createLogger, sleep, truncate, type Logger } from "../utils.js";
+import { sleep, truncate } from "../utils.js";
+import { createLogger, type Logger } from "../logger.js";
 import { parseConfig } from "../validate.js";
 import { Recorder } from "../video/recorder.js";
 import { AudioTrack } from "../audio/track.js";

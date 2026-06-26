@@ -2,7 +2,7 @@ import { type Page } from "puppeteer";
 import { sleep } from "../utils.js";
 import { cursorMoveMs, PRESS_DOWN_MS, PRESS_SETTLE_MS } from "../timing.js";
 
-const CURSOR_ID = "__sr_cursor__";
+const CURSOR_ID = "__recordable_cursor__";
 
 /** The page's current zoom transform, needed to position the overlay correctly. */
 export interface ZoomState {
@@ -57,7 +57,7 @@ export class Cursor {
             filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
           }
           #${id}.pressing {
-            transform: var(--sr-pos) scale(0.88) !important;
+            transform: var(--recordable-pos) scale(0.88) !important;
             transition: transform 0.08s !important;
           }
         `;
@@ -68,7 +68,7 @@ export class Cursor {
         // Place at the carried-over position with no transition, so it appears
         // there immediately instead of animating in from the corner.
         cursor.style.transition = "none";
-        cursor.style.setProperty("--sr-pos", `translate(${cx}px, ${cy}px)`);
+        cursor.style.setProperty("--recordable-pos", `translate(${cx}px, ${cy}px)`);
         cursor.style.transform = `translate(${cx}px, ${cy}px)`;
         cursor.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
           <path d="M4 2 L4 19 L8.5 14.5 L12 22 L14 21 L10.5 13.5 L17 13.5 Z"
@@ -109,7 +109,7 @@ export class Cursor {
             return;
           }
           cursor.style.transition = `transform ${dur}ms cubic-bezier(0.4,0,0.2,1)`;
-          cursor.style.setProperty("--sr-pos", `translate(${cx}px, ${cy}px)`);
+          cursor.style.setProperty("--recordable-pos", `translate(${cx}px, ${cy}px)`);
           cursor.style.transform = `translate(${cx}px, ${cy}px)`;
           setTimeout(resolve, dur);
         }),

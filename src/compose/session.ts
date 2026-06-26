@@ -1,6 +1,8 @@
 import puppeteer, { type Browser, type Page } from "puppeteer";
 import { join } from "node:path";
-import { getOutputPath, sleep, type Logger } from "../utils.js";
+import { sleep } from "../utils.js";
+import { getOutputPath } from "../fs.js";
+import { type Logger } from "../logger.js";
 import type { ResolvedConfig } from "../config.js";
 import { RecordableError } from "../errors.js";
 import { type Recorder } from "../video/recorder.js";

@@ -1,7 +1,8 @@
 import { writeFileSync } from "node:fs";
 import { join as joinPath } from "node:path";
 import { getDuration, runFfmpeg } from "../ffmpeg.js";
-import { moveFile, type Logger } from "../utils.js";
+import { moveFile } from "../fs.js";
+import { type Logger } from "../logger.js";
 import type { ResolvedConfig } from "../config.js";
 
 // ─── Video layer: stitching segments ─────────────────────────────────────────

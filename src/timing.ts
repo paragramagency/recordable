@@ -1,5 +1,7 @@
+import { isAbsolute, resolve } from "node:path";
 import type { RecordableConfig } from "./config.js";
 import type { Action } from "./actions.js";
+import { getDuration } from "./ffmpeg.js";
 
 // ─── Gesture timing (single source of truth) ─────────────────────────────────
 //
@@ -61,4 +63,114 @@ export function gestureLeadMs(step: Action, cfg: RecordableConfig): number {
     default:
       return 0; // key / waitFor / pause / … — no cursor travel
   }
+}
+
+/** How long an action occupies the timeline, so the next wait measures from its end.
+ *  Omitted durations use the config default, never an elastic fit. The cursor's
+ *  travel-and-press to a target (`gestureLeadMs`) is added on top, so a click/type
+ *  doesn't silently push the rest of the paragraph late. */
+export async function actionDurationMs(
+  step: Action,
+  cfg: RecordableConfig,
+): Promise<number> {
+  const lead = gestureLeadMs(step, cfg);
+  switch (step.action) {
+    case "wait":
+      return (step.ms as number) ?? 0;
+    case "insert": {
+      // An inserted clip advances the recorded timeline by its full length; the
+      // overlaid narration plays across it, so this much audio-relative time is
+      // consumed and the next marker's wait is only the remainder. Resolve the
+      // clip against baseDir, the same as the runtime's `_resolveFile`.
+      const p = step.path as string;
+      const file = isAbsolute(p) ? p : resolve(cfg.baseDir ?? "", p);
+      return (await getDuration(file)) * 1000;
+    }
+    case "zoom":
+    case "resetZoom":
+      return (step.duration as number) ?? cfg.zoomDuration ?? 600;
+    case "scroll":
+      return (step.duration as number) ?? cfg.scrollDuration ?? 1200;
+    case "type": {
+      // Travel to the field (lead) then the keystrokes. The runtime's `type` sums
+      // its jittered delays to exactly `typingDuration`, so that part agrees.
+      const keys =
+        (step.duration as number) ??
+        typingDuration((step.text as string) ?? "", cfg.typingSpeed ?? 7);
+      return lead + keys;
+    }
+    default:
+      return lead; // click / select / hover travel; key / waitFor … are 0
+  }
+}
+
+// ─── Randomness ──────────────────────────────────────────────────────────────
+
+/** Returns `base` ± `variance` (defaults to ±50% of base). */
+export function jitter(base: number, variance = 0.5): number {
+  return base + (Math.random() - 0.5) * base * variance * 2;
+}
+
+// ─── Deterministic typing ──────────────────────────────────────────────────────
+// `type` is jittered for realism yet deterministic in *total* time: the keystroke
+// delays vary, but they always sum to `typingDuration`. So the voiceover compiler
+// can predict a `type` action's length from the text alone (no stored duration),
+// and the runtime delivers exactly that. The jitter only *redistributes* time
+// within the fixed budget — it never changes the sum.
+
+/** Deterministic 32-bit string hash (FNV-1a). Seeds the typing PRNG so the same
+ *  text always types with the same rhythm (reproducible recordings). */
+export function hashString(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/** mulberry32 PRNG → a function yielding floats in [0, 1). Pure integer math,
+ *  platform-independent, so a given seed reproduces the same sequence anywhere. */
+export function rng(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Total time (ms) a `type` action occupies — a pure function of text length and
+ *  speed (cps). This is the contract the voiceover compiler estimates against, so
+ *  it MUST stay identical to the compiler's `type` estimate. Jitter never alters it. */
+export function typingDuration(text: string, speed: number): number {
+  return Math.round((text.length / (speed > 0 ? speed : 1)) * 1000);
+}
+
+/** Per-keystroke delays (ms) that sum to exactly `total`, with seeded, zero-sum
+ *  jitter. Returns `[leadPause, delayAfterChar1, …]` (lead beat + one per code
+ *  point). Punctuation gets a heavier structural weight (a natural micro-pause),
+ *  but all weights are normalised back onto `total` so the sum is invariant. */
+export function typingGaps(
+  text: string,
+  speed: number,
+  total: number = typingDuration(text, speed),
+  amount = 0.35,
+): number[] {
+  const chars = [...text];
+  if (chars.length === 0) return [];
+  const a = Math.min(Math.max(amount, 0), 0.95); // keep weights strictly positive
+  const next = rng(hashString(text));
+  const LEAD_W = 1.2;
+  const PUNCT_W = 1.8;
+  const perturb = (w: number) => w * (1 + a * (next() - 0.5) * 2);
+  const weights = [perturb(LEAD_W)];
+  for (const ch of chars) {
+    const structural =
+      ch === " " || ch === "." || ch === "," || ch === "\n" ? PUNCT_W : 1;
+    weights.push(perturb(structural));
+  }
+  const sum = weights.reduce((acc, w) => acc + w, 0);
+  return weights.map((w) => (total * w) / sum);
 }

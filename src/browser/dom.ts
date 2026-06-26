@@ -1,5 +1,5 @@
 import { type Page } from "puppeteer";
-import { isPositionValue, resolveTarget } from "../utils.js";
+import { isPositionValue, resolveTarget } from "../targets.js";
 
 /** Coordinates in viewport pixels. */
 export interface Point {
