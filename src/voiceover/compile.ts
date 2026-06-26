@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
-import { parseMarkdown, type NarrationBlock } from "../markdown/parse.js";
-import type { Action } from "../script.js";
+import { parseMarkdown, type NarrationBlock } from "../formats/markdown/parse.js";
+import type { Action } from "../actions.js";
 import type { RecordableConfig, VoiceoverConfig } from "../config.js";
 import { typingDuration, truncate, createLogger, type Logger } from "../utils.js";
 import { getDuration } from "../ffmpeg.js";

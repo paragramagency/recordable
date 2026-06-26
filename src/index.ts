@@ -1,33 +1,28 @@
 export { Recordable } from "./compose/recordable.js";
-export {
-  fromJSON,
-  runScript,
-  ACTIONS,
-  callToAction,
-  validateAction,
-} from "./script.js";
-export type { Script, Action } from "./script.js";
+export { ACTIONS, callToAction, validateAction } from "./actions.js";
+export type { Script, Action } from "./actions.js";
+export { fromJSON, runScript } from "./formats/json.js";
 export { buildSchema } from "./schema.js";
 export {
   flattenMarkdown,
   parseMarkdown,
   narrationBlock,
   flattenBlocks,
-} from "./markdown/parse.js";
+} from "./formats/markdown/parse.js";
 export type {
   ParsedMarkdown,
   MarkdownBlock,
   NarrationBlock,
   ActionsBlock,
   Marker,
-} from "./markdown/parse.js";
+} from "./formats/markdown/parse.js";
 export {
   parseMethodCall,
   parseMethodCalls,
   parseArgList,
   isMethodCall,
-} from "./markdown/method.js";
-export type { MethodCall } from "./markdown/method.js";
+} from "./formats/markdown/method.js";
+export type { MethodCall } from "./formats/markdown/method.js";
 export type {
   RecordableConfig,
   VoiceoverConfig,

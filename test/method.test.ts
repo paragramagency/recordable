@@ -5,7 +5,7 @@ import {
   parseArgList,
   parseMethodCall,
   parseMethodCalls,
-} from "../src/markdown/method.js";
+} from "../src/formats/markdown/method.js";
 
 // ─── Argument parsing ────────────────────────────────────────────────────────
 

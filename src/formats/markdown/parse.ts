@@ -1,10 +1,11 @@
 import matter from "gray-matter";
 import MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
-import { Recordable } from "../compose/recordable.js";
-import { callToAction, fromJSON, type Action } from "../script.js";
-import type { RecordableConfig, VoiceoverConfig } from "../config.js";
-import { parseVoiceover } from "../validate.js";
+import { Recordable } from "../../compose/recordable.js";
+import { callToAction, type Action } from "../../actions.js";
+import { fromJSON } from "../json.js";
+import type { RecordableConfig, VoiceoverConfig } from "../../config.js";
+import { parseVoiceover } from "../../validate.js";
 import {
   isMethodCall,
   parseMethodCall,

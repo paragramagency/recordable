@@ -22,8 +22,8 @@ import {
   type Param,
   type Script,
   type Action,
-} from "../script.js";
-import { flattenBlocks, parseMarkdown } from "../markdown/parse.js";
+} from "../actions.js";
+import { flattenBlocks, parseMarkdown } from "../formats/markdown/parse.js";
 
 // ─── Compose layer: the builder ──────────────────────────────────────────────
 //

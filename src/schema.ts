@@ -1,4 +1,4 @@
-import { ACTIONS, type Param, type Typ } from "./script.js";
+import { ACTIONS, type Param, type Typ } from "./actions.js";
 
 // ─── JSON Schema generation ──────────────────────────────────────────────────
 //

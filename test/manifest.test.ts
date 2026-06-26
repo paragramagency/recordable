@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ACTIONS, buildArgs } from "../src/script.js";
+import { ACTIONS, buildArgs } from "../src/actions.js";
 
 // ─── API normalization: optional positionals → trailing options object ───────
 //

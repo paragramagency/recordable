@@ -8,8 +8,8 @@ import {
   parseMarkdown,
   type NarrationBlock,
   type ActionsBlock,
-} from "../src/markdown/parse.js";
-import { callToAction } from "../src/script.js";
+} from "../src/formats/markdown/parse.js";
+import { callToAction } from "../src/actions.js";
 
 // Canonical fixtures: the same walkthrough authored two ways — inline markers in
 // prose (narration.md) and a fenced step list (fenced.md). Owned by the tests so

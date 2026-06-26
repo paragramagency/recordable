@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { audioFilterGraph, audioOverruns } from "../src/audio/track.js";
 import { timelineMs } from "../src/video/recorder.js";
-import { callToAction } from "../src/script.js";
+import { callToAction } from "../src/actions.js";
 
 // ─── Timeline clock ──────────────────────────────────────────────────────────
 

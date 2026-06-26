@@ -1,6 +1,5 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { Recordable } from "./compose/recordable.js";
 import type { RecordableConfig } from "./config.js";
 
 // ─── Declarative JSON scripts ────────────────────────────────────────────────
@@ -287,26 +286,6 @@ export function resolveVisitUrls(actions: Action[], baseDir: string): void {
       step.url = pathToFileURL(resolve(baseDir, step.url)).href;
     }
   }
-}
-
-/**
- * Build a {@link Recordable} from a JSON script without running it — a thin
- * wrapper over `new Recordable(configOverride).fromJSON(script)`. `configOverride`
- * (the explicit/programmatic config) wins over the script's own `config`.
- */
-export function fromJSON(
-  script: Script | string,
-  configOverride: RecordableConfig = {},
-): Recordable {
-  return new Recordable(configOverride).fromJSON(script);
-}
-
-/** Build a {@link Recordable} from a JSON script and run it to completion. */
-export function runScript(
-  script: Script | string,
-  configOverride?: RecordableConfig,
-): Promise<void> {
-  return fromJSON(script, configOverride).run();
 }
 
 /** The action manifest, exported so schema/docs tooling can read it. */

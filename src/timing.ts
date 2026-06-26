@@ -1,5 +1,5 @@
 import type { RecordableConfig } from "./config.js";
-import type { Action } from "./script.js";
+import type { Action } from "./actions.js";
 
 // ─── Gesture timing (single source of truth) ─────────────────────────────────
 //
