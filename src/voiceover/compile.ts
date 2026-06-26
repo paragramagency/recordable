@@ -4,7 +4,7 @@ import { parseMarkdown, type NarrationBlock } from "../markdown/parse.js";
 import type { ScriptStep } from "../script.js";
 import type { RecordableConfig, VoiceoverConfig } from "../config.js";
 import { typingDuration, truncate, createLogger, type Logger } from "../utils.js";
-import { probeDuration } from "../ffmpeg.js";
+import { getDuration } from "../ffmpeg.js";
 import { gestureLeadMs } from "../timing.js";
 import { cacheKey, FileCache } from "./cache.js";
 import {
@@ -74,7 +74,7 @@ async function stepDurationMs(
       // clip against baseDir, the same as the runtime's `_resolveFile`.
       const p = step.path as string;
       const file = isAbsolute(p) ? p : resolve(cfg.baseDir ?? "", p);
-      return (await probeDuration(file)) * 1000;
+      return (await getDuration(file)) * 1000;
     }
     case "zoom":
     case "resetZoom":

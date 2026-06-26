@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { type Page, type CDPSession } from "puppeteer";
-import { FFMPEG_PATH, probeDuration, runFfmpeg } from "../ffmpeg.js";
+import { FFMPEG_PATH, getDuration, runFfmpeg } from "../ffmpeg.js";
 import { RecordableError } from "../errors.js";
 import { type Logger } from "../utils.js";
 import { type InsertOptions, type ResolvedConfig } from "../config.js";
@@ -264,7 +264,7 @@ export class Recorder {
       fadeIn: Math.max(0, options.fadeIn ?? 0) / 1000,
       fadeOut: Math.max(0, options.fadeOut ?? 0) / 1000,
     });
-    this.completedMs += (await probeDuration(file)) * 1000;
+    this.completedMs += (await getDuration(file)) * 1000;
   }
 
   /** Detach the CDP session. Call after the final segment is sealed. */

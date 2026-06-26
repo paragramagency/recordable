@@ -1,4 +1,4 @@
-export { Recordable } from "./main.js";
+export { Recordable } from "./compose/recordable.js";
 export {
   fromJSON,
   runScript,

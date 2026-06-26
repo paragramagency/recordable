@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { Recordable } from "./main.js";
+import { Recordable } from "./compose/recordable.js";
 import type { RecordableConfig } from "./config.js";
 
 // ─── Declarative JSON scripts ────────────────────────────────────────────────

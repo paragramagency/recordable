@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { compileMarkdown } from "../src/voiceover/compile.js";
 import { MockTTSProvider } from "../src/voiceover/mock.js";
-import { probeDuration, runFfmpeg } from "../src/ffmpeg.js";
+import { getDuration, runFfmpeg } from "../src/ffmpeg.js";
 import { gestureLeadMs } from "../src/timing.js";
 import { typingDuration } from "../src/utils.js";
 
@@ -109,7 +109,7 @@ test("compileMarkdown: an overlaid insert eats its length from the next wait", a
     "-y", "-f", "lavfi", "-i", "color=c=black:s=320x240:d=0.3", "-r", "30",
     "-pix_fmt", "yuv420p", clip,
   ]);
-  const clipMs = Math.round((await probeDuration(clip)) * 1000);
+  const clipMs = Math.round((await getDuration(clip)) * 1000);
   assert.ok(clipMs > 0 && clipMs < 600, `clip ${clipMs}ms leaves room`);
 
   // "Click the button now." (2100ms); click fires on "the" at 600ms.

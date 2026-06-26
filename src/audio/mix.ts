@@ -1,4 +1,4 @@
-import { probeDuration, runFfmpeg } from "../ffmpeg.js";
+import { getDuration, runFfmpeg } from "../ffmpeg.js";
 import { audioFilterGraph, audioOverruns, type AudioClip } from "./track.js";
 import type { Logger } from "../utils.js";
 
@@ -23,7 +23,7 @@ export async function addAudio(
   out: string,
   log: Logger,
 ): Promise<void> {
-  const videoMs = (await probeDuration(videoPath)) * 1000;
+  const videoMs = (await getDuration(videoPath)) * 1000;
   for (const { path, overMs } of audioOverruns(clips, videoMs)) {
     log(
       "Audio",

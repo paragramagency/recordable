@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { probeDuration } from "../ffmpeg.js";
+import { getDuration } from "../ffmpeg.js";
 import { RecordableError } from "../errors.js";
 
 // ─── Audio layer: the track ──────────────────────────────────────────────────
@@ -47,7 +47,7 @@ export class AudioTrack {
   ): Promise<{ startMs: number; durationMs: number }> {
     if (!existsSync(path))
       throw new RecordableError("FILE_NOT_FOUND", `audio: file not found: ${path}`);
-    const durationMs = (await probeDuration(path)) * 1000;
+    const durationMs = (await getDuration(path)) * 1000;
     this.clips.push({ path, startMs, durationMs, volume: options.volume });
     return { startMs, durationMs };
   }

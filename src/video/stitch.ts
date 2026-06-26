@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { join as joinPath } from "node:path";
-import { probeDuration, runFfmpeg } from "../ffmpeg.js";
+import { getDuration, runFfmpeg } from "../ffmpeg.js";
 import { moveFile, type Logger } from "../utils.js";
 import type { ResolvedConfig } from "../config.js";
 
@@ -91,7 +91,7 @@ async function stitchWithFades(
   out: string,
 ): Promise<void> {
   const n = segs.length;
-  const dur = await Promise.all(segs.map((s) => probeDuration(s.path)));
+  const dur = await Promise.all(segs.map((s) => getDuration(s.path)));
 
   // The outer ends have no neighbour to dissolve with, so an edge clip's fade
   // there is a fade against black; interior boundaries cross-fade two pieces.

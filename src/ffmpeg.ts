@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { RecordableError } from "./errors.js";
 
 /** Probe a clip's duration in seconds by parsing ffmpeg's stderr banner. 0 if unreadable. */
-export function probeDuration(path: string): Promise<number> {
+export function getDuration(path: string): Promise<number> {
   return new Promise((resolve) => {
     const proc = spawn(FFMPEG_PATH, ["-i", path], {
       stdio: ["ignore", "ignore", "pipe"],
