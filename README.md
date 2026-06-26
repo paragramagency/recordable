@@ -279,6 +279,7 @@ new Recordable({
   autoScroll: true, // scroll elements into view before interacting
   scrollMargin: 120, // px kept around an element when auto-scrolling
   scrollSpeed: 1500, // px/s
+  scrollDuration: 1200, // ms for the scroll action's transition
   cursor: true, // show the animated cursor overlay
   visitTimeout: 30_000, // ms for navigation / waitFor
 });

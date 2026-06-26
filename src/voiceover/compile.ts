@@ -20,7 +20,7 @@ import { extFor, type Alignment, type TTSProvider } from "./types.js";
 // Turns words into waits: synthesizes each narration paragraph (cached) and
 // emits a plain core script — an `audio()` clip plus computed `wait`s so each
 // marker's action starts on its narrated word. Output replays offline with no
-// further TTS. Placement + warnings only, never silent retiming (spec §C).
+// further TTS. Placement + warnings only, never silent retiming.
 
 /** Everything the compiler needs that isn't in the document itself. */
 export interface CompileOptions {
