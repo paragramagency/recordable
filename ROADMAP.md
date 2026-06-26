@@ -79,11 +79,11 @@ still overriding. Document the full set of recognised keys (extend `.env.example
 ### 3. Audio layers (background music, manual overlays)
 
 `audio` is currently a single overlay (`path`, `wait`, `volume`). Support **multiple
-layers** mixed into the final mux — e.g. background music under the whole recording, plus
+layers** mixed into the final video — e.g. background music under the whole recording, plus
 manually-authored voiceover files dropped in by path. These don't need to join the
 automatic narration-timing system yet, but must work in the programmatic method chain
-(and ideally JSON/Markdown). Implies the mux step mixes N audio tracks (per-layer volume,
-loop/trim-to-length for music, start offsets) rather than overlaying one.
+(and ideally JSON/Markdown). Implies the audio layer (`audio/mix.ts` `addAudio`) mixes N
+tracks (per-layer volume, loop/trim-to-length for music, start offsets) rather than one.
 
 ### 4. AI authoring
 

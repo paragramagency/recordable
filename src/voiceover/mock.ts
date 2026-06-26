@@ -5,7 +5,7 @@ import type { SynthOptions, TTSProvider, TTSResult } from "./types.js";
 // A deterministic, offline stand-in for a real provider — no network, no API
 // key, no SDK. It fabricates evenly-spaced character alignment and returns a
 // real (silent) WAV of the matching duration, so the whole pipeline — compiler,
-// `audio()` placement, ffmpeg mux — can run end-to-end in tests and demos.
+// `audio()` placement, ffmpeg mixing — can run end-to-end in tests and demos.
 //
 // Swap in `ElevenLabsProvider` for real speech; this exists so voiceover work
 // isn't gated on credentials or connectivity.
@@ -38,7 +38,7 @@ export class MockTTSProvider implements TTSProvider {
   }
 }
 
-/** Build a valid silent 16-bit mono WAV of `durationMs` — ffmpeg-mux-compatible. */
+/** Build a valid silent 16-bit mono WAV of `durationMs` — ffmpeg-compatible. */
 export function silentWav(durationMs: number, sampleRate = 8000): Buffer {
   const numSamples = Math.max(0, Math.round((durationMs / 1000) * sampleRate));
   const dataSize = numSamples * 2; // 16-bit mono
