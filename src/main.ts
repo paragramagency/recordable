@@ -48,6 +48,8 @@ import {
   type ScriptStep,
 } from "./script.js";
 import { flattenBlocks, parseMarkdown } from "./markdown/parse.js";
+import { RecordableError } from "./errors.js";
+import { parseConfig } from "./validate.js";
 
 // ─── Class ───────────────────────────────────────────────────────────────────
 
@@ -79,7 +81,7 @@ export class Recordable {
   private playBindingExposed = false;
 
   constructor(config: RecordableConfig = {}) {
-    this.userConfig = config;
+    this.userConfig = parseConfig(config);
     this._applyContentConfig({}); // sets cfg = defaults < userConfig, resolving paths
   }
 
@@ -523,13 +525,22 @@ export class Recordable {
     this.pending = [];
     this.outputPath = getOutputPath(this.cfg);
     this.recorder.init();
-    this.browser = await puppeteer.launch({
-      headless: this.cfg.headless,
-      args: [
-        `--window-size=${this.cfg.viewport.width},${this.cfg.viewport.height}`,
-        ...this.cfg.launchArgs,
-      ],
-    });
+    try {
+      this.browser = await puppeteer.launch({
+        headless: this.cfg.headless,
+        args: [
+          `--window-size=${this.cfg.viewport.width},${this.cfg.viewport.height}`,
+          ...this.cfg.launchArgs,
+        ],
+      });
+    } catch (err) {
+      throw new RecordableError(
+        "BROWSER_LAUNCH",
+        `Could not launch Chromium: ${(err as Error).message}. ` +
+          `In CI/containers add launchArgs: ["--no-sandbox"].`,
+        { cause: err },
+      );
+    }
 
     const page = await this.browser.newPage();
     await page.setViewport({ ...this.cfg.viewport, deviceScaleFactor: 1 });
@@ -661,7 +672,7 @@ export class Recordable {
   /** Recompute `cfg` as defaults < content config < constructor config, then
    *  resolve a relative `outputDir`/`assetsDir` against `baseDir`. */
   private _applyContentConfig(content: RecordableConfig): void {
-    this.cfg = { ...DEFAULT_CONFIG, ...content, ...this.userConfig };
+    this.cfg = { ...DEFAULT_CONFIG, ...parseConfig(content), ...this.userConfig };
     const base = this.cfg.baseDir;
     if (base) {
       if (!isAbsolute(this.cfg.outputDir))

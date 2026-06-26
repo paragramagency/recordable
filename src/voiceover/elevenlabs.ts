@@ -1,4 +1,5 @@
 import type { VoiceoverConfig } from "../config.js";
+import { RecordableError } from "../errors.js";
 import {
   alignmentDurationMs,
   normalizeAlignment,
@@ -56,20 +57,31 @@ export class ElevenLabsProvider implements TTSProvider {
       mod.ElevenLabsClient ?? mod.default?.ElevenLabsClient ?? mod.default;
     const client = new ElevenLabsClient({ apiKey });
 
-    const res = await client.textToSpeech.convertWithTimestamps(
-      this.cfg.voiceId,
-      {
+    let res: any;
+    try {
+      res = await client.textToSpeech.convertWithTimestamps(this.cfg.voiceId, {
         text,
         modelId: this.cfg.modelId ?? DEFAULT_MODEL,
         voiceSettings: this.cfg.voiceSettings,
         outputFormat: format,
-      },
-    );
+      });
+    } catch (e) {
+      throw new RecordableError(
+        "TTS_FAILED",
+        `ElevenLabs synthesis failed: ${(e as Error).message}`,
+        { cause: e },
+      );
+    }
 
     // Response is the object directly in current SDKs, `.data`-wrapped in older.
     // Audio field is `audioBase64` (camelCase SDK) / `audio_base64` (raw REST).
     const data = res?.data ?? res;
     const audioBase64 = data.audioBase64 ?? data.audio_base64 ?? data.audio;
+    if (!audioBase64)
+      throw new RecordableError(
+        "TTS_FAILED",
+        "ElevenLabs returned no audio in its response",
+      );
     const audio = Buffer.from(audioBase64 as string, "base64");
     const alignment = data.alignment
       ? normalizeAlignment(data.alignment as ElevenLabsAlignment)

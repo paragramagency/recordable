@@ -4,6 +4,7 @@ import type Token from "markdown-it/lib/token.mjs";
 import { Recordable } from "../main.js";
 import { callToStep, fromJSON, type ScriptStep } from "../script.js";
 import type { RecordableConfig, VoiceoverConfig } from "../config.js";
+import { parseVoiceover } from "../validate.js";
 import {
   isMethodCall,
   parseMethodCall,
@@ -73,9 +74,14 @@ export function parseMarkdown(md: string): ParsedMarkdown {
   };
 
   // `voiceover: true` opts in with everything from the environment (provider,
-  // voice, model); `false`/absent stays a plain, audio-free recording.
+  // voice, model); `false`/absent stays a plain, audio-free recording. An object
+  // is validated so a typo'd key (e.g. `voicId`) fails clearly here.
   const vo =
-    voiceover === true ? {} : voiceover === false ? undefined : voiceover;
+    voiceover === true
+      ? {}
+      : voiceover === false || voiceover === undefined
+        ? undefined
+        : parseVoiceover(voiceover);
 
   return {
     config: config as RecordableConfig,

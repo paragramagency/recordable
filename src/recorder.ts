@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { type Page, type CDPSession } from "puppeteer";
 import { FFMPEG_PATH, probeDuration, runFfmpeg } from "./ffmpeg.js";
+import { RecordableError } from "./errors.js";
 import { moveFile, type Logger } from "./utils.js";
 import { type InsertOptions, type ResolvedConfig } from "./config.js";
 import { audioFilterGraph, audioOverruns, timelineMs } from "./mux.js";
@@ -52,6 +53,8 @@ export class SegmentRecorder {
   private latestFrame: Buffer | null = null;
   private segmentFrames = 0;
   private segmentFps = 0;
+  // A spawn/encode failure on the capture ffmpeg, surfaced at the next end().
+  private captureError: Error | null = null;
 
   // Timeline clock (recorded time, ms) summed over finalised segments, plus the
   // audio clips laid against it. Together these place audio on the final video.
@@ -123,7 +126,12 @@ export class SegmentRecorder {
       ],
       { stdio: ["pipe", "ignore", "ignore"] },
     );
-    proc.on("error", (e) => this.log.error(`ffmpeg: ${String(e)}`));
+    proc.on("error", (e) => {
+      // Encoding is async; remember the failure and surface it at end() rather
+      // than silently dropping a frameless, invalid segment.
+      this.captureError = e;
+      this.log.error(`ffmpeg: ${String(e)}`);
+    });
     this.ffmpegProc = proc;
     this.currentSegment = file;
     this.segmentFrames = 0;
@@ -178,6 +186,16 @@ export class SegmentRecorder {
       }
     });
 
+    if (this.captureError) {
+      const e = this.captureError;
+      this.captureError = null;
+      throw new RecordableError(
+        "FFMPEG_FAILED",
+        `recording capture failed: ${e.message}`,
+        { cause: e },
+      );
+    }
+
     // Only keep segments that actually captured frames (avoids empty/invalid mp4).
     if (this.currentSegment && frames > 0) {
       this.segments.push({ path: this.currentSegment, fadeIn: 0, fadeOut: 0 });
@@ -205,7 +223,8 @@ export class SegmentRecorder {
    * segments are silent).
    */
   async insert(path: string, options: InsertOptions = {}): Promise<void> {
-    if (!existsSync(path)) throw new Error(`insert: file not found: ${path}`);
+    if (!existsSync(path))
+      throw new RecordableError("FILE_NOT_FOUND", `insert: file not found: ${path}`);
     await this.end(true);
 
     const cfg = this.getCfg();
@@ -255,7 +274,8 @@ export class SegmentRecorder {
     path: string,
     options: { volume?: number } = {},
   ): Promise<{ startMs: number; durationMs: number }> {
-    if (!existsSync(path)) throw new Error(`audio: file not found: ${path}`);
+    if (!existsSync(path))
+      throw new RecordableError("FILE_NOT_FOUND", `audio: file not found: ${path}`);
     const startMs = this._currentTimelineMs();
     const durationMs = (await probeDuration(path)) * 1000;
     this.audioTrack.push({ path, startMs, durationMs, volume: options.volume });

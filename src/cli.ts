@@ -4,6 +4,7 @@ import { resolve, basename, dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { Recordable } from "./index.js";
 import { createLogger } from "./utils.js";
+import { isRecordableError } from "./errors.js";
 import type { RecordableConfig } from "./config.js";
 
 // CLI-level messages always print (the recorder's own `silent` governs run output).
@@ -132,4 +133,10 @@ async function main(): Promise<void> {
   await rec.run();
 }
 
-main().catch((err) => fail((err as Error).message));
+main().catch((err) => {
+  // Expected failures (bad config, missing file, ffmpeg/TTS/browser) print a
+  // clean line; anything else is a bug, so keep its stack for debugging.
+  if (isRecordableError(err)) fail(err.message);
+  log.error(String((err as Error)?.stack ?? err));
+  process.exit(1);
+});
