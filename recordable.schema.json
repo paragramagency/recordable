@@ -334,20 +334,14 @@
               "url": {
                 "type": "string"
               },
-              "options": {
-                "type": "object",
-                "properties": {
-                  "waitUntil": {
-                    "type": "string"
-                  },
-                  "timeout": {
-                    "type": "number"
-                  },
-                  "referer": {
-                    "type": "string"
-                  }
-                },
-                "additionalProperties": true
+              "waitUntil": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number"
+              },
+              "referer": {
+                "type": "string"
               }
             },
             "required": [
@@ -585,7 +579,7 @@
                 "const": "mouse"
               },
               "target": {
-                "oneOf": [
+                "anyOf": [
                   {
                     "type": "string"
                   },
@@ -599,11 +593,11 @@
                         "type": "number"
                       }
                     },
-                    "additionalProperties": false,
                     "required": [
                       "x",
                       "y"
-                    ]
+                    ],
+                    "additionalProperties": false
                   }
                 ]
               }
@@ -632,7 +626,7 @@
                 "const": "scroll"
               },
               "target": {
-                "oneOf": [
+                "anyOf": [
                   {
                     "type": "string"
                   },

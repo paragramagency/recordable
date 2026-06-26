@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ACTIONS, buildArgs } from "../src/actions.js";
+import { buildArgs, validateAction } from "../src/actions.js";
+import { isRecordableError } from "../src/errors.js";
 
 // ─── API normalization: optional positionals → trailing options object ───────
 //
@@ -12,55 +13,82 @@ test("zoom: origin+duration gather into the options object", () => {
   assert.deepEqual(
     buildArgs(
       { action: "zoom", level: 1.5, origin: "#hero", duration: 800 },
-      ACTIONS.zoom,
+      "zoom",
     ),
     [1.5, { origin: "#hero", duration: 800 }],
   );
 });
 
 test("zoom: bare level emits just the required positional (method defaults apply)", () => {
-  assert.deepEqual(buildArgs({ action: "zoom", level: 2 }, ACTIONS.zoom), [2]);
+  assert.deepEqual(buildArgs({ action: "zoom", level: 2 }, "zoom"), [2]);
 });
 
 test("zoom: duration without origin still lands in the options object", () => {
   assert.deepEqual(
-    buildArgs({ action: "zoom", level: 1.2, duration: 400 }, ACTIONS.zoom),
+    buildArgs({ action: "zoom", level: 1.2, duration: 400 }, "zoom"),
     [1.2, { duration: 400 }],
   );
 });
 
 test("scroll: duration gathers; bare target trims the empty options", () => {
   assert.deepEqual(
-    buildArgs(
-      { action: "scroll", target: "top", duration: 500 },
-      ACTIONS.scroll,
-    ),
+    buildArgs({ action: "scroll", target: "top", duration: 500 }, "scroll"),
     ["top", { duration: 500 }],
   );
   assert.deepEqual(
-    buildArgs({ action: "scroll", target: "top" }, ACTIONS.scroll),
+    buildArgs({ action: "scroll", target: "top" }, "scroll"),
     ["top"],
   );
 });
 
 test("resetZoom: lone optional gather", () => {
   assert.deepEqual(
-    buildArgs({ action: "resetZoom", duration: 300 }, ACTIONS.resetZoom),
+    buildArgs({ action: "resetZoom", duration: 300 }, "resetZoom"),
     [{ duration: 300 }],
   );
-  assert.deepEqual(buildArgs({ action: "resetZoom" }, ACTIONS.resetZoom), []);
+  assert.deepEqual(buildArgs({ action: "resetZoom" }, "resetZoom"), []);
 });
 
 test("type: duration gathers after the two required positionals", () => {
   assert.deepEqual(
     buildArgs(
       { action: "type", target: "#t", text: "hi", duration: 4000 },
-      ACTIONS.type,
+      "type",
     ),
     ["#t", "hi", { duration: 4000 }],
   );
   assert.deepEqual(
-    buildArgs({ action: "type", target: "#t", text: "hi" }, ACTIONS.type),
+    buildArgs({ action: "type", target: "#t", text: "hi" }, "type"),
     ["#t", "hi"],
+  );
+});
+
+// ─── Value-level validation (the gap the Zod manifest closes) ─────────────────
+
+test("validateAction: accepts a well-typed action", () => {
+  assert.doesNotThrow(() =>
+    validateAction({ action: "zoom", level: 1.5, origin: "#hero" }),
+  );
+});
+
+test("validateAction: rejects a wrong-typed value with CONFIG_INVALID", () => {
+  // Previously only key *names* were checked, so `level: "big"` slipped through.
+  assert.throws(
+    () => validateAction({ action: "zoom", level: "big" }),
+    (err) => isRecordableError(err) && err.code === "CONFIG_INVALID",
+  );
+});
+
+test("validateAction: rejects an unknown action", () => {
+  assert.throws(
+    () => validateAction({ action: "teleport" }),
+    (err) => isRecordableError(err) && err.code === "CONFIG_INVALID",
+  );
+});
+
+test("validateAction: rejects an unknown key (typo)", () => {
+  assert.throws(
+    () => validateAction({ action: "zoom", level: 1.5, orgin: "#h" }),
+    (err) => isRecordableError(err) && err.code === "CONFIG_INVALID",
   );
 });

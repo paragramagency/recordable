@@ -1,13 +1,15 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { RecordableConfig } from "./config.js";
+import * as z from "zod";
+import { RecordableError } from "./errors.js";
+import { ConfigSchema, type RecordableConfig } from "./config.js";
 
 // ─── Declarative JSON scripts ────────────────────────────────────────────────
 //
 // A script is an array of flat `{ action, ...args }` actions that map ~1:1 onto
 // the chainable API. The ACTIONS manifest below is the single source of truth:
-// it drives this interpreter, the published JSON Schema (see schema.ts), and
-// the Markdown marker parser later.
+// one Zod schema per action drives value-level validation, the published JSON
+// Schema (see schema.ts), and the Markdown marker mapping.
 //
 //   {
 //     "$schema": "./recordable.schema.json",
@@ -22,119 +24,80 @@ import type { RecordableConfig } from "./config.js";
 //     ]
 //   }
 
-// ─── Parameter types ─────────────────────────────────────────────────────────
-//
-// A small type vocabulary, rich enough to generate a useful JSON Schema while
-// staying readable in the manifest. Plain `"string"` is the common case, so a
-// bare string param is shorthand for a required string positional.
-
-/** The type of a single argument, used only for schema/doc generation. */
-export type Typ =
-  | "string"
-  | "number"
-  | "boolean"
-  | { enum: readonly string[] }
-  | { oneOf: readonly Typ[] }
-  | { object: Record<string, Typ>; open?: boolean }
-  | { configRef: true };
+const STATE = z.enum(["visible", "hidden", "present"]);
+const XY = z.strictObject({ x: z.number(), y: z.number() });
 
 /**
- * A single positional parameter of an action.
- * - bare string → a required string positional named by that string
- * - `gather`    → instead of one nested key, these top-level keys are collected
- *                 into a trailing options object (the "trailing options bag")
+ * Per-action argument schema (the keyed args, excluding the `action`
+ * discriminator). strictObject so an unknown key (a typo) fails validation.
  */
-export type Param =
-  | string
-  | { name: string; type?: Typ; optional?: true }
-  | { name: string; optional?: true; gather: Record<string, Typ> };
-
-const STATE: Typ = { enum: ["visible", "hidden", "present"] };
-const XY: Typ = { object: { x: "number", y: "number" } };
-
-/** Ordered parameter list for every chainable action exposed to JSON. */
-const ACTIONS: Record<string, readonly Param[]> = {
+const ACTIONS = {
   // Recording control
-  pause: [],
-  resume: [],
-  resumeOnInput: [{ name: "message", optional: true }],
-  insert: [
-    "path",
-    {
-      name: "options",
-      optional: true,
-      gather: { fadeIn: "number", fadeOut: "number" },
-    },
-  ],
-  audio: [
-    "path",
-    {
-      name: "options",
-      optional: true,
-      gather: { wait: "boolean", volume: "number" },
-    },
-  ],
-  setConfig: [{ name: "config", type: { configRef: true } }],
+  pause: z.strictObject({}),
+  resume: z.strictObject({}),
+  resumeOnInput: z.strictObject({ message: z.string().optional() }),
+  insert: z.strictObject({
+    path: z.string(),
+    fadeIn: z.number().optional(),
+    fadeOut: z.number().optional(),
+  }),
+  audio: z.strictObject({
+    path: z.string(),
+    wait: z.boolean().optional(),
+    volume: z.number().optional(),
+  }),
+  setConfig: z.strictObject({ config: ConfigSchema }),
 
   // Navigation
-  visit: [
-    "url",
-    {
-      name: "options",
-      optional: true,
-      type: {
-        object: { waitUntil: "string", timeout: "number", referer: "string" },
-        open: true,
-      },
-    },
-  ],
-  waitFor: [
-    "target",
-    {
-      name: "options",
-      optional: true,
-      gather: { state: STATE, timeout: "number" },
-    },
-  ],
+  visit: z.strictObject({
+    url: z.string(),
+    waitUntil: z.string().optional(),
+    timeout: z.number().optional(),
+    referer: z.string().optional(),
+  }),
+  waitFor: z.strictObject({
+    target: z.string(),
+    state: STATE.optional(),
+    timeout: z.number().optional(),
+  }),
 
   // Interactions
-  click: ["target"],
-  hover: ["target"],
-  type: [
-    "target",
-    "text",
-    { name: "options", optional: true, gather: { duration: "number" } },
-  ],
-  clear: ["target"],
-  select: ["target", "value"],
-  key: ["key"],
-  mouse: [{ name: "target", type: { oneOf: ["string", XY] } }],
+  click: z.strictObject({ target: z.string() }),
+  hover: z.strictObject({ target: z.string() }),
+  type: z.strictObject({
+    target: z.string(),
+    text: z.string(),
+    duration: z.number().optional(),
+  }),
+  clear: z.strictObject({ target: z.string() }),
+  select: z.strictObject({ target: z.string(), value: z.string() }),
+  key: z.strictObject({ key: z.string() }),
+  mouse: z.strictObject({ target: z.union([z.string(), XY]) }),
 
   // Scrolling / zoom
-  scroll: [
-    { name: "target", type: { oneOf: ["string", "number"] } },
-    { name: "options", optional: true, gather: { duration: "number" } },
-  ],
-  zoom: [
-    { name: "level", type: "number" },
-    {
-      name: "options",
-      optional: true,
-      gather: { origin: "string", duration: "number" },
-    },
-  ],
-  resetZoom: [
-    { name: "options", optional: true, gather: { duration: "number" } },
-  ],
+  scroll: z.strictObject({
+    target: z.union([z.string(), z.number()]),
+    duration: z.number().optional(),
+  }),
+  zoom: z.strictObject({
+    level: z.number(),
+    origin: z.string().optional(),
+    duration: z.number().optional(),
+  }),
+  resetZoom: z.strictObject({ duration: z.number().optional() }),
 
   // Timing
-  wait: [{ name: "ms", type: "number" }],
-};
+  wait: z.strictObject({ ms: z.number() }),
+} satisfies Record<string, z.ZodObject>;
 
-type ParamObj = Exclude<Param, string>;
-const norm = (p: Param): ParamObj =>
-  typeof p === "string" ? { name: p, type: "string" } : p;
-const isOptional = (p: ParamObj) => "optional" in p && p.optional === true;
+/**
+ * Keys that are optional yet passed *positionally* in Markdown method calls
+ * (rather than gathered into the trailing options bag) — the only per-action
+ * fact not derivable from the schema.
+ */
+const POSITIONAL_OPTIONAL: Record<string, readonly string[]> = {
+  resumeOnInput: ["message"],
+};
 
 /** A single action: the action name plus its flat named arguments. */
 export type Action = { action: string; [key: string]: unknown };
@@ -144,42 +107,83 @@ export type Script =
   | Action[]
   | { $schema?: string; config?: RecordableConfig; actions: Action[] };
 
-/** The set of valid top-level keys for an action (for typo detection). */
-function validKeys(params: readonly Param[]): Set<string> {
-  const keys = new Set<string>(["action"]);
-  for (const raw of params) {
-    const p = norm(raw);
-    if ("gather" in p) for (const k of Object.keys(p.gather)) keys.add(k);
-    else keys.add(p.name);
+// ─── Manifest derivation ─────────────────────────────────────────────────────
+//
+// Positional/bag layout is derived from each action's Zod `.shape`: keys in
+// declaration order, with optionality read off `ZodOptional`.
+
+const shapeOf = (name: string) =>
+  (ACTIONS as Record<string, z.ZodObject>)[name].shape;
+
+/** All argument keys, in declaration order. */
+const keysInOrder = (name: string) => Object.keys(shapeOf(name));
+
+/** Whether `key` is optional for `name` (a `ZodOptional` in the shape). */
+const isOptional = (name: string, key: string) =>
+  shapeOf(name)[key] instanceof z.ZodOptional;
+
+/** Keys passed positionally: the required ones plus any flagged positional-optional. */
+const positionalKeys = (name: string) =>
+  keysInOrder(name).filter(
+    (k) => !isOptional(name, k) || POSITIONAL_OPTIONAL[name]?.includes(k),
+  );
+
+/** Keys gathered into the trailing options bag: optional and not positional. */
+const bagKeys = (name: string) =>
+  keysInOrder(name).filter(
+    (k) => isOptional(name, k) && !POSITIONAL_OPTIONAL[name]?.includes(k),
+  );
+
+/** One readable line per issue: `<path>: <message>`. */
+function formatIssues(error: z.ZodError): string {
+  return error.issues
+    .map((issue) => {
+      const path = issue.path.join(".");
+      return path ? `${path}: ${issue.message}` : issue.message;
+    })
+    .join("; ");
+}
+
+/**
+ * Validate one keyed action against the manifest: the action must exist and its
+ * argument *values* (and key names) must match the action's schema — so a wrong
+ * type (`{ action: "zoom", level: "big" }`) or a typo'd key fails here. Shared by
+ * {@link fromJSON} and the Markdown mapper.
+ */
+export function validateAction(step: Action): void {
+  const schema = (ACTIONS as Record<string, z.ZodObject>)[step.action];
+  if (!schema) {
+    throw new RecordableError(
+      "CONFIG_INVALID",
+      `Unknown action "${step.action}" — valid actions: ${Object.keys(ACTIONS).join(", ")}`,
+    );
   }
-  return keys;
+  const { action: _action, ...rest } = step;
+  const result = schema.safeParse(rest);
+  if (!result.success) {
+    throw new RecordableError(
+      "CONFIG_INVALID",
+      `Action "${step.action}": ${formatIssues(result.error)}`,
+    );
+  }
 }
 
 /**
  * Turn one flat action into the positional argument list for its method.
  *
  * Optional positionals that are absent become `undefined` — JavaScript default
- * parameters then apply, so a present later arg (e.g. `zoom` duration without
- * origin) never lands in the wrong slot.
+ * parameters then apply, so a present later arg never lands in the wrong slot.
+ * Bag keys collapse into a single trailing options object.
  */
-function buildArgs(step: Action, params: readonly Param[]): unknown[] {
+function buildArgs(step: Action, name: string): unknown[] {
   const args: unknown[] = [];
-  for (const raw of params) {
-    const p = norm(raw);
+  for (const key of positionalKeys(name)) args.push(step[key]);
 
-    if ("gather" in p) {
-      const opts: Record<string, unknown> = {};
-      for (const k of Object.keys(p.gather)) if (k in step) opts[k] = step[k];
-      args.push(Object.keys(opts).length ? opts : undefined);
-      continue;
-    }
-
-    if (p.name in step) args.push(step[p.name]);
-    else if (isOptional(p)) args.push(undefined);
-    else
-      throw new Error(
-        `Action "${step.action}" is missing required "${p.name}"`,
-      );
+  const bag = bagKeys(name);
+  if (bag.length) {
+    const opts: Record<string, unknown> = {};
+    for (const key of bag) if (key in step) opts[key] = step[key];
+    args.push(Object.keys(opts).length ? opts : undefined);
   }
 
   // Trim trailing undefineds so the method's own defaults apply cleanly.
@@ -188,38 +192,14 @@ function buildArgs(step: Action, params: readonly Param[]): unknown[] {
 }
 
 /**
- * Validate one keyed action against the manifest: the action must exist and every
- * key must be a recognised argument (catches typos like `orgin`). Returns the
- * action's parameter list. Shared by {@link fromJSON} and the Markdown mapper.
- */
-export function validateAction(step: Action): readonly Param[] {
-  const params = ACTIONS[step.action];
-  if (!params) {
-    throw new Error(
-      `Unknown action "${step.action}" — valid actions: ${Object.keys(ACTIONS).join(", ")}`,
-    );
-  }
-  const allowed = validKeys(params);
-  for (const key of Object.keys(step)) {
-    if (!allowed.has(key)) {
-      throw new Error(
-        `Action "${step.action}": unknown key "${key}" — valid keys: ${[...allowed].join(", ")}`,
-      );
-    }
-  }
-  return params;
-}
-
-/**
  * Map a positional method call — `{ name, args }` as produced by the Markdown
- * parser — onto a flat keyed {@link Action}, the same IR the JSON layer
- * uses. Positional args are named by manifest order; a trailing options object
- * for a `gather` param is flattened to top-level keys. The result is validated,
- * so option-key typos throw here.
+ * parser — onto a flat keyed {@link Action}, the same IR the JSON layer uses.
+ * Positional args are named by manifest order; a trailing options object is
+ * flattened to top-level keys. The result is validated, so value/key typos throw.
  */
 export function callToAction(name: string, args: readonly unknown[]): Action {
-  const params = ACTIONS[name];
-  if (!params) {
+  const schema = (ACTIONS as Record<string, z.ZodObject>)[name];
+  if (!schema) {
     throw new Error(
       `Unknown action "${name}" — valid actions: ${Object.keys(ACTIONS).join(", ")}`,
     );
@@ -228,25 +208,27 @@ export function callToAction(name: string, args: readonly unknown[]): Action {
   const step: Action = { action: name };
   let i = 0;
 
-  for (const raw of params) {
-    const p = norm(raw);
+  for (const key of positionalKeys(name)) {
+    if (i < args.length) step[key] = args[i++];
+    else if (!isOptional(name, key))
+      throw new Error(`Action "${name}" is missing required "${key}"`);
+  }
 
-    if ("gather" in p) {
-      const obj = args[i++];
-      if (obj === undefined) continue;
-      if (typeof obj !== "object" || obj === null || Array.isArray(obj)) {
+  const bag = bagKeys(name);
+  if (i < args.length && bag.length) {
+    const obj = args[i++];
+    if (typeof obj !== "object" || obj === null || Array.isArray(obj)) {
+      throw new Error(
+        `Action "${name}": expected a trailing options object, got ${JSON.stringify(obj)}`,
+      );
+    }
+    for (const [k, v] of Object.entries(obj)) {
+      if (!bag.includes(k)) {
         throw new Error(
-          `Action "${name}": expected a trailing options object, got ${JSON.stringify(obj)}`,
+          `Action "${name}": unknown key "${k}" — valid keys: ${bag.join(", ")}`,
         );
       }
-      for (const [k, v] of Object.entries(obj)) step[k] = v;
-      continue;
-    }
-
-    if (i < args.length) {
-      step[p.name] = args[i++];
-    } else if (!isOptional(p)) {
-      throw new Error(`Action "${name}" is missing required "${p.name}"`);
+      step[k] = v;
     }
   }
 

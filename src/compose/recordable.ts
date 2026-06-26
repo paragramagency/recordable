@@ -19,7 +19,6 @@ import {
   resolveVisitUrls,
   splitScript,
   validateAction,
-  type Param,
   type Script,
   type Action,
 } from "../actions.js";
@@ -395,15 +394,14 @@ export class Recordable {
       const where = `step ${i} (${step?.action ?? "?"})`;
       if (!step || typeof step !== "object")
         throw new Error(`${where}: not an object`);
-      let params: readonly Param[];
       try {
-        params = validateAction(step);
+        validateAction(step);
       } catch (err) {
         throw new Error(`${where}: ${(err as Error).message}`, { cause: err });
       }
       (this as unknown as Record<string, (...a: unknown[]) => unknown>)[
         step.action
-      ](...buildArgs(step, params));
+      ](...buildArgs(step, step.action));
     });
   }
 }
