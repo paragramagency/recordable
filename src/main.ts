@@ -31,13 +31,16 @@ import {
 } from "./dom.js";
 import { Cursor, type ZoomState } from "./cursor.js";
 import { NAV_PROBE_MS, PRE_CLICK_MS } from "./timing.js";
-import { SegmentRecorder } from "./recorder.js";
+import { Recorder } from "./video/recorder.js";
+import { stitch } from "./video/stitch.js";
+import { AudioTrack } from "./audio/track.js";
+import { addAudio } from "./audio/mix.js";
 import {
   playButtonScript,
   PLAY_BINDING,
   PLAY_BUTTON_ID,
 } from "./play-button.js";
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import {
   buildArgs,
   resolveVisitUrls,
@@ -62,7 +65,8 @@ export class Recordable {
   // underneath it.
   private readonly userConfig: RecordableConfig;
   private readonly log: Logger = createLogger(() => this.cfg.silent);
-  private readonly recorder = new SegmentRecorder(() => this.cfg, this.log);
+  private readonly recorder = new Recorder(() => this.cfg, this.log);
+  private readonly audioTrack = new AudioTrack();
   private readonly cursor = new Cursor();
   private queue: { run: Action; control: boolean }[] = [];
   // Deferred load work (voiceover synthesis), run by run() — so `fromMarkdown`
@@ -71,6 +75,7 @@ export class Recordable {
   private browser: Browser | null = null;
   private zoomState: ZoomState = { tx: 0, ty: 0, s: 1 };
   private outputPath = "";
+  private finalised = false;
 
   // Recording state. `recording` is the *intent* (should we be capturing?);
   // the recorder starts segments lazily so a leading pause() never makes a clip.
@@ -248,9 +253,10 @@ export class Recordable {
     return this._enqueue(async () => {
       const { wait = true, volume } = options;
       const file = this._resolveFile(path);
-      const { startMs, durationMs } = await this.recorder.addAudio(file, {
-        volume,
-      });
+      // Pin the clip to where we are in recorded time (the video timeline), then
+      // hand it to the audio layer to probe + collect for the final mix.
+      const startMs = this.recorder.currentTimelineMs();
+      const { durationMs } = await this.audioTrack.add(file, startMs, { volume });
       this.log(
         "Audio",
         `${truncate(file)} @ ${Math.round(startMs)}ms (${Math.round(durationMs)}ms)`,
@@ -593,12 +599,41 @@ export class Recordable {
   // ─── Private ───────────────────────────────────────────────────────────────
 
   private async _cleanup(): Promise<void> {
-    await this.recorder.finalise(this.outputPath);
+    await this._finalize();
     await this.recorder.dispose();
     if (this.browser) {
       await this.browser.close().catch(() => {});
       this.browser = null;
     }
+  }
+
+  /** Seal the recording: stitch the captured/inserted segments (video layer),
+   *  then mix the audio track onto them (audio layer). The video defines the
+   *  length. Idempotent — a signal handler and the normal path both call it. */
+  private async _finalize(): Promise<void> {
+    if (this.finalised) return;
+    this.finalised = true;
+    await this.recorder.end();
+
+    const segs = this.recorder.segments;
+    if (segs.length === 0) {
+      this.log("Record", "nothing was recorded — no output written");
+      this.recorder.removeTmp();
+      return;
+    }
+
+    // With audio, render the silent video to a temp file then mix onto it;
+    // otherwise stitch straight to the output.
+    const needAudio = this.audioTrack.length > 0;
+    const videoOut = needAudio
+      ? join(this.recorder.tmpDir, "video.mp4")
+      : this.outputPath;
+
+    await stitch(segs, this.cfg, this.log, videoOut, this.recorder.tmpDir);
+    if (needAudio)
+      await addAudio(videoOut, this.audioTrack.list(), this.outputPath, this.log);
+
+    this.recorder.removeTmp();
   }
 
   /** Click a target's centre. Uses page.mouse.click() not ElementHandle.click()

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { audioFilterGraph, audioOverruns, timelineMs } from "../src/mux.js";
+import { audioFilterGraph, audioOverruns } from "../src/audio/track.js";
+import { timelineMs } from "../src/video/recorder.js";
 import { callToStep } from "../src/script.js";
 
 // ─── Timeline clock ──────────────────────────────────────────────────────────
