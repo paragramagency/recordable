@@ -1,28 +1,14 @@
-import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
 import * as z from "zod";
 import { RecordableError } from "./errors.js";
-import { ConfigSchema, type RecordableConfig } from "./config.js";
+import { ConfigSchema } from "./config.js";
 
-// ─── Declarative JSON scripts ────────────────────────────────────────────────
+// ─── Action model ────────────────────────────────────────────────────────────
 //
-// A script is an array of flat `{ action, ...args }` actions that map ~1:1 onto
-// the chainable API. The ACTIONS manifest below is the single source of truth:
-// one Zod schema per action drives value-level validation, the published JSON
-// Schema (see schema.ts), and the Markdown marker mapping.
-//
-//   {
-//     "$schema": "./recordable.schema.json",
-//     "config": { "cursor": true },
-//     "actions": [
-//       { "action": "pause" },
-//       { "action": "visit", "url": "https://example.com" },
-//       { "action": "resume" },
-//       { "action": "type", "target": "#title", "text": "My model" },
-//       { "action": "select", "target": "#plan", "value": "pro" },
-//       { "action": "waitFor", "target": "#done", "state": "visible", "timeout": 5000 }
-//     ]
-//   }
+// A single action is a flat `{ action, ...args }` object that maps ~1:1 onto the
+// chainable API. The ACTIONS manifest below is the single source of truth: one
+// Zod schema per action drives value-level validation, the published JSON Schema
+// (see schema.ts), and the Markdown marker mapping. The document that strings
+// actions together — the `Script` type and its helpers — lives in script.ts.
 
 const STATE = z.enum(["visible", "hidden", "present"]);
 const XY = z.strictObject({ x: z.number(), y: z.number() });
@@ -101,11 +87,6 @@ const POSITIONAL_OPTIONAL: Record<string, readonly string[]> = {
 
 /** A single action: the action name plus its flat named arguments. */
 export type Action = { action: string; [key: string]: unknown };
-
-/** A whole script: a bare array of actions, or an object pairing config + actions. */
-export type Script =
-  | Action[]
-  | { $schema?: string; config?: RecordableConfig; actions: Action[] };
 
 // ─── Manifest derivation ─────────────────────────────────────────────────────
 //
@@ -240,34 +221,6 @@ export function callToAction(name: string, args: readonly unknown[]): Action {
 
   validateAction(step);
   return step;
-}
-
-/** Split a `Script` into its optional config and action array. */
-export function splitScript(script: Script): {
-  config?: RecordableConfig;
-  actions: Action[];
-} {
-  if (Array.isArray(script)) return { actions: script };
-  return { config: script.config, actions: script.actions };
-}
-
-/**
- * Resolve relative `visit` URLs (`./`, `../`) against `baseDir` so a script and
- * its pages travel together regardless of cwd: each becomes a `file://` URL.
- * Mutates the actions in place; a no-op when `baseDir` is empty.
- * (Relative `outputDir`/`assetsDir` are resolved alongside, in the config.)
- */
-export function resolveVisitUrls(actions: Action[], baseDir: string): void {
-  if (!baseDir) return;
-  for (const step of actions) {
-    if (
-      step.action === "visit" &&
-      typeof step.url === "string" &&
-      /^\.\.?\//.test(step.url)
-    ) {
-      step.url = pathToFileURL(resolve(baseDir, step.url)).href;
-    }
-  }
 }
 
 /** The action manifest, exported so schema/docs tooling can read it. */

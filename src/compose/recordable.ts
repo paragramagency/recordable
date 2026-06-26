@@ -14,15 +14,9 @@ import { Recorder } from "../video/recorder.js";
 import { AudioTrack } from "../audio/track.js";
 import { Runtime } from "../browser/runtime.js";
 import { Session, type Composition, type QueueItem } from "./session.js";
-import {
-  buildArgs,
-  resolveVisitUrls,
-  splitScript,
-  validateAction,
-  type Script,
-  type Action,
-} from "../actions.js";
-import { flattenBlocks, parseMarkdown } from "../formats/markdown/parse.js";
+import { buildArgs, validateAction, type Action } from "../actions.js";
+import { resolveVisitUrls, splitScript, type Script } from "../script.js";
+import { extractActions, parseMarkdown } from "../formats/markdown/parse.js";
 
 // ─── Compose layer: the builder ──────────────────────────────────────────────
 //
@@ -87,7 +81,7 @@ export class Recordable {
     this._applyContentConfig(parsed.config);
 
     if (!parsed.voiceover) {
-      this._loadActions(flattenBlocks(parsed.blocks));
+      this._loadActions(extractActions(parsed.blocks));
       return this;
     }
     // Defer TTS to run(); remember where these actions belong in the queue.

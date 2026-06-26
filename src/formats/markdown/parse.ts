@@ -1,9 +1,7 @@
 import matter from "gray-matter";
 import MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
-import { Recordable } from "../../compose/recordable.js";
 import { callToAction, type Action } from "../../actions.js";
-import { fromJSON } from "../json.js";
 import type { RecordableConfig, VoiceoverConfig } from "../../config.js";
 import { parseVoiceover } from "../../validate.js";
 import {
@@ -24,9 +22,9 @@ import {
 // boundaries, indented/`~~~` fences, code spans with commas or parens) are the
 // library's problem; we only interpret the tokens.
 //
-// Pure and browser-free: no TTS, no ffmpeg. The voiceover add-on consumes the
-// offset-bearing narration blocks to compute timing; the core path here flattens
-// markers to a plain chain, exactly as JSON would run.
+// Pure and browser-free: no TTS, no ffmpeg, no runtime. The voiceover add-on
+// consumes the offset-bearing narration blocks to compute timing; the core path
+// extracts markers to a plain action list, exactly as JSON would run.
 
 const md = new MarkdownIt();
 
@@ -179,26 +177,13 @@ function narrationFromInline(children: Token[]): NarrationBlock {
   return { type: "narration", narration, markers };
 }
 
-/** Flatten parsed blocks to a plain action list (markers in order; no audio). */
-export function flattenBlocks(blocks: MarkdownBlock[]): Action[] {
+/** Extract a plain action list from parsed blocks (markers in order, narration
+ *  and timing discarded; no audio). */
+export function extractActions(blocks: MarkdownBlock[]): Action[] {
   const actions: Action[] = [];
   for (const b of blocks) {
     if (b.type === "actions") actions.push(...b.actions);
     else for (const m of b.markers) actions.push(m.step);
   }
   return actions;
-}
-
-/**
- * Build a {@link Recordable} from a Markdown document — the core, no-audio path:
- * markers compile to a plain chain exactly as JSON would, synchronously, ignoring
- * any `voiceover` frontmatter. For the voiceover-aware entry use the async
- * {@link Recordable.fromMarkdown}. `configOverride` wins over frontmatter config.
- */
-export function flattenMarkdown(
-  md: string,
-  configOverride: RecordableConfig = {},
-): Recordable {
-  const { config, blocks } = parseMarkdown(md);
-  return fromJSON({ config, actions: flattenBlocks(blocks) }, configOverride);
 }

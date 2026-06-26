@@ -1,6 +1,6 @@
 import { Recordable } from "../compose/recordable.js";
 import type { RecordableConfig } from "../config.js";
-import type { Script } from "../actions.js";
+import type { Script } from "../script.js";
 
 // ─── JSON authoring format ───────────────────────────────────────────────────
 //

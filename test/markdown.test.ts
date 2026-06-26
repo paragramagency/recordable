@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
-  flattenBlocks,
+  extractActions,
   narrationBlock,
   parseMarkdown,
   type NarrationBlock,
@@ -173,8 +173,8 @@ const EXPECTED_STEPS = [
 ];
 
 test("inline-marker and fenced-list authoring compile to the same step IR", () => {
-  const inline = flattenBlocks(parseMarkdown(fixture("narration.md")).blocks);
-  const fenced = flattenBlocks(parseMarkdown(fixture("fenced.md")).blocks);
+  const inline = extractActions(parseMarkdown(fixture("narration.md")).blocks);
+  const fenced = extractActions(parseMarkdown(fixture("fenced.md")).blocks);
   assert.deepEqual(inline, EXPECTED_STEPS);
   assert.deepEqual(fenced, EXPECTED_STEPS);
 });
