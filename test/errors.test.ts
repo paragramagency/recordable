@@ -9,7 +9,7 @@ import { runFfmpeg } from "../src/ffmpeg.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-// ─── Config validation (valibot boundary) ────────────────────────────────────
+// ─── Config validation (Zod boundary) ────────────────────────────────────────
 
 test("parseConfig: passes a valid partial config through unchanged", () => {
   assert.deepEqual(parseConfig({ fps: 60, headless: true }), {
