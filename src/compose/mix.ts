@@ -1,12 +1,14 @@
 import { getDuration, runFfmpeg } from "../ffmpeg.js";
-import { audioFilterGraph, audioOverruns, type AudioClip } from "./track.js";
+import { audioFilterGraph, audioOverruns, type AudioClip } from "../audio/track.js";
 import type { Logger } from "../utils.js";
 
-// ─── Audio layer: combining onto the video ───────────────────────────────────
+// ─── Compose layer: combining audio onto the video ───────────────────────────
 //
-// `addAudio` lays the finished audio track onto the silent video — the step a
-// pro A/V tool would call "muxing". Each clip is delayed to its position, gained,
-// and mixed; the video stream is copied untouched.
+// `addAudio` lays the finished audio track onto the silent video — combining the
+// two streams (the step a pro A/V tool would call "muxing"). It lives in the
+// compose layer because it joins layers; the audio layer only models the clips.
+// Each clip is delayed to its position, gained, and mixed; the video is copied
+// untouched.
 
 /**
  * Add the audio `clips` onto the silent `videoPath`, writing `out`. Each clip is

@@ -12,7 +12,7 @@ import { createLogger, sleep, truncate, type Logger } from "../utils.js";
 import { parseConfig } from "../validate.js";
 import { Recorder } from "../video/recorder.js";
 import { AudioTrack } from "../audio/track.js";
-import { Runtime } from "./runtime.js";
+import { Runtime } from "../browser/runtime.js";
 import { Session, type Composition, type QueueItem } from "./session.js";
 import {
   buildArgs,

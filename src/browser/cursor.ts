@@ -1,6 +1,6 @@
 import { type Page } from "puppeteer";
-import { sleep } from "./utils.js";
-import { cursorMoveMs, PRESS_DOWN_MS, PRESS_SETTLE_MS } from "./timing.js";
+import { sleep } from "../utils.js";
+import { cursorMoveMs, PRESS_DOWN_MS, PRESS_SETTLE_MS } from "../timing.js";
 
 const CURSOR_ID = "__sr_cursor__";
 

@@ -18,14 +18,14 @@ import {
   originToCoords,
   scrollIntoView,
   smoothScrollToTarget,
-} from "../dom.js";
-import { Cursor, type ZoomState } from "../cursor.js";
+} from "./dom.js";
+import { Cursor, type ZoomState } from "./cursor.js";
 import { NAV_PROBE_MS, PRE_CLICK_MS } from "../timing.js";
 import {
   playButtonScript,
   PLAY_BINDING,
   PLAY_BUTTON_ID,
-} from "../play-button.js";
+} from "./play-button.js";
 
 // ─── Compose layer: the runtime ──────────────────────────────────────────────
 //

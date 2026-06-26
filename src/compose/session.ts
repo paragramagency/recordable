@@ -6,8 +6,8 @@ import { RecordableError } from "../errors.js";
 import { type Recorder } from "../video/recorder.js";
 import { stitch } from "../video/stitch.js";
 import { type AudioTrack } from "../audio/track.js";
-import { addAudio } from "../audio/mix.js";
-import { type Runtime } from "./runtime.js";
+import { addAudio } from "./mix.js";
+import { type Runtime } from "../browser/runtime.js";
 
 // ─── Compose layer: the session ──────────────────────────────────────────────
 //
