@@ -36,7 +36,8 @@ export class ElevenLabsProvider implements TTSProvider {
   private async _synthesize(text: string, format: string): Promise<TTSResult> {
     const apiKey = this.cfg.apiKey ?? process.env.ELEVENLABS_API_KEY;
     if (!apiKey) {
-      throw new Error(
+      throw new RecordableError(
+        "CONFIG_INVALID",
         "ElevenLabs: no API key — set ELEVENLABS_API_KEY (or voiceover.apiKey)",
       );
     }
@@ -47,7 +48,8 @@ export class ElevenLabsProvider implements TTSProvider {
     try {
       mod = await import(PACKAGE);
     } catch {
-      throw new Error(
+      throw new RecordableError(
+        "TTS_FAILED",
         `ElevenLabs: the "${PACKAGE}" package is not installed — ` +
           `add it to use voiceover (it is an optional dependency)`,
       );

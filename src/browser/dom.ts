@@ -1,5 +1,6 @@
 import { type ElementHandle, type Page } from "puppeteer";
 import { isPositionValue, resolveTarget } from "../targets.js";
+import { RecordableError } from "../errors.js";
 
 /** Coordinates in viewport pixels. */
 export interface Point {
@@ -30,7 +31,10 @@ export async function getHandle(page: Page, target: string) {
         .map((f) => f.locator(selector).setVisibility("visible").waitHandle()),
     );
   } catch {
-    throw new Error(`Could not find target: "${target}"`);
+    throw new RecordableError(
+      "TARGET_NOT_FOUND",
+      `Could not find target: "${target}"`,
+    );
   }
 }
 
@@ -41,7 +45,11 @@ export async function getElementCenter(
 ): Promise<Point> {
   const handle = await getHandle(page, target);
   const box = await handle.boundingBox();
-  if (!box) throw new Error(`No bounding box for "${target}"`);
+  if (!box)
+    throw new RecordableError(
+      "TARGET_NOT_FOUND",
+      `No bounding box for "${target}"`,
+    );
   const offset = (range: number) => (Math.random() - 0.5) * range * 0.4;
   return {
     x: box.x + box.width / 2 + offset(box.width),

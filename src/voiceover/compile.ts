@@ -4,6 +4,7 @@ import { parseMarkdown, type NarrationBlock } from "../formats/markdown/parse.js
 import type { Action } from "../actions.js";
 import type { RecordableConfig, VoiceoverConfig } from "../config.js";
 import { truncate } from "../utils.js";
+import { RecordableError } from "../errors.js";
 import { createLogger, type Logger } from "../logger.js";
 import { actionDurationMs } from "../timing.js";
 import { cacheKey, FileCache } from "./cache.js";
@@ -209,7 +210,8 @@ function resolveProvider(
 ): TTSProvider {
   if (provider) return provider;
   if (!voiceover) {
-    throw new Error(
+    throw new RecordableError(
+      "CONFIG_INVALID",
       "compileMarkdown: no `voiceover` frontmatter and no `provider` — add a voiceover block or pass a provider.",
     );
   }
@@ -217,14 +219,16 @@ function resolveProvider(
 
   const hasKey = voiceover.apiKey ?? process.env.ELEVENLABS_API_KEY;
   if (!hasKey) {
-    throw new Error(
+    throw new RecordableError(
+      "CONFIG_INVALID",
       "Voiceover: ElevenLabs needs an API key — set ELEVENLABS_API_KEY (e.g. in a .env beside " +
         "the document) or `voiceover.apiKey`, or use RECORDABLE_TTS_PROVIDER=mock for silent audio.",
     );
   }
   const voiceId = voiceover.voiceId;
   if (!voiceId) {
-    throw new Error(
+    throw new RecordableError(
+      "CONFIG_INVALID",
       "Voiceover: ElevenLabs needs a voice — set RECORDABLE_VOICE_ID (e.g. in a .env beside " +
         "the document) or `voiceover.voiceId`.",
     );

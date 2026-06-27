@@ -9,6 +9,7 @@
 export type ErrorCode =
   | "CONFIG_INVALID" // a config / frontmatter value is the wrong shape
   | "FILE_NOT_FOUND" // a referenced asset (insert/audio/script) is missing
+  | "TARGET_NOT_FOUND" // a selector/text target matched no element on the page
   | "FFMPEG_FAILED" // an ffmpeg invocation exited non-zero or couldn't spawn
   | "TTS_FAILED" // the voiceover provider (network / SDK) failed
   | "BROWSER_LAUNCH"; // Chromium failed to launch
