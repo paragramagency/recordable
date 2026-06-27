@@ -191,3 +191,50 @@ test("parseMarkdown (narration): one narration block per paragraph, each with ma
   );
   assert.equal(first.markers[0].offset, first.narration.length);
 });
+
+// ─── `//` comment stripping ──────────────────────────────────────────────────
+
+test("parseMarkdown: a full-line `//` comment between paragraphs is dropped", () => {
+  const { blocks } = parseMarkdown(
+    "First paragraph.\n\n// a note for later — re-record this\n\nSecond paragraph.",
+  );
+  assert.equal(blocks.length, 2);
+  assert.deepEqual(
+    (blocks as NarrationBlock[]).map((b) => b.narration),
+    ["First paragraph.", "Second paragraph."],
+  );
+  assert.ok(blocks.every((b) => (b as NarrationBlock).markers.length === 0));
+});
+
+test("parseMarkdown: a `//` line inside a paragraph keeps it one block, comment gone", () => {
+  const { blocks } = parseMarkdown(
+    "Welcome to the app.\n  // TODO tighten this line\nIt scores instantly.",
+  );
+  assert.equal(blocks.length, 1);
+  assert.equal(
+    (blocks[0] as NarrationBlock).narration,
+    "Welcome to the app. It scores instantly.",
+  );
+});
+
+test("parseMarkdown: a `//` line inside a fenced action list comments out that step", () => {
+  const { blocks } = parseMarkdown(
+    '```\nclick("text:Go")\n// visit("/old")\nwait(500)\n```\n',
+  );
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, "actions");
+  assert.deepEqual((blocks[0] as ActionsBlock).actions, [
+    { action: "click", target: "text:Go" },
+    { action: "wait", ms: 500 },
+  ]);
+});
+
+test("parseMarkdown: `//` mid-line (a URL) and in a code span are left untouched", () => {
+  const { blocks } = parseMarkdown(
+    'See `//config` here. `visit("https://x.test")`',
+  );
+  assert.equal(blocks.length, 1);
+  const b = blocks[0] as NarrationBlock;
+  assert.equal(b.narration, "See `//config` here.");
+  assert.deepEqual(b.markers[0].step, { action: "visit", url: "https://x.test" });
+});

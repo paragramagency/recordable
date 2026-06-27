@@ -61,6 +61,18 @@ export interface ParsedMarkdown {
 // A NUL never appears in prose and survives `\s+` collapsing (it isn't \s).
 const SENTINEL = "\u0000";
 
+// Whole-line `//` author notes (the syntax VS Code injects on toggle-comment).
+// Stripped before tokenising so a note never becomes narration the TTS reads or
+// an action that compiles. Dropping the whole line incl. its newline keeps a
+// note placed inside a paragraph from splitting it in two. Only a line whose
+// first non-whitespace is `//` matches — `//` mid-line (e.g. in `https://…`) is
+// left untouched.
+const LINE_COMMENT = /^[ \t]*\/\/.*\r?\n?/gm;
+
+function stripComments(content: string): string {
+  return content.replace(LINE_COMMENT, "");
+}
+
 /**
  * Parse a Markdown document into config + ordered blocks. Pure: no audio, no
  * network. Frontmatter (YAML, via gray-matter) carries recording config and an
@@ -85,7 +97,7 @@ export function parseMarkdown(md: string): ParsedMarkdown {
   return {
     config: config as RecordableConfig,
     voiceover: vo,
-    blocks: parseBlocks(content),
+    blocks: parseBlocks(stripComments(content)),
   };
 }
 
