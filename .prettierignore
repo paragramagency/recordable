@@ -2,6 +2,7 @@ dist
 node_modules
 output
 demos
+.claude
 .vscode
 recordable.schema.json
 package-lock.json

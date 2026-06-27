@@ -3,7 +3,9 @@ import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", "output", "demos"] },
+  // `.claude` can hold nested git worktrees (a full repo copy) that would
+  // otherwise be linted with the wrong tsconfig root — never our source.
+  { ignores: ["dist", "node_modules", "output", "demos", ".claude"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
