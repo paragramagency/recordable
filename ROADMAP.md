@@ -107,10 +107,14 @@ reliable alternative to LLM-from-scratch.
 
 ### 5. New-tab recording
 
-Support links that open in a new tab and **continue recording in that new tab** (if
-feasible with CDP screencast — needs investigation). Today capture is bound to one page;
-this means detecting the new target, switching the screencast to it, and stitching the
-footage seamlessly.
+Support links that open in a new tab and **continue recording in that new tab**. Today
+capture is bound to one page; this means detecting the new target, switching the
+screencast to it, and stitching the footage seamlessly. Feasibility confirmed — a tab
+switch is just the next segment (per-target screencast, existing stitcher), so it's
+plumbing, not a new capture pipeline. Design + decisions in
+[specs/new-tab-recording.md](specs/new-tab-recording.md):
+explicit `click(target, { followNewTab: true })`, leave the old tab open, full setup +
+cursor injection on the new tab, and trim the loading time by default.
 
 ### 6. API additions
 

@@ -40,6 +40,8 @@ export class Recorder {
   private segmentList: Segment[] = [];
   private currentSegment = "";
   private cdp: CDPSession | null = null;
+  // The page `cdp` is attached to — a new tab needs a fresh session (per-target).
+  private cdpPage: Page | null = null;
   private ffmpegProc: ChildProcess | null = null;
   private frameTicker: ReturnType<typeof setInterval> | null = null;
   private latestFrame: Buffer | null = null;
@@ -82,9 +84,15 @@ export class Recorder {
     this.tmpDirPath = mkdtempSync(join(tmpdir(), "recordable-"));
   }
 
-  /** Lazily create the CDP session used for screencast capture. */
+  /** The CDP session for screencast capture on `page`. A `CDPSession` is bound to one
+   *  target, so a new tab (different page) gets a fresh session — the old one is
+   *  detached. The single-tab path reuses the cached session (same page). */
   private async _ensureCdp(page: Page): Promise<CDPSession> {
-    if (this.cdp) return this.cdp;
+    if (this.cdp && this.cdpPage === page) return this.cdp;
+    if (this.cdp) {
+      await this.cdp.detach().catch(() => {});
+      this.cdp = null;
+    }
     const cdp = await page.createCDPSession();
     cdp.on("Page.screencastFrame", (frame) => {
       this.latestFrame = Buffer.from(frame.data, "base64");
@@ -93,6 +101,7 @@ export class Recorder {
         .catch(() => {});
     });
     this.cdp = cdp;
+    this.cdpPage = page;
     return cdp;
   }
 
@@ -265,6 +274,7 @@ export class Recorder {
       await this.cdp.detach().catch(() => {});
       this.cdp = null;
     }
+    this.cdpPage = null;
   }
 
   /** Remove the temp working directory. Call once the output is written. */

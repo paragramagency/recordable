@@ -53,6 +53,7 @@ const ACTIONS = {
     target: z.string(),
     waitForNav: z.boolean().optional(),
     timeout: z.number().optional(),
+    followNewTab: z.boolean().optional(),
   }),
   hover: z.strictObject({ target: z.string() }),
   type: z.strictObject({

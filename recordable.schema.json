@@ -443,6 +443,9 @@
               },
               "timeout": {
                 "type": "number"
+              },
+              "followNewTab": {
+                "type": "boolean"
               }
             },
             "required": [
