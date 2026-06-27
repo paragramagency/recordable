@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dispatch — Activity</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body class="app" data-active="activity">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="content">
+        <h1 class="page">Activity</h1>
+        <p class="lead">Every event across your workspace, newest first.</p>
+
+        <!-- The .feed is a fixed-height scroll container: its own scrollbar,
+             independent of the page. The demo scrolls WITHIN it. -->
+        <section class="panel">
+          <div class="head"><h2>Recent events</h2></div>
+          <ul class="feed" id="feed">
+            <li class="evt" id="evt-1"><span class="evt-dot ship"></span><div><div class="evt-t">Label created for PRC-8F3K2D</div><div class="evt-m">Priya Anand · Express · 09:14</div></div></li>
+            <li class="evt" id="evt-2"><span class="evt-dot ok"></span><div><div class="evt-t">Shipment PRC-7Q1M9P delivered</div><div class="evt-m">Signed by R. Okafor · 09:02</div></div></li>
+            <li class="evt" id="evt-3"><span class="evt-dot ship"></span><div><div class="evt-t">Picked up PRC-8F3K2D</div><div class="evt-m">Collected by courier · 08:55</div></div></li>
+            <li class="evt" id="evt-4"><span class="evt-dot warn"></span><div><div class="evt-t">Return opened for PRC-5T2A4C</div><div class="evt-m">Reason: damaged in transit · 08:40</div></div></li>
+            <li class="evt" id="evt-5"><span class="evt-dot ship"></span><div><div class="evt-t">Label created for PRC-3K8N1V</div><div class="evt-m">Marcus Webb · Standard · 08:31</div></div></li>
+            <li class="evt" id="evt-6"><span class="evt-dot ok"></span><div><div class="evt-t">Shipment PRC-9D4F2L delivered</div><div class="evt-m">Left at reception · 08:12</div></div></li>
+            <li class="evt" id="evt-7"><span class="evt-dot ship"></span><div><div class="evt-t">PRC-2H6J8B out for delivery</div><div class="evt-m">Local hub, Bristol · 07:58</div></div></li>
+            <li class="evt" id="evt-8"><span class="evt-dot ok"></span><div><div class="evt-t">Customer Aanya Sharma added</div><div class="evt-m">Imported from CSV · 07:44</div></div></li>
+            <li class="evt" id="evt-9"><span class="evt-dot ship"></span><div><div class="evt-t">Label created for PRC-1P5R7X</div><div class="evt-m">Leah Kowalski · Overnight · 07:30</div></div></li>
+            <li class="evt" id="evt-10"><span class="evt-dot warn"></span><div><div class="evt-t">Delivery exception on PRC-6B3C9M</div><div class="evt-m">Address not found · 07:19</div></div></li>
+            <li class="evt" id="evt-11"><span class="evt-dot ok"></span><div><div class="evt-t">Shipment PRC-4N7K2Q delivered</div><div class="evt-m">Signed by T. Mensah · 07:05</div></div></li>
+            <li class="evt" id="evt-12"><span class="evt-dot ship"></span><div><div class="evt-t">Picked up PRC-2H6J8B</div><div class="evt-m">Collected by courier · 06:52</div></div></li>
+            <li class="evt" id="evt-13"><span class="evt-dot ship"></span><div><div class="evt-t">Label created for PRC-8W1D5F</div><div class="evt-m">Owen Pereira · Standard · 06:38</div></div></li>
+            <li class="evt" id="evt-14"><span class="evt-dot ok"></span><div><div class="evt-t">Report "March volumes" exported</div><div class="evt-m">By you · 06:25</div></div></li>
+            <li class="evt" id="evt-15"><span class="evt-dot ship"></span><div><div class="evt-t">PRC-9D4F2L out for delivery</div><div class="evt-m">Local hub, Bath · 06:10</div></div></li>
+            <li class="evt" id="evt-16"><span class="evt-dot ok"></span><div><div class="evt-t">Workspace settings updated</div><div class="evt-m">Default service → Express · 05:59</div></div></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <script src="shell.js"></script>
+  </body>
+</html>

@@ -305,9 +305,14 @@ export class Recordable {
   /**
    * Smooth-scroll to an element or position: `"top"`/`"bottom"`, a CSS selector or
    * plain text (centred), or a number (absolute Y). `duration` (ms) overrides the
-   * default animation length.
+   * default animation length. Pass `container` (a selector) to scroll *within* that
+   * scroll container — `target` is then resolved against it (extremes, absolute
+   * scrollTop, or a child centred in the container) instead of the window.
    */
-  scroll(target: string | number, options: { duration?: number } = {}): this {
+  scroll(
+    target: string | number,
+    options: { container?: string; duration?: number } = {},
+  ): this {
     return this._enqueue((page) => this.runtime.scroll(page, target, options));
   }
 

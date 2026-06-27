@@ -166,7 +166,18 @@ Let a markdown script pull in another, e.g. `.include("./login.md")`, so common 
 (sign-in, setup) live in one reusable file and compose into larger demos. Resolve paths
 against `baseDir`; merge narration/steps inline at the include point.
 
-### 11. Demo-ready product
+### 11. Container scrolling
+
+Both `scroll()` and auto-scroll-before-action are window-only — `smoothScroll` drives
+`window.scrollTo`/`window.scrollY` and `"bottom"` reads `document.body.scrollHeight`
+(`src/browser/dom.ts`). They can't reach content inside an overflow container (a scrollable
+modal, sidebar, or pane), which stays put while the page doesn't move. Add scrolling of a
+named scroll container: resolve the nearest scrollable ancestor (or an explicit target),
+animate its `scrollTop` instead of the window, and make auto-scroll-into-view walk
+containers too so `click`/`type` work on elements nested in one. Keep the `"top"`/`"bottom"`
+/ number / selector target forms; works across programmatic / JSON / Markdown.
+
+### 12. Demo-ready product
 
 The showcase (`08-showcase`) covers the headline flow. Remaining is general polish: more
 demos, tightening rough edges so the whole thing is presentable.

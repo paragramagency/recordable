@@ -41,6 +41,16 @@ test("scroll: duration gathers; bare target trims the empty options", () => {
   );
 });
 
+test("scroll: container gathers into the options object", () => {
+  assert.deepEqual(
+    buildArgs(
+      { action: "scroll", target: "bottom", container: ".pane" },
+      "scroll",
+    ),
+    ["bottom", { container: ".pane" }],
+  );
+});
+
 test("resetZoom: lone optional gather", () => {
   assert.deepEqual(
     buildArgs({ action: "resetZoom", duration: 300 }, "resetZoom"),
@@ -86,6 +96,16 @@ test("validateAction: click accepts followNewTab, rejects a non-boolean", () => 
   );
   assert.throws(
     () => validateAction({ action: "click", target: "#go", followNewTab: "yes" }),
+    (err) => isRecordableError(err) && err.code === "CONFIG_INVALID",
+  );
+});
+
+test("validateAction: scroll accepts container, rejects a non-string", () => {
+  assert.doesNotThrow(() =>
+    validateAction({ action: "scroll", target: "bottom", container: ".pane" }),
+  );
+  assert.throws(
+    () => validateAction({ action: "scroll", target: "bottom", container: 5 }),
     (err) => isRecordableError(err) && err.code === "CONFIG_INVALID",
   );
 });

@@ -1,4 +1,4 @@
-import { type Page } from "puppeteer";
+import { type ElementHandle, type Page } from "puppeteer";
 import { isPositionValue, resolveTarget } from "../targets.js";
 
 /** Coordinates in viewport pixels. */
@@ -7,10 +7,28 @@ export interface Point {
   y: number;
 }
 
-/** Resolve a target and wait for the element to exist in the DOM, then return its handle. */
+/** Resolve a target and wait for the element to be *visible* in any frame, then
+ *  return its handle.
+ *
+ *  Two reasons this is more than a bare `page.locator(...).waitHandle()`:
+ *  - Visibility (not mere existence): callers immediately read `boundingBox()`
+ *    to click/scroll, but Puppeteer's default locator resolves the instant the
+ *    node enters the DOM (`waitForSelector(..., {visible:false})`) — so an
+ *    element inserted-but-not-yet-laid-out yields a null box. `setVisibility`
+ *    makes it wait for a real layout box.
+ *  - Frames: modal dialogs (e.g. APEX `apex.navigation.dialog`) render their
+ *    content in an `<iframe>`. The top frame can hold a hidden placeholder with
+ *    the same id, so we race every frame and take the first *visible* match.
+ *    An iframe element's `boundingBox()` is reported in main-frame coordinates,
+ *    so the coordinate-based click still lands correctly. */
 export async function getHandle(page: Page, target: string) {
+  const selector = resolveTarget(target);
   try {
-    return await page.locator(resolveTarget(target)).waitHandle();
+    return await Promise.any(
+      page
+        .frames()
+        .map((f) => f.locator(selector).setVisibility("visible").waitHandle()),
+    );
   } catch {
     throw new Error(`Could not find target: "${target}"`);
   }
@@ -68,17 +86,26 @@ export async function originToCoords(
   }, origin);
 }
 
-/** Animate the page's scroll position to `targetY` over `duration` ms with an ease curve. */
+/**
+ * Animate a scroller's vertical position to `targetTop` over `duration` ms with an
+ * ease curve. `container` null scrolls the window; a handle scrolls that element's
+ * `scrollTop`. The target is clamped to the scroller's range.
+ */
 export async function smoothScroll(
   page: Page,
-  targetY: number,
+  targetTop: number,
   duration: number,
+  container: ElementHandle<Element> | null = null,
 ): Promise<void> {
   await page.evaluate(
-    ({ targetY, duration }) => {
+    (el, { targetTop, duration }) => {
       return new Promise<void>((resolve) => {
-        const startY = window.scrollY;
-        const dist = targetY - startY;
+        const max = el
+          ? el.scrollHeight - el.clientHeight
+          : document.documentElement.scrollHeight - window.innerHeight;
+        const end = Math.max(0, Math.min(targetTop, max));
+        const startY = el ? el.scrollTop : window.scrollY;
+        const dist = end - startY;
         const frames = Math.ceil(duration / 16);
         let i = 0;
         const id = setInterval(() => {
@@ -86,7 +113,9 @@ export async function smoothScroll(
           const p = Math.min(i / frames, 1);
           const e =
             p < 0.5 ? 4 * p * p * p : (p - 1) * (2 * p - 2) * (2 * p - 2) + 1;
-          window.scrollTo(0, startY + dist * e);
+          const y = startY + dist * e;
+          if (el) el.scrollTop = y;
+          else window.scrollTo(0, y);
           if (p >= 1) {
             clearInterval(id);
             resolve();
@@ -94,37 +123,58 @@ export async function smoothScroll(
         }, 16);
       });
     },
-    { targetY, duration },
+    container,
+    { targetTop, duration },
   );
 }
 
 /**
- * Smooth-scroll to an element or position:
- * - `"top"` / `"bottom"` → page extremes
- * - number → absolute Y pixel position
- * - CSS selector or `text:` prefix → element centred in the viewport
+ * Smooth-scroll to an element or position. Without `container` the window scrolls;
+ * with one, `target` is resolved against that scroll container instead:
+ * - `"top"` / `"bottom"` → scroller extremes
+ * - number → absolute scrollTop (px)
+ * - CSS selector or `text:` prefix → element centred within the scroller
  */
 export async function smoothScrollToTarget(
   page: Page,
   target: string | number,
   duration: number,
+  container?: string,
 ): Promise<void> {
-  if (typeof target === "number") return smoothScroll(page, target, duration);
-  if (target === "top") return smoothScroll(page, 0, duration);
+  const scroller = container ? await getHandle(page, container) : null;
+
+  if (typeof target === "number")
+    return smoothScroll(page, target, duration, scroller);
+  if (target === "top") return smoothScroll(page, 0, duration, scroller);
   if (target === "bottom") {
-    const bottom = await page.evaluate(() => document.body.scrollHeight);
-    return smoothScroll(page, bottom, duration);
+    const bottom = await page.evaluate(
+      (el) => (el ? el.scrollHeight : document.body.scrollHeight),
+      scroller,
+    );
+    return smoothScroll(page, bottom, duration, scroller);
   }
+
   const handle = await getHandle(page, target);
-  const y = await page.evaluate(
-    (el, vh) => {
+  const top = await page.evaluate(
+    (el, scrollEl, vh) => {
       const rect = el.getBoundingClientRect();
+      if (scrollEl) {
+        // Centre the child within the container's visible area.
+        const box = scrollEl.getBoundingClientRect();
+        return (
+          scrollEl.scrollTop +
+          (rect.top - box.top) +
+          rect.height / 2 -
+          scrollEl.clientHeight / 2
+        );
+      }
       return window.scrollY + rect.top + rect.height / 2 - vh / 2;
     },
     handle,
+    scroller,
     page.viewport()?.height ?? 900,
   );
-  return smoothScroll(page, y, duration);
+  return smoothScroll(page, top, duration, scroller);
 }
 
 /**

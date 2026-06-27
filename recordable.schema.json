@@ -677,6 +677,9 @@
                   }
                 ]
               },
+              "container": {
+                "type": "string"
+              },
               "duration": {
                 "type": "number"
               }

@@ -69,6 +69,7 @@ const ACTIONS = {
   // Scrolling / zoom
   scroll: z.strictObject({
     target: z.union([z.string(), z.number()]),
+    container: z.string().optional(),
     duration: z.number().optional(),
   }),
   zoom: z.strictObject({

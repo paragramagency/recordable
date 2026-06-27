@@ -265,15 +265,17 @@ export class Runtime {
   async scroll(
     page: Page,
     target: string | number,
-    options: { duration?: number } = {},
+    options: { container?: string; duration?: number } = {},
   ): Promise<void> {
     this.log("Scroll", String(target));
     if (typeof target === "string" && target !== "top" && target !== "bottom")
       await this.checkAmbiguous(page, target);
+    if (options.container) await this.checkAmbiguous(page, options.container);
     await smoothScrollToTarget(
       page,
       target,
       options.duration ?? this.getCfg().scrollDuration,
+      options.container,
     );
   }
 
