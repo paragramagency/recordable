@@ -1,9 +1,19 @@
 import { type Page } from "puppeteer";
 import { sleep } from "../utils.js";
-import { cursorMoveMs, PRESS_DOWN_MS, PRESS_SETTLE_MS } from "../timing.js";
+import {
+  cursorMoveMs,
+  PRESS_DOWN_MS,
+  PRESS_SETTLE_MS,
+  PRESS_TRANSITION_MS,
+} from "../timing.js";
 
 const CURSOR_ID = "__recordable_cursor__";
 const CURSOR_STYLE_ID = "__recordable_cursor_style__";
+
+/** Press-dip scale — presentation only. */
+const CURSOR_PRESS_SCALE = 0.88;
+/** Base move transition (ms) — presentation only. */
+const CURSOR_MOVE_TRANSITION_MS = 150;
 
 /** The page's current zoom transform, needed to position the overlay correctly. */
 export interface ZoomState {
@@ -61,7 +71,7 @@ export class Cursor {
 
     const { cx, cy } = await this._toDocCoords(page, this.pos.x, this.pos.y, zoom);
     await page.evaluate(
-      ({ id, styleId, cx, cy }) => {
+      ({ id, styleId, cx, cy, moveMs, pressScale, pressMs }) => {
         // Note: we intentionally do NOT hide the native pointer. The screencast
         // doesn't capture the OS cursor, so it never reaches the video; hiding it
         // only blanked the real pointer in the live headful window (incl. during
@@ -77,12 +87,12 @@ export class Cursor {
               z-index: 2147483647;
               pointer-events: none;
               will-change: transform;
-              transition: transform 0.15s;
+              transition: transform ${moveMs}ms;
               filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
             }
             #${id}.pressing {
-              transform: var(--recordable-pos) scale(0.88) !important;
-              transition: transform 0.08s !important;
+              transform: var(--recordable-pos) scale(${pressScale}) !important;
+              transition: transform ${pressMs}ms !important;
             }
           `;
           document.head.appendChild(style);
@@ -104,7 +114,15 @@ export class Cursor {
         cursor.style.setProperty("--recordable-pos", `translate(${cx}px, ${cy}px)`);
         cursor.style.transform = `translate(${cx}px, ${cy}px)`;
       },
-      { id: CURSOR_ID, styleId: CURSOR_STYLE_ID, cx, cy },
+      {
+        id: CURSOR_ID,
+        styleId: CURSOR_STYLE_ID,
+        cx,
+        cy,
+        moveMs: CURSOR_MOVE_TRANSITION_MS,
+        pressScale: CURSOR_PRESS_SCALE,
+        pressMs: PRESS_TRANSITION_MS,
+      },
     );
     await page.mouse.move(this.pos.x, this.pos.y);
   }

@@ -15,6 +15,8 @@ import { getDuration } from "./ffmpeg.js";
 export const PRESS_DOWN_MS = 120;
 /** …then settle back. clickEffect spends their sum. */
 export const PRESS_SETTLE_MS = 60;
+/** CSS dip transition — intentionally shorter than PRESS_DOWN_MS so the dip fully renders before the class is removed. */
+export const PRESS_TRANSITION_MS = 80;
 /** Total clickEffect cost. */
 const CLICK_PRESS_MS = PRESS_DOWN_MS + PRESS_SETTLE_MS;
 
