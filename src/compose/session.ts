@@ -58,6 +58,7 @@ export class Session {
         headless: cfg.headless,
         args: [
           `--window-size=${cfg.viewport.width},${cfg.viewport.height}`,
+          ...(cfg.language ? [`--lang=${cfg.language}`] : []),
           ...cfg.launchArgs,
         ],
       });
@@ -72,6 +73,11 @@ export class Session {
 
     const page = await this.browser.newPage();
     await page.setViewport({ ...cfg.viewport, deviceScaleFactor: 1 });
+    // Content-negotiation header, paired with the `--lang` launch flag above.
+    // Persists across navigations for the life of the page.
+    if (cfg.language) {
+      await page.setExtraHTTPHeaders({ "Accept-Language": cfg.language });
+    }
 
     // A navigation wipes the in-page cursor overlay and any zoom transform.
     // Re-inject (at the carried position) and reset zoom on every main-frame nav,

@@ -281,6 +281,7 @@ new Recordable({
   outputName: "recordable",
   outputTimestamp: true, // prepend an ISO timestamp to the filename
   headless: false,
+  language: "", // BCP-47 locale, e.g. "fr-FR" (--lang + Accept-Language); "" = system
   typingSpeed: 7, // characters per second
   videoCrf: 18, // lower = better quality, larger file
   videoCodec: "libx264",
