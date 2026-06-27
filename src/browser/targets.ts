@@ -37,8 +37,11 @@ export function parseOptionSpec(
   return null;
 }
 
+// One/two CSS position keywords or percentages. Non-global: `.test` is reused.
+const POSITION_VALUE =
+  /^(top|bottom|left|right|center|\d+%)(\s+(top|bottom|left|right|center|\d+%))?$/i;
+
 /** Returns true if the string is a CSS position keyword or percentage. */
 export function isPositionValue(value: string): boolean {
-  const token = "(top|bottom|left|right|center|\\d+%)";
-  return new RegExp(`^${token}(\\s+${token})?$`, "i").test(value.trim());
+  return POSITION_VALUE.test(value.trim());
 }

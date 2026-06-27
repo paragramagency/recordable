@@ -43,28 +43,37 @@ function describe(label: string, issues: z.core.$ZodIssue[]): string {
   return parts.join("; ");
 }
 
-/** Validate a recording-config object (JSON `config`, frontmatter, or a caller).
- *  Returns it typed; throws {@link RecordableError} `CONFIG_INVALID` on a bad shape. */
-export function parseConfig(input: unknown): RecordableConfig {
-  const result = ConfigInputSchema.safeParse(input ?? {});
+/** safeParse against `schema`; on failure throw `CONFIG_INVALID` with a
+ *  `<prefix><label>.<path>: <message>` line per issue. Returns typed data. */
+function parseWith<T>(
+  schema: z.ZodType<T>,
+  label: string,
+  prefix: string,
+  input: unknown,
+): T {
+  const result = schema.safeParse(input ?? {});
   if (!result.success) {
     throw new RecordableError(
       "CONFIG_INVALID",
-      `Invalid config — ${describe("config", result.error.issues)}`,
+      `${prefix}${describe(label, result.error.issues)}`,
     );
   }
-  return result.data as RecordableConfig;
+  return result.data;
+}
+
+/** Validate a recording-config object (JSON `config`, frontmatter, or a caller).
+ *  Returns it typed; throws {@link RecordableError} `CONFIG_INVALID` on a bad shape. */
+export function parseConfig(input: unknown): RecordableConfig {
+  return parseWith(
+    ConfigInputSchema,
+    "config",
+    "Invalid config — ",
+    input,
+  ) as RecordableConfig;
 }
 
 /** Validate a `voiceover` frontmatter block. Returns it typed; throws
  *  {@link RecordableError} `CONFIG_INVALID` on a bad shape. */
 export function parseVoiceover(input: unknown): VoiceoverConfig {
-  const result = VoiceoverSchema.safeParse(input ?? {});
-  if (!result.success) {
-    throw new RecordableError(
-      "CONFIG_INVALID",
-      `Invalid voiceover config — ${describe("voiceover", result.error.issues)}`,
-    );
-  }
-  return result.data;
+  return parseWith(VoiceoverSchema, "voiceover", "Invalid voiceover config — ", input);
 }

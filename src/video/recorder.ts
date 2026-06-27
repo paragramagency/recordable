@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { type Page, type CDPSession } from "puppeteer";
-import { FFMPEG_PATH, getDuration, runFfmpeg } from "../ffmpeg.js";
+import { FFMPEG_PATH, getDuration, runFfmpeg, videoEncodeArgs } from "../ffmpeg.js";
 import { RecordableError } from "../errors.js";
 import { type Logger } from "../logger.js";
 import { type InsertOptions, type ResolvedConfig } from "../config.js";
@@ -127,12 +127,7 @@ export class Recorder {
         "pipe:0",
         "-r",
         String(fps),
-        "-c:v",
-        cfg.videoCodec,
-        "-preset",
-        cfg.videoPreset,
-        "-crf",
-        String(cfg.videoCrf),
+        ...videoEncodeArgs(cfg),
         "-pix_fmt",
         "yuv420p",
         "-vf",
@@ -249,12 +244,7 @@ export class Recorder {
       "-vf",
       `scale=${width}:${height}:force_original_aspect_ratio=decrease,` +
         `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${cfg.fps}`,
-      "-c:v",
-      cfg.videoCodec,
-      "-preset",
-      cfg.videoPreset,
-      "-crf",
-      String(cfg.videoCrf),
+      ...videoEncodeArgs(cfg),
       "-pix_fmt",
       "yuv420p",
       file,

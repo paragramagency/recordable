@@ -19,6 +19,7 @@ import { Session, type Composition, type QueueItem } from "./session.js";
 import { buildArgs, validateAction, type Action } from "../actions.js";
 import { resolveVisitUrls, splitScript, type Script } from "../script.js";
 import { extractActions, parseMarkdown } from "../formats/markdown/parse.js";
+import { RecordableError } from "../errors.js";
 
 // ─── Compose layer: the builder ──────────────────────────────────────────────
 //
@@ -61,7 +62,10 @@ export class Recordable {
       typeof script === "string" ? JSON.parse(script) : script;
     const { config, actions } = splitScript(parsed);
     if (!Array.isArray(actions))
-      throw new Error("Script must be an array of actions, or { actions: [...] }");
+      throw new RecordableError(
+        "CONFIG_INVALID",
+        "Script must be an array of actions, or { actions: [...] }",
+      );
     this._applyContentConfig(config ?? {});
     this._loadActions(actions);
     return this;
@@ -406,11 +410,15 @@ export class Recordable {
     actions.forEach((step, i) => {
       const where = `step ${i} (${step?.action ?? "?"})`;
       if (!step || typeof step !== "object")
-        throw new Error(`${where}: not an object`);
+        throw new RecordableError("CONFIG_INVALID", `${where}: not an object`);
       try {
         validateAction(step);
       } catch (err) {
-        throw new Error(`${where}: ${(err as Error).message}`, { cause: err });
+        throw new RecordableError(
+          "CONFIG_INVALID",
+          `${where}: ${(err as Error).message}`,
+          { cause: err },
+        );
       }
       (this as unknown as Record<string, (...a: unknown[]) => unknown>)[
         step.action

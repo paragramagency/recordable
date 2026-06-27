@@ -1,5 +1,13 @@
 import { type ElementHandle, type Page } from "puppeteer";
-import { isPositionValue, resolveTarget } from "../targets.js";
+import { isPositionValue, resolveTarget } from "./targets.js";
+import { RecordableError } from "../errors.js";
+
+/** Jitter spread as a fraction of an element's dimension (±20% of each side). */
+const JITTER_FRACTION = 0.4;
+/** Frame interval in ms (≈ one 60fps frame). */
+const FRAME_MS = 16;
+/** Default viewport height (px) when the page has no viewport set. */
+const DEFAULT_VIEWPORT_HEIGHT = 900;
 
 /** Coordinates in viewport pixels. */
 export interface Point {
@@ -30,7 +38,10 @@ export async function getHandle(page: Page, target: string) {
         .map((f) => f.locator(selector).setVisibility("visible").waitHandle()),
     );
   } catch {
-    throw new Error(`Could not find target: "${target}"`);
+    throw new RecordableError(
+      "TARGET_NOT_FOUND",
+      `Could not find target: "${target}"`,
+    );
   }
 }
 
@@ -41,8 +52,13 @@ export async function getElementCenter(
 ): Promise<Point> {
   const handle = await getHandle(page, target);
   const box = await handle.boundingBox();
-  if (!box) throw new Error(`No bounding box for "${target}"`);
-  const offset = (range: number) => (Math.random() - 0.5) * range * 0.4;
+  if (!box)
+    throw new RecordableError(
+      "TARGET_NOT_FOUND",
+      `No bounding box for "${target}"`,
+    );
+  const offset = (range: number) =>
+    (Math.random() - 0.5) * range * JITTER_FRACTION;
   return {
     x: box.x + box.width / 2 + offset(box.width),
     y: box.y + box.height / 2 + offset(box.height),
@@ -106,7 +122,7 @@ export async function smoothScroll(
         const end = Math.max(0, Math.min(targetTop, max));
         const startY = el ? el.scrollTop : window.scrollY;
         const dist = end - startY;
-        const frames = Math.ceil(duration / 16);
+        const frames = Math.ceil(duration / FRAME_MS);
         let i = 0;
         const id = setInterval(() => {
           i++;
@@ -120,7 +136,7 @@ export async function smoothScroll(
             clearInterval(id);
             resolve();
           }
-        }, 16);
+        }, FRAME_MS);
       });
     },
     container,
@@ -172,7 +188,7 @@ export async function smoothScrollToTarget(
     },
     handle,
     scroller,
-    page.viewport()?.height ?? 900,
+    page.viewport()?.height ?? DEFAULT_VIEWPORT_HEIGHT,
   );
   return smoothScroll(page, top, duration, scroller);
 }

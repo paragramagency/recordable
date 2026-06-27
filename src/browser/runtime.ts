@@ -5,7 +5,7 @@ import type {
   WaitForOptions,
 } from "../config.js";
 import { sleep, truncate } from "../utils.js";
-import { resolveTarget, parseOptionSpec } from "../targets.js";
+import { resolveTarget, parseOptionSpec } from "./targets.js";
 import { RecordableError } from "../errors.js";
 import { type Logger } from "../logger.js";
 import {

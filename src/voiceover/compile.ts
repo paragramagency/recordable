@@ -1,9 +1,14 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseMarkdown, type NarrationBlock } from "../formats/markdown/parse.js";
+import {
+  parseMarkdown,
+  type Marker,
+  type NarrationBlock,
+} from "../formats/markdown/parse.js";
 import type { Action } from "../actions.js";
 import type { RecordableConfig, VoiceoverConfig } from "../config.js";
 import { truncate } from "../utils.js";
+import { RecordableError } from "../errors.js";
 import { createLogger, type Logger } from "../logger.js";
 import { actionDurationMs } from "../timing.js";
 import { cacheKey, FileCache } from "./cache.js";
@@ -13,7 +18,12 @@ import {
   DEFAULT_FORMAT,
 } from "./elevenlabs.js";
 import { MockTTSProvider } from "./mock.js";
-import { extFor, type Alignment, type TTSProvider } from "./types.js";
+import {
+  extFor,
+  type Alignment,
+  type TTSProvider,
+  type TTSResult,
+} from "./types.js";
 
 // ─── Voiceover layer: the markdown → timed-chain compiler ────────────────────
 //
@@ -98,19 +108,23 @@ function keyFor(narration: string, vo: VoiceoverConfig | undefined): string {
   });
 }
 
-/** Synthesize one paragraph (cache-first) → its `audio()` clip, a `wait`/action
- *  pair per marker, and a tail `wait` so the voiceover finishes. */
-async function compileNarration(
-  block: NarrationBlock,
-  opts: Required<Pick<CompileOptions, "provider" | "assetsDir" | "warn">> & {
-    voiceover?: VoiceoverConfig;
-    cache: FileCache;
-    cfg: RecordableConfig;
-    log: Logger;
-    providerName: string;
-  },
-): Promise<{ actions: Action[]; asset: string }> {
-  const { narration, markers } = block;
+/** Everything {@link compileNarration} and its helpers need beyond the block. */
+type NarrationOpts = Required<
+  Pick<CompileOptions, "provider" | "assetsDir" | "warn">
+> & {
+  voiceover?: VoiceoverConfig;
+  cache: FileCache;
+  cfg: RecordableConfig;
+  log: Logger;
+  providerName: string;
+};
+
+/** Synthesize one paragraph cache-first and write its audio asset to disk.
+ *  A miss is a real synthesis — for a network provider, an external API call. */
+async function synthesizeBlock(
+  narration: string,
+  opts: NarrationOpts,
+): Promise<{ result: TTSResult; asset: string }> {
   const key = keyFor(narration, opts.voiceover);
   const preview = truncate(narration);
 
@@ -118,7 +132,6 @@ async function compileNarration(
   if (result) {
     opts.log("Voice", `cache hit   "${preview}"`);
   } else {
-    // A miss means a real synthesis — for a network provider, an external API call.
     opts.log("Voice", `synthesize  "${preview}" via ${opts.providerName}`);
     result = await opts.provider.synthesize(narration, {
       format: opts.voiceover?.format,
@@ -134,52 +147,81 @@ async function compileNarration(
   const asset = join(opts.assetsDir, `${key}.${extFor(result.format)}`);
   mkdirSync(opts.assetsDir, { recursive: true });
   writeFileSync(asset, result.audio);
+  return { result, asset };
+}
 
-  const actions: Action[] = [{ action: "audio", path: asset, wait: false }];
+/** Warn that a marker can't land on its word: earlier actions in this paragraph
+ *  (their cursor travel, typing, inserts) already ran `-gap`ms past it, so this
+ *  one and everything after it lag. Point at the exact spot and say why. */
+function warnOverrun(
+  m: Marker,
+  narration: string,
+  preview: string,
+  gap: number,
+  prevOffset: number,
+  warn: (message: string) => void,
+): void {
+  const stacked = m.offset === prevOffset;
+  const cause = stacked
+    ? `it shares a spot in the narration with the action before it`
+    : `the actions before it overrun by that much`;
+  const fix = stacked
+    ? `move ${markerLabel(m.step)} to the word it actually describes, or add narration between the two`
+    : `add words before it, space the actions out, or move it into a fenced block (no audio)`;
+  warn(
+    `Voiceover timing — ${markerLabel(m.step)} can't start on ${wordAt(narration, m.offset)} ` +
+      `(paragraph "${preview}"): ${cause}, so it and the rest lag ${-gap}ms. Fix: ${fix}.`,
+  );
+}
 
+/** Turn a clip's alignment into timed actions: a `wait` before each marker so it
+ *  fires on its narrated word (warn, never retime, when it overruns), the marker
+ *  itself, then a tail `wait` so the narration finishes before the next block. */
+async function placeMarkers(
+  narration: string,
+  markers: Marker[],
+  result: TTSResult,
+  opts: NarrationOpts,
+): Promise<Action[]> {
+  const preview = truncate(narration);
   const alignment: Alignment = result.alignment ?? {
     chars: [],
     startMs: [],
     endMs: [],
   };
+  const actions: Action[] = [];
   let elapsed = 0;
   let prevOffset = -1;
   for (const m of markers) {
-    const fire = markerFireMs(
-      m.offset,
-      narration,
-      alignment,
-      result.durationMs,
-    );
+    const fire = markerFireMs(m.offset, narration, alignment, result.durationMs);
     const gap = Math.round(fire - elapsed);
     if (gap > 0) {
       actions.push({ action: "wait", ms: gap });
       elapsed += gap;
     } else if (gap < 0) {
-      // The action can't land on its word: earlier actions in this paragraph
-      // (their cursor travel, typing, inserts) already ran `-gap`ms past it, so
-      // this one and everything after it lag. Point at the exact spot and say why.
-      const stacked = m.offset === prevOffset;
-      const cause = stacked
-        ? `it shares a spot in the narration with the action before it`
-        : `the actions before it overrun by that much`;
-      const fix = stacked
-        ? `move ${markerLabel(m.step)} to the word it actually describes, or add narration between the two`
-        : `add words before it, space the actions out, or move it into a fenced block (no audio)`;
-      opts.warn(
-        `Voiceover timing — ${markerLabel(m.step)} can't start on ${wordAt(narration, m.offset)} ` +
-          `(paragraph "${preview}"): ${cause}, so it and the rest lag ${-gap}ms. Fix: ${fix}.`,
-      );
+      warnOverrun(m, narration, preview, gap, prevOffset, opts.warn);
     }
     actions.push(m.step);
     elapsed += await actionDurationMs(m.step, opts.cfg);
     prevOffset = m.offset;
   }
 
-  // Let the narration finish before the next block begins.
   const tail = Math.round(result.durationMs - elapsed);
   if (tail > 0) actions.push({ action: "wait", ms: tail });
+  return actions;
+}
 
+/** Synthesize one paragraph (cache-first) → its `audio()` clip, a `wait`/action
+ *  pair per marker, and a tail `wait` so the voiceover finishes. */
+async function compileNarration(
+  block: NarrationBlock,
+  opts: NarrationOpts,
+): Promise<{ actions: Action[]; asset: string }> {
+  const { result, asset } = await synthesizeBlock(block.narration, opts);
+  const actions: Action[] = [
+    { action: "audio", path: asset, wait: false },
+    ...(await placeMarkers(block.narration, block.markers, result, opts)),
+  ];
   return { actions, asset };
 }
 
@@ -209,7 +251,8 @@ function resolveProvider(
 ): TTSProvider {
   if (provider) return provider;
   if (!voiceover) {
-    throw new Error(
+    throw new RecordableError(
+      "CONFIG_INVALID",
       "compileMarkdown: no `voiceover` frontmatter and no `provider` — add a voiceover block or pass a provider.",
     );
   }
@@ -217,14 +260,16 @@ function resolveProvider(
 
   const hasKey = voiceover.apiKey ?? process.env.ELEVENLABS_API_KEY;
   if (!hasKey) {
-    throw new Error(
+    throw new RecordableError(
+      "CONFIG_INVALID",
       "Voiceover: ElevenLabs needs an API key — set ELEVENLABS_API_KEY (e.g. in a .env beside " +
         "the document) or `voiceover.apiKey`, or use RECORDABLE_TTS_PROVIDER=mock for silent audio.",
     );
   }
   const voiceId = voiceover.voiceId;
   if (!voiceId) {
-    throw new Error(
+    throw new RecordableError(
+      "CONFIG_INVALID",
       "Voiceover: ElevenLabs needs a voice — set RECORDABLE_VOICE_ID (e.g. in a .env beside " +
         "the document) or `voiceover.voiceId`.",
     );

@@ -5,7 +5,7 @@ import puppeteer, {
   type Page,
   type ElementHandle,
 } from "puppeteer";
-import { resolveTarget } from "../../src/targets.js";
+import { resolveTarget } from "../../src/browser/targets.js";
 import { getHandle } from "../../src/browser/dom.js";
 import { Runtime } from "../../src/browser/runtime.js";
 import { DEFAULT_CONFIG } from "../../src/config.js";

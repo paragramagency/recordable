@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { join as joinPath } from "node:path";
-import { getDuration, runFfmpeg } from "../ffmpeg.js";
+import { getDuration, runFfmpeg, videoEncodeArgs } from "../ffmpeg.js";
 import { moveFile } from "../fs.js";
 import { type Logger } from "../logger.js";
 import type { ResolvedConfig } from "../config.js";
@@ -60,16 +60,7 @@ async function join(
     await runFfmpeg([...base, "-c", "copy", out]);
     log("Record", `joined ${segments.length} segments`);
   } catch {
-    await runFfmpeg([
-      ...base,
-      "-c:v",
-      cfg.videoCodec,
-      "-preset",
-      cfg.videoPreset,
-      "-crf",
-      String(cfg.videoCrf),
-      out,
-    ]);
+    await runFfmpeg([...base, ...videoEncodeArgs(cfg), out]);
     log("Record", `joined ${segments.length} segments (re-encoded)`);
   }
 }
@@ -140,12 +131,7 @@ async function stitchWithFades(
     parts.join(";"),
     "-map",
     `[${acc}]`,
-    "-c:v",
-    cfg.videoCodec,
-    "-preset",
-    cfg.videoPreset,
-    "-crf",
-    String(cfg.videoCrf),
+    ...videoEncodeArgs(cfg),
     "-pix_fmt",
     "yuv420p",
     out,

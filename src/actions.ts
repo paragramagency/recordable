@@ -189,7 +189,8 @@ function buildArgs(step: Action, name: string): unknown[] {
 export function callToAction(name: string, args: readonly unknown[]): Action {
   const schema = (ACTIONS as Record<string, z.ZodObject>)[name];
   if (!schema) {
-    throw new Error(
+    throw new RecordableError(
+      "CONFIG_INVALID",
       `Unknown action "${name}" — valid actions: ${Object.keys(ACTIONS).join(", ")}`,
     );
   }
@@ -200,20 +201,25 @@ export function callToAction(name: string, args: readonly unknown[]): Action {
   for (const key of positionalKeys(name)) {
     if (i < args.length) step[key] = args[i++];
     else if (!isOptional(name, key))
-      throw new Error(`Action "${name}" is missing required "${key}"`);
+      throw new RecordableError(
+        "CONFIG_INVALID",
+        `Action "${name}" is missing required "${key}"`,
+      );
   }
 
   const bag = bagKeys(name);
   if (i < args.length && bag.length) {
     const obj = args[i++];
     if (typeof obj !== "object" || obj === null || Array.isArray(obj)) {
-      throw new Error(
+      throw new RecordableError(
+        "CONFIG_INVALID",
         `Action "${name}": expected a trailing options object, got ${JSON.stringify(obj)}`,
       );
     }
     for (const [k, v] of Object.entries(obj)) {
       if (!bag.includes(k)) {
-        throw new Error(
+        throw new RecordableError(
+          "CONFIG_INVALID",
           `Action "${name}": unknown key "${k}" — valid keys: ${bag.join(", ")}`,
         );
       }
@@ -222,7 +228,8 @@ export function callToAction(name: string, args: readonly unknown[]): Action {
   }
 
   if (i < args.length) {
-    throw new Error(
+    throw new RecordableError(
+      "CONFIG_INVALID",
       `Action "${name}": too many arguments (expected at most ${i}, got ${args.length})`,
     );
   }
