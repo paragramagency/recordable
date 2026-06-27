@@ -2,18 +2,61 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { resolveTarget, isPositionValue } from "../src/targets.js";
 
-// ─── resolveTarget ───────────────────────────────────────────────────────────
+// ─── resolveTarget: :text() pseudo ───────────────────────────────────────────
 
-test("resolveTarget: text: prefix maps to a Puppeteer text selector", () => {
+test("resolveTarget: bare :text() compiles to a Puppeteer text selector", () => {
+  assert.equal(resolveTarget(":text(Save)"), "::-p-text(Save)");
+  assert.equal(resolveTarget(":text(Save changes)"), "::-p-text(Save changes)");
+});
+
+test("resolveTarget: :text() composes with a scoping selector", () => {
+  assert.equal(resolveTarget("button:text(Save)"), "button::-p-text(Save)");
+  assert.equal(resolveTarget("nav a:text(Pricing)"), "nav a::-p-text(Pricing)");
+});
+
+test("resolveTarget: :text() composes with nesting and positional CSS", () => {
+  assert.equal(
+    resolveTarget("table tr:nth-child(3) td:text(Done)"),
+    "table tr:nth-child(3) td::-p-text(Done)",
+  );
+});
+
+test("resolveTarget: :text() inner whitespace kept, surrounding trimmed", () => {
+  assert.equal(
+    resolveTarget(":text(  Save changes  )"),
+    "::-p-text(Save changes)",
+  );
+});
+
+test("resolveTarget: multiple :text() occurrences each compile", () => {
+  assert.equal(
+    resolveTarget("li:text(One) ~ li:text(Two)"),
+    "li::-p-text(One) ~ li::-p-text(Two)",
+  );
+});
+
+// ─── resolveTarget: legacy text: prefix ──────────────────────────────────────
+
+test("resolveTarget: legacy text: prefix still maps to a text selector", () => {
   assert.equal(resolveTarget("text:Upload"), "::-p-text(Upload)");
-  // everything after the prefix is kept verbatim (spaces, punctuation)
   assert.equal(resolveTarget("text:Save changes"), "::-p-text(Save changes)");
 });
 
-test("resolveTarget: anything else passes through as a CSS selector", () => {
-  assert.equal(resolveTarget("#title"), "#title");
-  assert.equal(resolveTarget("button.primary"), "button.primary");
-  assert.equal(resolveTarget('input[name="a,b"]'), 'input[name="a,b"]');
+// ─── resolveTarget: plain CSS passes through untouched ────────────────────────
+
+test("resolveTarget: plain CSS passes through verbatim", () => {
+  for (const sel of [
+    "#title",
+    "button.primary",
+    'input[name="a,b"]',
+    "nav > ul li[data-active]",
+    "tr:nth-child(2) td:first-child",
+    "section:has(> h2)",
+    ":scope >>> .inside-shadow",
+    "button::-p-text(Already explicit)",
+  ]) {
+    assert.equal(resolveTarget(sel), sel, sel);
+  }
 });
 
 // ─── isPositionValue ─────────────────────────────────────────────────────────

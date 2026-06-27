@@ -92,6 +92,7 @@ export class Runtime {
   ): Promise<void> {
     const { state = "visible", timeout = this.getCfg().visitTimeout } = options;
     this.log("WaitFor", `${target} (${state})`);
+    await this.checkAmbiguous(page, target);
     await page.waitForSelector(resolveTarget(target), {
       timeout,
       visible: state === "visible",
@@ -108,11 +109,13 @@ export class Runtime {
     options: ClickOptions = {},
   ): Promise<void> {
     this.log("Click", target);
+    await this.checkAmbiguous(page, target);
     await this._click(page, target, options);
   }
 
   async hover(page: Page, target: string): Promise<void> {
     this.log("Hover", target);
+    await this.checkAmbiguous(page, target);
     if (this.getCfg().autoScroll) await this._scrollIntoView(page, target);
     const { x, y } = await getElementCenter(page, target);
     await this._moveTo(page, x, y);
@@ -125,6 +128,7 @@ export class Runtime {
     options: { duration?: number } = {},
   ): Promise<void> {
     this.log("Type", `${target}  "${truncate(text)}"`);
+    await this.checkAmbiguous(page, target);
     await this._click(page, target);
     const total =
       options.duration ?? typingDuration(text, this.getCfg().typingSpeed);
@@ -140,6 +144,7 @@ export class Runtime {
 
   async clear(page: Page, target: string): Promise<void> {
     this.log("Clear", target);
+    await this.checkAmbiguous(page, target);
     await this._click(page, target);
     const mod = process.platform === "darwin" ? "Meta" : "Control";
     await page.keyboard.down(mod);
@@ -150,6 +155,7 @@ export class Runtime {
 
   async select(page: Page, target: string, value: string): Promise<void> {
     this.log("Select", `${target}  ${value}`);
+    await this.checkAmbiguous(page, target);
     if (this.getCfg().autoScroll) await this._scrollIntoView(page, target);
     const { x, y } = await getElementCenter(page, target);
     if (this.getCfg().cursor) {
@@ -169,6 +175,7 @@ export class Runtime {
     page: Page,
     target: string | { x: number; y: number },
   ): Promise<void> {
+    if (typeof target === "string") await this.checkAmbiguous(page, target);
     const { x, y } =
       typeof target === "string"
         ? await getElementCenter(page, target)
@@ -185,6 +192,8 @@ export class Runtime {
     options: { duration?: number } = {},
   ): Promise<void> {
     this.log("Scroll", String(target));
+    if (typeof target === "string" && target !== "top" && target !== "bottom")
+      await this.checkAmbiguous(page, target);
     await smoothScrollToTarget(
       page,
       target,
@@ -305,6 +314,23 @@ export class Runtime {
   private _scrollIntoView(page: Page, target: string): Promise<void> {
     const cfg = this.getCfg();
     return scrollIntoView(page, target, cfg.scrollMargin, cfg.scrollSpeed);
+  }
+
+  /** Fragile-selector lint: warn (once) when a target resolves to more than one
+   *  element, then act on the first. Best-effort — it does not wait for the
+   *  element, so it stays silent if the matches haven't rendered yet, and never
+   *  throws (a genuine miss surfaces later at getHandle). */
+  private async checkAmbiguous(page: Page, target: string): Promise<void> {
+    try {
+      const matches = await page.$$(resolveTarget(target));
+      if (matches.length > 1)
+        this.log.warn(
+          `"${target}" matched ${matches.length} elements; using the first`,
+        );
+      await Promise.all(matches.map((m) => m.dispose()));
+    } catch {
+      // ignore: resolution failures are reported where the element is fetched
+    }
   }
 
   // ─── Resume gate (▶ Play button) ─────────────────────────────────────────────
