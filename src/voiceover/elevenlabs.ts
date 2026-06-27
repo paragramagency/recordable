@@ -24,6 +24,76 @@ export interface ElevenLabsOptions extends VoiceoverConfig {
   voiceId: string;
 }
 
+// ─── SDK shape (minimal) + guards ────────────────────────────────────────────
+//
+// The SDK is loaded as `unknown` (optional dep, version drift). These guards
+// narrow it explicitly and throw a clear TTS_FAILED on an unexpected shape,
+// rather than casting blindly and crashing somewhere downstream.
+
+/** The slice of the client we actually call. */
+interface ElevenLabsClient {
+  textToSpeech: {
+    convertWithTimestamps(
+      voiceId: string,
+      body: {
+        text: string;
+        modelId: string;
+        voiceSettings?: Record<string, number>;
+        outputFormat: string;
+      },
+    ): Promise<unknown>;
+  };
+}
+type ElevenLabsClientCtor = new (opts: { apiKey: string }) => ElevenLabsClient;
+
+/** Read a property off an unknown value, or undefined if it isn't an object. */
+function prop(obj: unknown, key: string): unknown {
+  return typeof obj === "object" && obj !== null
+    ? (obj as Record<string, unknown>)[key]
+    : undefined;
+}
+
+/** Resolve the client constructor across SDK layouts. */
+function resolveClientCtor(mod: unknown): ElevenLabsClientCtor {
+  const candidate =
+    prop(mod, "ElevenLabsClient") ?? // named export (current ESM)
+    prop(prop(mod, "default"), "ElevenLabsClient") ?? // default-wrapped (CJS interop)
+    prop(mod, "default"); // bare default export
+  if (typeof candidate !== "function") {
+    throw new RecordableError(
+      "TTS_FAILED",
+      `ElevenLabs: "${PACKAGE}" has no usable ElevenLabsClient export — ` +
+        `its API may have changed; check the installed version`,
+    );
+  }
+  return candidate as ElevenLabsClientCtor;
+}
+
+/** Pull audio + optional alignment out of a synthesis response, unwrapping SDK
+ *  drift. Throws if no usable audio is present. */
+function extractSynthesis(res: unknown): {
+  audioBase64: string;
+  alignment?: ElevenLabsAlignment;
+} {
+  // Response is the object directly in current SDKs, `.data`-wrapped in older.
+  const data = prop(res, "data") ?? res;
+  // Audio field is `audioBase64` (camelCase SDK) / `audio_base64` (raw REST).
+  const audioBase64 =
+    prop(data, "audioBase64") ?? prop(data, "audio_base64") ?? prop(data, "audio");
+  if (typeof audioBase64 !== "string") {
+    throw new RecordableError(
+      "TTS_FAILED",
+      "ElevenLabs returned no audio in its response",
+    );
+  }
+  const rawAlignment = prop(data, "alignment");
+  const alignment =
+    typeof rawAlignment === "object" && rawAlignment !== null
+      ? (rawAlignment as ElevenLabsAlignment)
+      : undefined;
+  return { audioBase64, alignment };
+}
+
 export class ElevenLabsProvider implements TTSProvider {
   constructor(private readonly cfg: ElevenLabsOptions) {}
 
@@ -44,7 +114,7 @@ export class ElevenLabsProvider implements TTSProvider {
 
     // Non-literal specifier so tsc doesn't try to resolve the optional dep; it's
     // present only when the voiceover add-on path is actually used.
-    let mod: any;
+    let mod: unknown;
     try {
       mod = await import(PACKAGE);
     } catch {
@@ -55,11 +125,10 @@ export class ElevenLabsProvider implements TTSProvider {
       );
     }
 
-    const ElevenLabsClient =
-      mod.ElevenLabsClient ?? mod.default?.ElevenLabsClient ?? mod.default;
+    const ElevenLabsClient = resolveClientCtor(mod);
     const client = new ElevenLabsClient({ apiKey });
 
-    let res: any;
+    let res: unknown;
     try {
       res = await client.textToSpeech.convertWithTimestamps(this.cfg.voiceId, {
         text,
@@ -75,18 +144,10 @@ export class ElevenLabsProvider implements TTSProvider {
       );
     }
 
-    // Response is the object directly in current SDKs, `.data`-wrapped in older.
-    // Audio field is `audioBase64` (camelCase SDK) / `audio_base64` (raw REST).
-    const data = res?.data ?? res;
-    const audioBase64 = data.audioBase64 ?? data.audio_base64 ?? data.audio;
-    if (!audioBase64)
-      throw new RecordableError(
-        "TTS_FAILED",
-        "ElevenLabs returned no audio in its response",
-      );
-    const audio = Buffer.from(audioBase64 as string, "base64");
-    const alignment = data.alignment
-      ? normalizeAlignment(data.alignment as ElevenLabsAlignment)
+    const { audioBase64, alignment: rawAlignment } = extractSynthesis(res);
+    const audio = Buffer.from(audioBase64, "base64");
+    const alignment = rawAlignment
+      ? normalizeAlignment(rawAlignment)
       : undefined;
     const durationMs = alignment ? alignmentDurationMs(alignment) : 0;
 
