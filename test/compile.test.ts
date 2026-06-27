@@ -5,11 +5,23 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { compileMarkdown } from "../src/voiceover/compile.js";
 import { MockTTSProvider } from "../src/voiceover/mock.js";
+import type { SynthOptions, TTSResult } from "../src/voiceover/types.js";
 import { getDuration, runFfmpeg } from "../src/ffmpeg.js";
 import { gestureLeadMs, typingDuration } from "../src/timing.js";
 
 // 100ms/char keeps the alignment maths legible in assertions.
 const provider = new MockTTSProvider({ msPerChar: 100 });
+
+// Captures every string handed to the TTS provider, so a test can assert what
+// did (and didn't) reach synthesis — `synthesize`'s `text` is exactly the
+// narration destined for the voice.
+class RecordingProvider extends MockTTSProvider {
+  readonly synthesized: string[] = [];
+  async synthesize(text: string, opts?: SynthOptions): Promise<TTSResult> {
+    this.synthesized.push(text);
+    return super.synthesize(text, opts);
+  }
+}
 
 function freshDir(): string {
   return mkdtempSync(join(tmpdir(), "rc-compile-"));
@@ -122,6 +134,42 @@ test("compileMarkdown: an overlaid insert eats its length from the next wait", a
     { action: "click", target: "text:Go" },
     { action: "wait", ms: 2100 - (600 + lead) },
   ]);
+});
+
+test("compileMarkdown: a `//` comment never reaches the TTS provider", async () => {
+  // The note sits between two prose lines of one paragraph and on its own line
+  // between paragraphs. Neither form should be synthesized, and the surviving
+  // narration must be exactly the prose — no comment text, no stray blank clip.
+  const rec = new RecordingProvider({ msPerChar: 100 });
+  const md = [
+    "---",
+    "voiceover: { provider: mock, voiceId: v1 }",
+    "---",
+    "Welcome to the app.",
+    "// TODO: re-record this line before launch",
+    "It marks instantly.",
+    "",
+    "// a whole-paragraph note — secret-token-do-not-speak",
+    "",
+    "Then you export.",
+  ].join("\n");
+
+  const { assets } = await compileMarkdown(md, {
+    provider: rec,
+    assetsDir: freshDir(),
+  });
+
+  // Two prose paragraphs synthesize; the lone comment line is not a third.
+  assert.deepEqual(rec.synthesized, [
+    "Welcome to the app. It marks instantly.",
+    "Then you export.",
+  ]);
+  assert.equal(assets.length, 2);
+  // Belt-and-braces: no comment fragment leaked into any synthesized text.
+  assert.ok(
+    !rec.synthesized.some((t) => /\/\/|TODO|secret-token/.test(t)),
+    "no comment text reached the voice",
+  );
 });
 
 test("compileMarkdown: an action overrunning its word warns, doesn't retime", async () => {
