@@ -25,6 +25,7 @@ node dist/cli.js demos/07-md-voiceover/demo.md --check            # validate onl
 node dist/cli.js demos/08-showcase/demo.md       # narrated full walkthrough + branded intro/outro
 npx tsx demos/08-showcase/demo.ts                # same, programmatically
 node dist/cli.js demos/09-md-actions/demo.md       # markdown, no voiceover — a single fenced action list
+npx tsx demos/10-page-zoom/demo.ts        # pageZoom: 0.7 — watch the cursor still land on every target
 ```
 
 All demos drive the shared `site/` mockup; the column notes which slice each uses.
@@ -41,6 +42,7 @@ All demos drive the shared `site/` mockup; the column notes which slice each use
 | 7 | `07-md-voiceover`   | new-shipment form → label       | the **Markdown** surface — `demo.md`: prose + inline markers → voiceover audio + computed waits, run straight through the CLI |
 | 8 | `08-showcase`       | full flow (sign in → track)     | the **finished-product** demo — a narrated `demo.md` walkthrough (sign in · new shipment · generate label · mark shipped · track) with branded `intro.mp4`/`outro.mp4` cards baked by `make-cards.mjs` and spliced in |
 | 9 | `09-md-actions`       | new-shipment form → label       | **Markdown without voiceover** — a single fenced action list (one call per line), no prose. Compiles through the core parser to a plain chain (same IR as JSON), records offline with zero TTS |
+| 10 | `10-page-zoom`     | new-shipment form               | the **`pageZoom`** config — page reflowed smaller (`pageZoom: 0.7`); a cursor-alignment manual test sweeping spread targets, also combined with a transform `zoom()` |
 
 ### Kitchen-sink reference (`00-kitchen-sink`)
 
