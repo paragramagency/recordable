@@ -60,7 +60,12 @@ export class Session {
         headless: cfg.headless,
         args: [
           `--window-size=${cfg.viewport.width},${cfg.viewport.height}`,
-          ...(cfg.language ? [`--lang=${cfg.language}`] : []),
+          // --lang sets the Chromium UI language; --accept-lang is what actually
+          // drives navigator.language / navigator.languages (--lang alone leaves
+          // them at the system locale, notably headless).
+          ...(cfg.language
+            ? [`--lang=${cfg.language}`, `--accept-lang=${cfg.language}`]
+            : []),
           ...cfg.launchArgs,
         ],
       });

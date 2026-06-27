@@ -36,9 +36,10 @@ export const ConfigSchema = z.strictObject({
    *  for CI / containers / sandboxed environments. Default: [] */
   launchArgs: z.array(z.string()).default([]),
   /** Browser locale as a BCP-47 tag, e.g. `"fr-FR"`. Sets the Chromium UI
-   *  language / `navigator.language` (`--lang`) and the `Accept-Language` request
-   *  header, so pages render and content-negotiate in this locale. Default: ""
-   *  → no override (use the system locale). */
+   *  language (`--lang`), `navigator.language` / `navigator.languages`
+   *  (`--accept-lang`), and the `Accept-Language` request header, so pages render
+   *  and content-negotiate in this locale. Default: "" → no override (use the
+   *  system locale). */
   language: z.string().default(""),
   /** Typing speed in characters per second. Higher = faster. Default: 7 */
   typingSpeed: z.number().default(7),
