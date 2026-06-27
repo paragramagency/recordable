@@ -272,6 +272,44 @@ test("select by :option-index(N) is 1-based", async () => {
   );
 });
 
+// ─── select reaches a <select> inside an iframe (dialog), not a same-id decoy ──
+//
+// Dialogs render in an <iframe>; the top frame can hold a hidden placeholder with
+// the same id. select() must act on the *visible* control in the iframe (via the
+// frame-aware getHandle), never the main-frame decoy — page.select/$eval would.
+
+const IFRAME_FIXTURE = `<!doctype html><meta charset="utf-8"><body>
+  <select id="svc" style="display:none"><option value="decoy">Decoy</option></select>
+  <iframe id="dlg" style="width:400px;height:200px" srcdoc='
+    <!doctype html><meta charset=utf-8><body>
+    <select id="svc">
+      <option value="standard">Standard</option>
+      <option value="express">Express</option>
+      <option value="overnight">Overnight</option>
+    </select></body>'></iframe>
+</body>`;
+
+const dialogValue = async () => {
+  const frame = await (await page.$("#dlg"))!.contentFrame();
+  return frame!.$eval("#svc", (el) => (el as HTMLSelectElement).value);
+};
+const decoyValue = () =>
+  page.$eval("#svc", (el) => (el as HTMLSelectElement).value);
+
+for (const [name, value, want] of [
+  ["literal value", "express", "express"],
+  [":option-index(N)", ":option-index(3)", "overnight"],
+  [":option-label(...)", ":option-label(Express)", "express"],
+] as const) {
+  test(`select by ${name} targets the iframe's <select>, not the decoy`, async () => {
+    await page.setContent(IFRAME_FIXTURE, { waitUntil: "networkidle0" });
+    const { runtime } = mkRuntime();
+    await runtime.select(page, "#svc", value);
+    assert.equal(await dialogValue(), want, "iframe <select> should change");
+    assert.equal(await decoyValue(), "decoy", "main-frame decoy must be untouched");
+  });
+}
+
 test("waitFor resolves once a deferred element appears", async () => {
   const { runtime } = mkRuntime();
   await runtime.click(page, "#reveal");

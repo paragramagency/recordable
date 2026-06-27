@@ -1,4 +1,4 @@
-import { type Page, type GoToOptions } from "puppeteer";
+import { type Page, type GoToOptions, type ElementHandle } from "puppeteer";
 import type {
   ClickOptions,
   ResolvedConfig,
@@ -10,6 +10,7 @@ import { RecordableError } from "../errors.js";
 import { type Logger } from "../logger.js";
 import {
   getElementCenter,
+  getHandle,
   originToCoords,
   scrollIntoView,
   smoothScrollToTarget,
@@ -209,25 +210,29 @@ export class Runtime {
       await sleep(jitter(PRE_CLICK_MS));
       await this.cursor.clickEffect(page);
     }
-    await page.select(resolveTarget(target), await this._optionValue(page, target, value));
+    // Resolve the handle through getHandle (frame-aware) and act on it directly —
+    // page.select() / page.$eval() only see the main frame, so a <select> inside
+    // an iframe (e.g. a dialog) would miss it or hit a same-id placeholder.
+    const el = await getHandle(page, target);
+    await el.select(await this._optionValue(el, target, value));
   }
 
   // Map a select value-spec to the concrete option `value` Puppeteer expects.
   // Literal values pass through; `:option-index/-label(...)` read the live
-  // `<select>` (no native pseudo exists for them).
-  private async _optionValue(page: Page, target: string, value: string): Promise<string> {
+  // `<select>` via the element's own frame.
+  private async _optionValue(
+    el: ElementHandle<Element>,
+    target: string,
+    value: string,
+  ): Promise<string> {
     const spec = parseOptionSpec(value);
     if (!spec) return value;
-    const resolved = await page.$eval(
-      resolveTarget(target),
-      (el, spec) => {
-        const opts = [...(el as HTMLSelectElement).options];
-        const hit =
-          "index" in spec ? opts[spec.index - 1] : opts.find((o) => o.textContent?.trim() === spec.label);
-        return hit?.value;
-      },
-      spec,
-    );
+    const resolved = await el.evaluate((node, spec) => {
+      const opts = [...(node as HTMLSelectElement).options];
+      const hit =
+        "index" in spec ? opts[spec.index - 1] : opts.find((o) => o.textContent?.trim() === spec.label);
+      return hit?.value;
+    }, spec);
     if (resolved == null) {
       throw new RecordableError(
         "CONFIG_INVALID",
