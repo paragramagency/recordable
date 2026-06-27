@@ -24,7 +24,6 @@ await new Recordable({
   viewport: { width: 1280, height: 800 },
   outputDir: fileURLToPath(new URL("./output", import.meta.url)),
   outputName: "demo-11-page-zoom",
-  outputTimestamp: false,
 })
   .pause() // skip the initial load
   .visit(newShipment)

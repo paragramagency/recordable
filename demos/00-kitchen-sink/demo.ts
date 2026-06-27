@@ -18,7 +18,7 @@ await new Recordable({
 
   // ── Browser / capture ──
   viewport: { width: 1920, height: 1080 }, // window + recording size. Default: 1920×1080
-  pageZoom: 1, //                  CSS page zoom (Ctrl +/−); <1 fits more on screen. Default: 1
+  pageZoom: 1, //                  browser page zoom (Ctrl +/−); <1 fits more on screen. Default: 1
   fps: 30, //                      recording frame rate. Default: 30
   headless: false, //              run with no visible window. Default: false
   visitTimeout: 30_000, //         navigation timeout (ms). Default: 30000

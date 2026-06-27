@@ -10,6 +10,7 @@ import { stitch } from "../video/stitch.js";
 import { type AudioTrack } from "../audio/track.js";
 import { addAudio } from "./mix.js";
 import { type Runtime } from "../browser/runtime.js";
+import { createZoomExtension, type ZoomExtension } from "../browser/page-zoom.js";
 
 // ─── Compose layer: the session ──────────────────────────────────────────────
 //
@@ -41,6 +42,7 @@ export interface Composition {
 
 export class Session {
   private browser: Browser | null = null;
+  private zoomExt: ZoomExtension | null = null;
   private outputPath = "";
   private finalised = false;
 
@@ -55,11 +57,16 @@ export class Session {
     recorder.init();
 
     const cfg = this.comp.cfg;
+    // Browser page zoom (Ctrl +/−) ships as a bundled extension — the only
+    // mechanism that reflows the painted window without splitting click coords
+    // (see browser/page-zoom.ts). Needs a visible/extension-capable browser.
+    if (cfg.pageZoom !== 1) this.zoomExt = createZoomExtension(cfg.pageZoom);
     try {
       this.browser = await puppeteer.launch({
         headless: cfg.headless,
         args: [
           `--window-size=${cfg.viewport.width},${cfg.viewport.height}`,
+          ...(this.zoomExt?.args ?? []),
           // --lang sets the Chromium UI language; --accept-lang is what actually
           // drives navigator.language / navigator.languages (--lang alone leaves
           // them at the system locale, notably headless).
@@ -129,14 +136,8 @@ export class Session {
     cfg: ResolvedConfig,
   ): Promise<void> {
     await page.setViewport({ ...cfg.viewport, deviceScaleFactor: 1 });
-    // Browser-level page zoom (Ctrl +/−). Set on documentElement before each
-    // document renders so it reflows the layout — `<1` fits more on screen. Runs
-    // on every navigation (and each new tab), so it survives nav without re-arming.
-    if (cfg.pageZoom !== 1) {
-      await page.evaluateOnNewDocument((z) => {
-        document.documentElement.style.zoom = String(z);
-      }, cfg.pageZoom);
-    }
+    // pageZoom (Ctrl +/−) is applied by the bundled extension, which re-zooms
+    // every tab on create/navigate — nothing to arm per-page here.
     // Content-negotiation header, paired with the `--lang` launch flag. Persists
     // across navigations for the life of the page (and applies to each new tab too).
     if (cfg.language) {
@@ -187,6 +188,8 @@ export class Session {
       await this.browser.close().catch(() => {});
       this.browser = null;
     }
+    this.zoomExt?.cleanup();
+    this.zoomExt = null;
   }
 
   /** Seal the recording: stitch the captured/inserted segments (video layer),

@@ -154,10 +154,10 @@ export class Cursor {
    * are positioned relative to that ancestor (not the viewport) and scroll with
    * the page, so we add scroll and apply the inverse zoom transform.
    *
-   * Note: the `pageZoom` config (a static CSS `zoom` on documentElement) needs no
-   * handling here. CSS `zoom` scales the page content *and* this fixed overlay by
-   * the same factor, while Puppeteer's `boundingBox()`/`mouse` coords stay in the
-   * unzoomed layout space — so feeding the overlay those raw coords keeps it
+   * Note: the `pageZoom` config (genuine browser zoom via chrome.tabs.setZoom)
+   * needs no handling here. Page zoom rescales the CSS pixel itself, so the
+   * overlay, the content, and Puppeteer's `boundingBox()`/`mouse` coords all share
+   * one post-zoom coordinate space — feeding the overlay those raw coords keeps it
    * aligned with the target automatically.
    */
   private async _toDocCoords(

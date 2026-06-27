@@ -2,34 +2,35 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import puppeteer, { type Browser, type Page } from "puppeteer";
 import { Runtime } from "../../src/browser/runtime.js";
+import { createZoomExtension } from "../../src/browser/page-zoom.js";
 import { DEFAULT_CONFIG } from "../../src/config.js";
 import { recordingLogger } from "../helpers.js";
 
-// ─── pageZoom + cursor alignment, end to end ─────────────────────────────────
+// ─── pageZoom = genuine browser page zoom, end to end ────────────────────────
 //
-// `pageZoom` applies a CSS `zoom` to documentElement (done in session._setupPage,
-// reproduced here on the page) so the layout reflows smaller. The regression this
-// guards: the animated cursor overlay is a position:fixed child the browser scales
-// by the same zoom as the content, while Puppeteer's boundingBox()/mouse coords
-// stay in the unzoomed layout space — so the overlay must be fed those raw coords
-// (no pageZoom compensation) to keep landing on its target. Over-compensating threw
-// the cursor off by the zoom factor.
+// `pageZoom` is real Ctrl +/− zoom, applied by the bundled extension
+// (createZoomExtension → chrome.tabs.setZoom). This launches a browser exactly as
+// the session does — setViewport emulation override + the extension's launch args —
+// and asserts the two things only a live Chromium can prove:
+//   1. zoom reflows the layout (innerWidth becomes ≈ width / pageZoom — more fits),
+//   2. the animated cursor overlay AND real clicks still land on every target,
+//      because page zoom keeps one coordinate space (no compensation needed).
 //
-// Only a real Chromium exercises this: it depends on how CSS `zoom` composes with a
-// fixed overlay's transform and CDP input. Headless + --no-sandbox for CI; runs via
-// `npm run test:e2e`.
+// HEADFUL is required — extensions/page-zoom don't apply in old headless — so this
+// pops a window; it's part of the opt-in `npm run test:e2e` suite, not CI.
 
 const CURSOR_ID = "__recordable_cursor__";
+const VIEWPORT = { width: 1000, height: 700 };
+const ZOOM = 0.7;
 
-// Markers at spread *logical* positions (left/top before zoom). The far-from-origin
-// ones make a zoom-factor misalignment glaring — the bug grew with distance.
+// Markers at spread *logical* positions. The far ones make a zoom-factor
+// misalignment glaring — a wrong coordinate space grows the error with distance.
 const MARKERS = [
   { id: "m-tl", left: 40, top: 40 },
   { id: "m-tr", left: 760, top: 110 },
   { id: "m-mid", left: 320, top: 460 },
   { id: "m-br", left: 900, top: 640 },
 ];
-
 const MARK_W = 90;
 const MARK_H = 44;
 
@@ -52,48 +53,56 @@ const FIXTURE = `<!doctype html>
   ).join("\n  ")}
 </body></html>`;
 
+const zoomExt = createZoomExtension(ZOOM);
 let browser: Browser;
 let page: Page;
 
 before(async () => {
-  browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
+  browser = await puppeteer.launch({
+    headless: false, // page zoom needs a visible/extension-capable browser
+    args: [
+      `--window-size=${VIEWPORT.width},${VIEWPORT.height}`,
+      "--no-sandbox",
+      ...zoomExt.args,
+    ],
+  });
   page = await browser.newPage();
-  await page.setViewport({ width: 1000, height: 700 });
-  page.setDefaultTimeout(4000);
+  // Mirror session._setupPage: emulation override pins the recording dimensions;
+  // the extension applies the zoom on top.
+  await page.setViewport({ ...VIEWPORT, deviceScaleFactor: 1 });
+  page.setDefaultTimeout(5000);
 });
 
 after(async () => {
   await browser?.close();
+  zoomExt.cleanup();
 });
 
-beforeEach(async () => {
+// The extension re-zooms on navigation; wait until the reflow has actually landed
+// (innerWidth grown toward width / ZOOM) so assertions don't race the zoom.
+async function loadZoomed() {
   await page.setContent(FIXTURE, { waitUntil: "load" });
-});
+  await page.waitForFunction(
+    (target) => window.innerWidth > target,
+    {},
+    VIEWPORT.width * 1.2,
+  );
+}
 
-// Build a Runtime with the cursor on and autoScroll off (markers are all in view,
-// so nothing should scroll). pageZoom lives on the page (set per test), not here.
+beforeEach(loadZoomed);
+
 function mkRuntime() {
   const log = recordingLogger();
   const cfg = { ...DEFAULT_CONFIG, cursor: true, autoScroll: false };
   return new Runtime(() => cfg, log);
 }
 
-// Apply pageZoom the way session._setupPage does: a CSS `zoom` on documentElement.
-async function setPageZoom(z: number) {
-  await page.evaluate((z) => {
-    document.documentElement.style.zoom = String(z);
-  }, z);
-}
-
-// Visual (post-zoom) top-left of an element, as the viewer sees it.
 const rectOf = (sel: string) =>
   page.$eval(sel, (el) => {
     const r = el.getBoundingClientRect();
     return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
   });
 
-// The overlay tip sits at the overlay box's top-left (minus a 2–4px art margin),
-// so comparing top-left corners is a faithful "is the cursor on the target" check.
 async function assertCursorOnMarker(markerId: string, tol: number) {
   const cur = await rectOf(`#${CURSOR_ID}`);
   const mark = await rectOf(`#${markerId}`);
@@ -105,34 +114,34 @@ async function assertCursorOnMarker(markerId: string, tol: number) {
   );
 }
 
-// ─── Overlay tracks the zoomed content ────────────────────────────────────────
+// ─── Zoom actually reflows the layout (more content fits) ──────────────────────
 
-test("pageZoom 0.7: cursor lands on every target across the page", async () => {
-  const runtime = mkRuntime();
-  await setPageZoom(0.7);
-  for (const m of MARKERS) {
-    // Drive the cursor to the marker's exact logical top-left (no jitter) so the
-    // overlay's top-left must coincide with the marker's. A zoom-factor error
-    // would put the far markers >100px off — well outside the tolerance.
-    await runtime.mouse(page, { x: m.left, y: m.top });
-    await assertCursorOnMarker(m.id, 8);
-  }
+test(`pageZoom ${ZOOM}: layout reflows wider (innerWidth ≈ width / zoom)`, async () => {
+  const iw = await page.evaluate(() => window.innerWidth);
+  const expected = VIEWPORT.width / ZOOM;
+  assert.ok(
+    Math.abs(iw - expected) < expected * 0.05,
+    `innerWidth ${iw} should be ≈ ${expected.toFixed(0)} (width / zoom)`,
+  );
 });
 
-test("pageZoom 1: cursor still lands on every target (no-zoom regression)", async () => {
+// ─── Overlay tracks the zoomed content ────────────────────────────────────────
+
+test(`pageZoom ${ZOOM}: cursor lands on every target across the page`, async () => {
   const runtime = mkRuntime();
-  await setPageZoom(1);
   for (const m of MARKERS) {
-    await runtime.mouse(page, { x: m.left, y: m.top });
-    await assertCursorOnMarker(m.id, 6);
+    // Drive the cursor to each marker by selector; the overlay's top-left must
+    // coincide with the marker's. A wrong coordinate space puts the far markers
+    // well outside the tolerance.
+    await runtime.mouse(page, `#${m.id}`);
+    await assertCursorOnMarker(m.id, 8);
   }
 });
 
 // ─── Clicks land under zoom ───────────────────────────────────────────────────
 
-test("pageZoom 0.7: click hits the zoomed target", async () => {
+test(`pageZoom ${ZOOM}: click hits the zoomed target`, async () => {
   const runtime = mkRuntime();
-  await setPageZoom(0.7);
   for (const m of MARKERS) {
     await runtime.click(page, `#${m.id}`);
     const hit = await page.$eval(
@@ -145,12 +154,9 @@ test("pageZoom 0.7: click hits the zoomed target", async () => {
 
 // ─── Composes with the animated transform zoom() ──────────────────────────────
 
-test("pageZoom 0.7 + transform zoom(): cursor still lands on a moved-to target", async () => {
+test(`pageZoom ${ZOOM} + transform zoom(): cursor still lands on a moved-to target`, async () => {
   const runtime = mkRuntime();
-  await setPageZoom(0.7);
   await runtime.zoomTo(page, 1.4, { origin: "#m-mid", duration: 80 });
-  // After a transform zoom the overlay must still track its target — use the
-  // selector path (getElementCenter) and assert the cursor tip lands inside it.
   await runtime.mouse(page, "#m-mid");
   const cur = await rectOf(`#${CURSOR_ID}`);
   const mark = await rectOf("#m-mid");
