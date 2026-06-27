@@ -130,6 +130,13 @@ export interface ClickOptions {
   waitForNav?: boolean;
   /** Navigation timeout in ms for `waitForNav: true`. Default: the `visitTimeout` config. */
   timeout?: number;
+  /**
+   * Follow a link that opens in a *new tab* — continue recording in the new tab,
+   * which becomes the active page for following actions. The old tab is left open.
+   * The loading stretch is trimmed: capture stops at the click and restarts once the
+   * new tab has loaded. Default: false. (For a same-tab navigation use `waitForNav`.)
+   */
+  followNewTab?: boolean;
 }
 
 /** Options for `Recordable.waitFor`. */

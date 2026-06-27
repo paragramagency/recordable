@@ -63,7 +63,32 @@ test("type: duration gathers after the two required positionals", () => {
   );
 });
 
+test("click: followNewTab + waitForNav gather into the options object", () => {
+  assert.deepEqual(
+    buildArgs(
+      { action: "click", target: "text:Open", followNewTab: true },
+      "click",
+    ),
+    ["text:Open", { followNewTab: true }],
+  );
+  // Bare target trims the empty options bag so the method default applies.
+  assert.deepEqual(
+    buildArgs({ action: "click", target: "text:Open" }, "click"),
+    ["text:Open"],
+  );
+});
+
 // ─── Value-level validation (the gap the Zod manifest closes) ─────────────────
+
+test("validateAction: click accepts followNewTab, rejects a non-boolean", () => {
+  assert.doesNotThrow(() =>
+    validateAction({ action: "click", target: "#go", followNewTab: true }),
+  );
+  assert.throws(
+    () => validateAction({ action: "click", target: "#go", followNewTab: "yes" }),
+    (err) => isRecordableError(err) && err.code === "CONFIG_INVALID",
+  );
+});
 
 test("validateAction: accepts a well-typed action", () => {
   assert.doesNotThrow(() =>

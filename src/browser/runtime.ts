@@ -102,13 +102,56 @@ export class Runtime {
 
   // ─── Interactions ──────────────────────────────────────────────────────────
 
+  /** Click a target. Returns the new tab's `Page` when `followNewTab` is set and the
+   *  click opened one — the session then switches recording to it. Otherwise void. */
   async click(
     page: Page,
     target: string,
     options: ClickOptions = {},
-  ): Promise<void> {
+  ): Promise<Page | void> {
     this.log("Click", target);
+    if (options.followNewTab) return this._clickNewTab(page, target, options);
     await this._click(page, target, options);
+  }
+
+  /**
+   * Click a link that opens a new tab and resolve to the new `Page` (or warn and
+   * return void if none appears). The popup listener is armed *before* the click so a
+   * fast open can't be missed. The new tab is *not* waited on here — the session seals
+   * the current segment first, then waits for the load off-camera so it's trimmed.
+   */
+  private async _clickNewTab(
+    page: Page,
+    target: string,
+    options: ClickOptions,
+  ): Promise<Page | void> {
+    const timeout = options.timeout ?? this.getCfg().visitTimeout;
+    const popup = this._waitForPopup(page, timeout);
+    // The nav happens in the new tab, so don't wait for a same-tab navigation here.
+    await this._click(page, target, { ...options, waitForNav: false });
+    const newPage = await popup;
+    if (!newPage) {
+      this.log.warn(
+        `click: no new tab opened for "${target}" — staying on the current tab`,
+      );
+      return;
+    }
+    return newPage;
+  }
+
+  /** Resolve to the next popup `page.once("popup")` opens, or null after `timeout`.
+   *  A late timer after the popup resolves is a harmless no-op; unref it so it can't
+   *  hold the process open. */
+  private _waitForPopup(page: Page, timeout: number): Promise<Page | null> {
+    return new Promise((resolve) => {
+      const onPopup = (p: Page | null) => resolve(p ?? null);
+      page.once("popup", onPopup);
+      const timer = setTimeout(() => {
+        page.off("popup", onPopup);
+        resolve(null);
+      }, timeout);
+      timer.unref?.();
+    });
   }
 
   async hover(page: Page, target: string): Promise<void> {

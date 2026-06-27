@@ -241,8 +241,9 @@ export class Recordable {
    * Click an element. Accepts a CSS selector (`#id`, `.class`, `input[name="…"]`)
    * or a `text:` prefix (`"text:Next"`, matched by visible text). Pass
    * `{ waitForNav: true }` when the click triggers a full-page navigation; for SPA
-   * route changes or async content, follow with `waitFor(...)`. See
-   * {@link ClickOptions}.
+   * route changes or async content, follow with `waitFor(...)`. Pass
+   * `{ followNewTab: true }` to continue recording in a tab the click opens (the old
+   * tab stays open, the load is trimmed). See {@link ClickOptions}.
    */
   click(target: string, options: ClickOptions = {}): this {
     return this._enqueue((page) => this.runtime.click(page, target, options));
@@ -371,7 +372,7 @@ export class Recordable {
   }
 
   private _enqueue(
-    run: (page: Page) => Promise<void>,
+    run: (page: Page) => Promise<Page | void>,
     control = false,
   ): this {
     this.queue.push({ run, control });

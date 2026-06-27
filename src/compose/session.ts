@@ -21,7 +21,9 @@ import { type Runtime } from "../browser/runtime.js";
 /** One queued action. `control` actions (pause/resume/insert) run without forcing a
  *  capture segment to begin. */
 export interface QueueItem {
-  run: (page: Page) => Promise<void>;
+  /** Returns a `Page` to switch the active tab to (e.g. a `followNewTab` click),
+   *  otherwise void — capture stays on the current tab. */
+  run: (page: Page) => Promise<Page | void>;
   control: boolean;
 }
 
@@ -70,22 +72,8 @@ export class Session {
       );
     }
 
-    const page = await this.browser.newPage();
-    await page.setViewport({ ...cfg.viewport, deviceScaleFactor: 1 });
-
-    // A navigation wipes the in-page cursor overlay and any zoom transform.
-    // Re-inject (at the carried position) and reset zoom on every main-frame nav,
-    // so click-triggered navigations stay covered without an explicit re-inject.
-    if (cfg.cursor) {
-      page.on("framenavigated", (frame) => {
-        if (frame !== page.mainFrame()) return;
-        runtime.resetZoomState();
-        // Only mask the real pointer while recording — a paused / wait-for-user
-        // step is driven by hand, so the `cursor: none` overlay stays off.
-        if (!this.comp.recording) return;
-        void runtime.injectCursor(page).catch(() => {});
-      });
-    }
+    let page = await this.browser.newPage();
+    await this._setupPage(page, runtime, cfg);
 
     // Finalise the recording and close the browser on SIGINT / SIGTERM.
     const onSignal = () => {
@@ -102,7 +90,12 @@ export class Session {
         if (!item.control && this.comp.recording && !recorder.capturing) {
           await recorder.begin(page);
         }
-        await item.run(page);
+        // A `followNewTab` click returns the tab it opened: seal the current segment
+        // and switch capture to the new tab (which becomes the active page).
+        const next = await item.run(page);
+        if (next && next !== page) {
+          page = await this._switchTab(next, runtime, cfg, recorder);
+        }
         if (this.comp.cfg.actionDelay > 0) await sleep(this.comp.cfg.actionDelay);
       }
     } catch (err) {
@@ -116,6 +109,55 @@ export class Session {
       // Bookends the "Start" line; green only when the run actually succeeded.
       if (ok) log.success("Done", "recording complete");
     }
+  }
+
+  /** Prepare a page for capture: set the viewport, and (when the cursor is on) wire
+   *  the per-page re-inject. A navigation wipes the in-page cursor overlay and any
+   *  zoom transform, so re-inject (at the carried position) and reset zoom on every
+   *  main-frame nav — click-triggered navigations stay covered without an explicit
+   *  re-inject. Used for the first page and for each new tab `followNewTab` opens. */
+  private async _setupPage(
+    page: Page,
+    runtime: Runtime,
+    cfg: ResolvedConfig,
+  ): Promise<void> {
+    await page.setViewport({ ...cfg.viewport, deviceScaleFactor: 1 });
+    if (!cfg.cursor) return;
+    page.on("framenavigated", (frame) => {
+      if (frame !== page.mainFrame()) return;
+      runtime.resetZoomState();
+      // Only mask the real pointer while recording — a paused / wait-for-user
+      // step is driven by hand, so the `cursor: none` overlay stays off.
+      if (!this.comp.recording) return;
+      void runtime.injectCursor(page).catch(() => {});
+    });
+  }
+
+  /** Switch capture to a new tab a `followNewTab` click opened. Seals the current
+   *  segment (so the new tab's load is trimmed), prepares the new page, waits for it
+   *  to settle off-camera, then re-injects the cursor. Recording resumes on its own:
+   *  the run loop lazily begins a fresh segment before the next action. */
+  private async _switchTab(
+    newPage: Page,
+    runtime: Runtime,
+    cfg: ResolvedConfig,
+    recorder: Recorder,
+  ): Promise<Page> {
+    await recorder.end(true); // seal segment on the old tab — no "pause" log
+    await this._setupPage(newPage, runtime, cfg);
+    await newPage.bringToFront().catch(() => {});
+    // Let the new tab finish loading off-camera so the dead time isn't recorded.
+    // Wait on document readiness (resolves at once if it already loaded — unlike
+    // waitForNavigation, which would stall for the next nav that never comes) then
+    // settle the network best-effort, both bounded so a busy tab can't hang the run.
+    const timeout = cfg.visitTimeout;
+    await newPage
+      .waitForFunction(() => document.readyState === "complete", { timeout })
+      .catch(() => {});
+    await newPage.waitForNetworkIdle({ idleTime: 500, timeout }).catch(() => {});
+    if (cfg.cursor) await runtime.injectCursor(newPage).catch(() => {});
+    this.comp.log("Tab", "following new tab");
+    return newPage;
   }
 
   private async _cleanup(): Promise<void> {
