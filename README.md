@@ -40,6 +40,8 @@ want on camera; every captured segment is stitched into one seamless MP4.
   composes with CSS, e.g. `button:text(Save)`.
 - **Off-camera segments** — `pause()`/`resume()` skip setup, navigations, or whole
   screens; segments are auto-stitched into one seamless video.
+- **New-tab recording** — `click(target, { followNewTab: true })` follows a link
+  that opens in a new tab and keeps recording there, stitched into the same MP4.
 - **Manual steps / logins** — `resumeOnPlay()` waits for an in-page ▶ Play button
   (see below), so you can sign in by hand before recording.
 - **Auto-scroll** to bring elements into view before interacting.
@@ -234,7 +236,7 @@ what lands on camera:
 
 | Method                              | Description                                                                                                                                    |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `click(target, { waitForNav? })`    | Click an element. By default returns immediately; pass `{ waitForNav: true }` when the click triggers a full-page navigation (see note below). |
+| `click(target, { waitForNav?, followNewTab? })` | Click an element. Returns immediately by default; pass `{ waitForNav: true }` when the click triggers a full-page navigation, or `{ followNewTab: true }` to keep recording in a tab the click opens (see notes below). |
 | `hover(target)`                     | Move onto an element to reveal `:hover` state (no click).                                                                                      |
 | `type(target, text, { duration? })` | Type into a field with human-like timing; `duration` (ms) spreads keystrokes evenly with no jitter.                                            |
 | `clear(target)`                     | Select-all + delete the contents of a field.                                                                                                   |
@@ -257,6 +259,11 @@ what lands on camera:
 > the navigation must land, like `visit()`. For SPA route changes or async content
 > (no full-page load) there's nothing to wait on — follow the click with
 > `waitFor("<selector>")` for an element on the new view instead.
+
+> When a click opens a link in a **new tab**, pass `{ followNewTab: true }`:
+> `recordable` switches capture to the new tab and stitches it into the same
+> recording (the new tab's load happens off-camera, the old tab stays open).
+> Without it, recording stays on the original tab.
 
 ### Camera
 
@@ -325,6 +332,8 @@ new Recordable({
 npm install
 npm run build         # type-check + emit dist/ with .d.ts
 npm run gen:schema    # regenerate recordable.schema.json from the action manifest
+npm test              # unit + ffmpeg I/O tests
+npm run test:e2e      # opt-in end-to-end pipeline run (launches a browser)
 npx tsx my-script.ts  # run a recording script directly
 node dist/cli.js demo.json   # run a JSON script through the CLI locally
 ```

@@ -1,6 +1,6 @@
 {
   "name": "recordable",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Programmatic, repeatable browser screen recording. Script a walkthrough as a fluent chain of actions — clicks, typing, smooth zoom/scroll, an animated cursor, and manual steps like logins — and capture it to MP4.",
   "repository": {
     "type": "git",

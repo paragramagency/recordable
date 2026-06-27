@@ -56,6 +56,23 @@ per-segment MP4 → concat) is the foundation the rest builds on.
 - **Browser language.** A `language` config (BCP-47 tag, e.g. `"fr-FR"`) sets the Chromium
   UI / `navigator.language` via `--lang` and the `Accept-Language` request header, so demos
   render and content-negotiate in a chosen locale. Empty (default) leaves the system locale.
+- **New-tab recording.** `click(target, { followNewTab: true })` follows a link that opens
+  in a new tab and continues recording there: the runtime arms `page.once("popup")` before
+  the click, seals the current segment, sets up the new tab (viewport, cursor re-inject),
+  waits for it to load off-camera, and switches capture to it (old tab left open). The
+  recorder re-creates its per-target CDP session for the new page; the single-tab path still
+  reuses the cached one. Schema-driven, so JSON/Markdown get it for free. Spec in
+  [specs/new-tab-recording.md](specs/new-tab-recording.md). (was Next #5)
+- **Composable `:text()` + `select` option pseudos.** Inner-text matching composes with full
+  CSS anywhere in a selector (`button:text(Save)`, `tr:nth-child(3) td:text(Done)`; legacy
+  `text:` prefix kept as an alias), and the runtime warns when a target matches >1 element
+  (acts on the first). `select(target, value)` also takes `:option-index(N)` (1-based) /
+  `:option-label(Text)` to pick a `<select>` option without its raw `value`.
+- **`pageZoom` config.** Browser-level page zoom via `evaluateOnNewDocument`, so `pageZoom < 1`
+  reflows layout to fit more on screen; persists across navigations and new tabs, and the
+  cursor overlay tracks it.
+- **Test suite + CI.** `npm test` now gates CI: unit (pure logic), I/O (real bundled ffmpeg
+  via fixtures), and an opt-in end-to-end pipeline run (`npm run test:e2e`).
 
 ## Bugs
 
@@ -105,16 +122,12 @@ Mostly "great docs + clean formats" (an AI emits the JSON/Markdown). Optional la
 **record-mode codegen** — watch a human click through once, emit the script — as a more
 reliable alternative to LLM-from-scratch.
 
-### 5. New-tab recording
+### 5. ~~New-tab recording~~ — Done
 
-Support links that open in a new tab and **continue recording in that new tab**. Today
-capture is bound to one page; this means detecting the new target, switching the
-screencast to it, and stitching the footage seamlessly. Feasibility confirmed — a tab
-switch is just the next segment (per-target screencast, existing stitcher), so it's
-plumbing, not a new capture pipeline. Design + decisions in
-[specs/new-tab-recording.md](specs/new-tab-recording.md):
-explicit `click(target, { followNewTab: true })`, leave the old tab open, full setup +
-cursor injection on the new tab, and trim the loading time by default.
+Shipped — see Done. `click(target, { followNewTab: true })` continues recording in a
+tab the click opens, stitched seamlessly into the same output; old tab left open, new
+tab's loading trimmed. Design + decisions in
+[specs/new-tab-recording.md](specs/new-tab-recording.md).
 
 ### 6. API additions
 
@@ -127,8 +140,9 @@ cursor injection on the new tab, and trim the loading time by default.
 
 ### 7. Richer selectors
 
-Support **nested CSS selectors** and **complex sibling / `nth-*` selectors** (current
-matching is too limited for real-world DOMs).
+_Largely done:_ targets pass through to Puppeteer, so nested CSS, combinators, and
+`nth-*` / sibling selectors work, plus a composable `:text()` pseudo and `select`
+option pseudos (see Done). Remaining is any matching gap real-world DOMs surface.
 
 ### 8. ~~Ignore markdown comments~~ — Done
 
@@ -166,8 +180,8 @@ demos, tightening rough edges so the whole thing is presentable.
 
 ## Cleanup / tech debt
 
-- **Commit the in-house-recorder work + this session's feature set** (uncommitted on
-  `main`). Confirm before pushing to `main`.
+- ~~**Commit the in-house-recorder work + this session's feature set**~~ _Done — committed
+  on `main`; released as v0.3.0._
 - **Demos are tracked** (in `demos/`); only the generated artifacts — the output MP4s and any
   audio — are gitignored (`demos/**/assets/`). Add better demos later. Flattened from the old
   `examples/` + `examples/demos/` split into a single numbered `demos/` folder
