@@ -36,6 +36,7 @@
   "scripts": {
     "build": "tsc",
     "test": "tsx --test test/**/*.test.ts",
+    "test:e2e": "tsx --test test/e2e/**/*.e2e.ts",
     "clean": "rm -rf dist",
     "gen:schema": "tsx scripts/gen-schema.ts",
     "lint": "eslint .",

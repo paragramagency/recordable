@@ -24,6 +24,8 @@ jobs:
       - run: npm run format:check
       - run: npm run lint
 
+      - run: npm test
+
       # Schema is generated from src/script.ts — fail if the committed copy is stale.
       - run: npm run gen:schema
       - name: Verify schema is up to date
