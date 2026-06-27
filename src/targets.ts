@@ -18,6 +18,25 @@ export function resolveTarget(target: string): string {
   return target.replace(TEXT_PSEUDO, (_, text) => `::-p-text(${text.trim()})`);
 }
 
+// Author-facing pseudos for picking a `<select>` option. Puppeteer's native
+// `select()` matches the option's `value` attribute only, so these resolve to a
+// concrete value in-page (see runtime.select). `:option-index(N)` is 1-based to
+// read like `:nth-child(N)`; `:option-label(Foo)` matches the visible text.
+const OPTION_INDEX = /^:option-index\((\d+)\)$/;
+const OPTION_LABEL = /^:option-label\(([^)]*)\)$/;
+
+/** Parse a select value-spec. Returns how to pick the option, or `null` when the
+ *  string is a literal `value` (the default, unchanged behaviour). */
+export function parseOptionSpec(
+  spec: string,
+): { index: number } | { label: string } | null {
+  const idx = spec.match(OPTION_INDEX);
+  if (idx) return { index: Number(idx[1]) }; // 1-based, as authored
+  const label = spec.match(OPTION_LABEL);
+  if (label) return { label: label[1].trim() };
+  return null;
+}
+
 /** Returns true if the string is a CSS position keyword or percentage. */
 export function isPositionValue(value: string): boolean {
   const token = "(top|bottom|left|right|center|\\d+%)";

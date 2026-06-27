@@ -238,7 +238,7 @@ what lands on camera:
 | `hover(target)`                     | Move onto an element to reveal `:hover` state (no click).                                                                                      |
 | `type(target, text, { duration? })` | Type into a field with human-like timing; `duration` (ms) spreads keystrokes evenly with no jitter.                                            |
 | `clear(target)`                     | Select-all + delete the contents of a field.                                                                                                   |
-| `select(target, value)`             | Choose an option in a native `<select>` (the OS-drawn option list isn't captured — see note below).                                            |
+| `select(target, value)`             | Choose an option in a native `<select>` by `value`, or by `:option-index(N)` / `:option-label(Text)` (see note below; OS-drawn list isn't captured). |
 | `key(key)`                          | Press a key, e.g. `"Escape"`, `"Enter"`, `"Tab"`.                                                                                              |
 | `mouse(target \| {x, y})`           | Move the cursor to an element or coordinates.                                                                                                  |
 
@@ -246,6 +246,10 @@ what lands on camera:
 > so the screencast can't capture it — `select()` shows the cursor and the value
 > changing, but not the dropdown. For an on-camera dropdown, build a custom one from
 > `click()`s.
+>
+> `value` matches the `<option>`'s `value` attribute by default. To pick without
+> knowing it, use `":option-index(1)"` (1-based, like `:nth-child`) or
+> `":option-label(Pro tier)"` to match the option's visible text.
 
 > A plain `click()` does not wait for navigation. If the click loads a new page
 > (a link, a form submit), add `{ waitForNav: true }` so the next action lands on

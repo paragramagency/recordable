@@ -5,7 +5,8 @@ import type {
   WaitForOptions,
 } from "../config.js";
 import { sleep, truncate } from "../utils.js";
-import { resolveTarget } from "../targets.js";
+import { resolveTarget, parseOptionSpec } from "../targets.js";
+import { RecordableError } from "../errors.js";
 import { type Logger } from "../logger.js";
 import {
   getElementCenter,
@@ -208,7 +209,32 @@ export class Runtime {
       await sleep(jitter(PRE_CLICK_MS));
       await this.cursor.clickEffect(page);
     }
-    await page.select(target, value);
+    await page.select(resolveTarget(target), await this._optionValue(page, target, value));
+  }
+
+  // Map a select value-spec to the concrete option `value` Puppeteer expects.
+  // Literal values pass through; `:option-index/-label(...)` read the live
+  // `<select>` (no native pseudo exists for them).
+  private async _optionValue(page: Page, target: string, value: string): Promise<string> {
+    const spec = parseOptionSpec(value);
+    if (!spec) return value;
+    const resolved = await page.$eval(
+      resolveTarget(target),
+      (el, spec) => {
+        const opts = [...(el as HTMLSelectElement).options];
+        const hit =
+          "index" in spec ? opts[spec.index - 1] : opts.find((o) => o.textContent?.trim() === spec.label);
+        return hit?.value;
+      },
+      spec,
+    );
+    if (resolved == null) {
+      throw new RecordableError(
+        "CONFIG_INVALID",
+        `select("${target}", "${value}"): no matching <option>.`,
+      );
+    }
+    return resolved;
   }
 
   async key(page: Page, key: string): Promise<void> {
