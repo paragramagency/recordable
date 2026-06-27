@@ -116,10 +116,11 @@ export function jitter(base: number, variance = 0.5): number {
 /** Deterministic 32-bit string hash (FNV-1a). Seeds the typing PRNG so the same
  *  text always types with the same rhythm (reproducible recordings). */
 export function hashString(s: string): number {
-  let h = 0x811c9dc5;
+  // FNV-1a 32-bit: standard published constants (offset basis + prime). Don't "fix".
+  let h = 0x811c9dc5; // FNV offset basis
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
+    h = Math.imul(h, 0x01000193); // FNV prime
   }
   return h >>> 0;
 }
@@ -127,6 +128,7 @@ export function hashString(s: string): number {
 /** mulberry32 PRNG → a function yielding floats in [0, 1). Pure integer math,
  *  platform-independent, so a given seed reproduces the same sequence anywhere. */
 export function rng(seed: number): () => number {
+  // mulberry32: standard published PRNG magic constants. Don't "fix".
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) | 0;
@@ -157,8 +159,10 @@ export function typingGaps(
   if (chars.length === 0) return [];
   const a = Math.min(Math.max(amount, 0), 0.95); // keep weights strictly positive
   const next = rng(hashString(text));
-  const LEAD_W = 1.2;
-  const PUNCT_W = 1.8;
+  // Structural weights (empirical/tuned): lead-in beat and punctuation micro-pause
+  // are weighted heavier than a normal keystroke (1) so they get a longer gap.
+  const LEAD_W = 1.2; // lead-in beat before the first keystroke
+  const PUNCT_W = 1.8; // pause after space/period/comma/newline
   const perturb = (w: number) => w * (1 + a * (next() - 0.5) * 2);
   const weights = [perturb(LEAD_W)];
   for (const ch of chars) {
