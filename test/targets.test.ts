@@ -4,7 +4,7 @@ import {
   resolveTarget,
   isPositionValue,
   parseOptionSpec,
-} from "../src/targets.js";
+} from "../src/browser/targets.js";
 
 // ─── resolveTarget: :text() pseudo ───────────────────────────────────────────
 
