@@ -15,6 +15,10 @@ export const ConfigSchema = z.strictObject({
   viewport: z
     .strictObject({ width: z.number(), height: z.number() })
     .default({ width: 1920, height: 1080 }),
+  /** Page zoom applied to every document, like the browser's Ctrl +/−. Reflows
+   *  layout, so `<1` shrinks content to fit more on screen and `>1` enlarges it.
+   *  Persists across navigations and new tabs. Default: 1 (no zoom). */
+  pageZoom: z.number().default(1),
   /** Recording frame rate. Default: 30 */
   fps: z.number().default(30),
   /** Output directory. Relative paths resolve against `baseDir`. Default: output */

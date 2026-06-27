@@ -124,6 +124,14 @@ export class Session {
     cfg: ResolvedConfig,
   ): Promise<void> {
     await page.setViewport({ ...cfg.viewport, deviceScaleFactor: 1 });
+    // Browser-level page zoom (Ctrl +/−). Set on documentElement before each
+    // document renders so it reflows the layout — `<1` fits more on screen. Runs
+    // on every navigation (and each new tab), so it survives nav without re-arming.
+    if (cfg.pageZoom !== 1) {
+      await page.evaluateOnNewDocument((z) => {
+        document.documentElement.style.zoom = String(z);
+      }, cfg.pageZoom);
+    }
     // Content-negotiation header, paired with the `--lang` launch flag. Persists
     // across navigations for the life of the page (and applies to each new tab too).
     if (cfg.language) {

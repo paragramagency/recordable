@@ -52,6 +52,9 @@
           ],
           "additionalProperties": false
         },
+        "pageZoom": {
+          "type": "number"
+        },
         "fps": {
           "type": "number"
         },
