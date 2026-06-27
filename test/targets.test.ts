@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveTarget, isPositionValue } from "../src/targets.js";
+import {
+  resolveTarget,
+  isPositionValue,
+  parseOptionSpec,
+} from "../src/targets.js";
 
 // ─── resolveTarget: :text() pseudo ───────────────────────────────────────────
 
@@ -56,6 +60,28 @@ test("resolveTarget: plain CSS passes through verbatim", () => {
     "button::-p-text(Already explicit)",
   ]) {
     assert.equal(resolveTarget(sel), sel, sel);
+  }
+});
+
+// ─── parseOptionSpec: select value pseudos ───────────────────────────────────
+
+test("parseOptionSpec: :option-index() is parsed 1-based", () => {
+  assert.deepEqual(parseOptionSpec(":option-index(1)"), { index: 1 });
+  assert.deepEqual(parseOptionSpec(":option-index(12)"), { index: 12 });
+});
+
+test("parseOptionSpec: :option-label() keeps inner space, trims surrounding", () => {
+  assert.deepEqual(parseOptionSpec(":option-label(Pro tier)"), {
+    label: "Pro tier",
+  });
+  assert.deepEqual(parseOptionSpec(":option-label(  Free  )"), {
+    label: "Free",
+  });
+});
+
+test("parseOptionSpec: a literal value returns null", () => {
+  for (const v of ["pro", "", "1", ":text(Save)", "option-index(1)"]) {
+    assert.equal(parseOptionSpec(v), null, v);
   }
 });
 

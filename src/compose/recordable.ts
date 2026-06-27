@@ -276,10 +276,12 @@ export class Recordable {
   }
 
   /**
-   * Choose an option in a native `<select>` by its `value`. The cursor animates to
-   * the control like `click()`. Note: the open option list is OS-drawn, *outside*
-   * the page, so it can't be captured — build a custom dropdown from `click()`s
-   * for an on-camera menu.
+   * Choose an option in a native `<select>`. `value` is the option's `value`
+   * attribute by default, or a pseudo: `:option-index(N)` for the Nth option
+   * (1-based, like `:nth-child`) or `:option-label(Text)` for its visible label.
+   * The cursor animates to the control like `click()`. Note: the open option list
+   * is OS-drawn, *outside* the page, so it can't be captured — build a custom
+   * dropdown from `click()`s for an on-camera menu.
    */
   select(target: string, value: string): this {
     return this._enqueue((page) => this.runtime.select(page, target, value));
