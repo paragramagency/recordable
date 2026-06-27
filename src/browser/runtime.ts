@@ -55,7 +55,8 @@ export class Runtime {
 
   /** (Re-)inject the cursor overlay at the carried position, if enabled. */
   async injectCursor(page: Page): Promise<void> {
-    if (this.getCfg().cursor) await this.cursor.inject(page, this.zoom);
+    if (this.getCfg().cursor)
+      await this.cursor.inject(page, this.zoom, this.getCfg().pageZoom);
   }
 
   /** Snapshot the cursor position (on pause) so a later resume() can restore it,
@@ -67,7 +68,8 @@ export class Runtime {
   /** Re-inject the cursor at the parked position (on resume), so the resumed
    *  segment opens with the cursor exactly where the paused one left it. */
   async restoreCursor(page: Page): Promise<void> {
-    if (this.getCfg().cursor) await this.cursor.unpark(page, this.zoom);
+    if (this.getCfg().cursor)
+      await this.cursor.unpark(page, this.zoom, this.getCfg().pageZoom);
   }
 
   // ─── Navigation ────────────────────────────────────────────────────────────
@@ -202,7 +204,7 @@ export class Runtime {
     if (this.getCfg().autoScroll) await this._scrollIntoView(page, target);
     const { x, y } = await getElementCenter(page, target);
     if (this.getCfg().cursor) {
-      await this.cursor.moveTo(page, x, y, this.zoom);
+      await this.cursor.moveTo(page, x, y, this.zoom, this.getCfg().pageZoom);
       await sleep(jitter(PRE_CLICK_MS));
       await this.cursor.clickEffect(page);
     }
@@ -310,7 +312,7 @@ export class Runtime {
     if (this.getCfg().autoScroll) await this._scrollIntoView(page, target);
     const { x, y } = await getElementCenter(page, target);
     if (this.getCfg().cursor) {
-      await this.cursor.moveTo(page, x, y, this.zoom);
+      await this.cursor.moveTo(page, x, y, this.zoom, this.getCfg().pageZoom);
       await sleep(jitter(PRE_CLICK_MS));
       await this.cursor.clickEffect(page);
     }
@@ -349,7 +351,8 @@ export class Runtime {
 
   /** Move to viewport coords, animating the overlay when the cursor is enabled. */
   private async _moveTo(page: Page, x: number, y: number): Promise<void> {
-    if (this.getCfg().cursor) await this.cursor.moveTo(page, x, y, this.zoom);
+    if (this.getCfg().cursor)
+      await this.cursor.moveTo(page, x, y, this.zoom, this.getCfg().pageZoom);
     else await page.mouse.move(x, y);
   }
 

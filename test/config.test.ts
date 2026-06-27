@@ -10,6 +10,7 @@ import { ConfigSchema, DEFAULT_CONFIG } from "../src/config.js";
 test("DEFAULT_CONFIG: every documented default is resolved", () => {
   assert.deepEqual(DEFAULT_CONFIG, {
     viewport: { width: 1920, height: 1080 },
+    pageZoom: 1,
     fps: 30,
     outputDir: "output",
     outputName: "recordable",
@@ -47,7 +48,12 @@ test("ConfigSchema: a provided value overrides just that default", () => {
   assert.equal(cfg.headless, true);
   // untouched fields keep their defaults
   assert.equal(cfg.typingSpeed, 7);
+  assert.equal(cfg.pageZoom, 1);
   assert.deepEqual(cfg.viewport, { width: 1920, height: 1080 });
+});
+
+test("ConfigSchema: pageZoom overrides its default", () => {
+  assert.equal(ConfigSchema.parse({ pageZoom: 0.8 }).pageZoom, 0.8);
 });
 
 test("ConfigSchema: strictObject rejects an unknown (typo'd) key", () => {

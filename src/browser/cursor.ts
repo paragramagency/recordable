@@ -35,12 +35,16 @@ export class Cursor {
 
   /** Restore the parked position (if any) and re-inject — called on resume so the
    *  new segment opens with the cursor where the previous one ended. */
-  async unpark(page: Page, zoom: ZoomState = { tx: 0, ty: 0, s: 1 }): Promise<void> {
+  async unpark(
+    page: Page,
+    zoom: ZoomState = { tx: 0, ty: 0, s: 1 },
+    pageZoom = 1,
+  ): Promise<void> {
     if (this.parked) {
       this.pos = this.parked;
       this.parked = null;
     }
-    await this.inject(page, zoom);
+    await this.inject(page, zoom, pageZoom);
   }
 
   /**
@@ -50,7 +54,11 @@ export class Cursor {
    * repositions it — so a resume() can restore the cursor even when the overlay
    * survived the off-camera gap.
    */
-  async inject(page: Page, zoom: ZoomState = { tx: 0, ty: 0, s: 1 }): Promise<void> {
+  async inject(
+    page: Page,
+    zoom: ZoomState = { tx: 0, ty: 0, s: 1 },
+    pageZoom = 1,
+  ): Promise<void> {
     // Can't draw into an iframe or before the document's <body> has parsed. A
     // too-early call (e.g. from a navigation event) is a no-op; the next moveTo
     // re-injects when ready.
@@ -59,7 +67,13 @@ export class Cursor {
     );
     if (!ready) return;
 
-    const { cx, cy } = await this._toDocCoords(page, this.pos.x, this.pos.y, zoom);
+    const { cx, cy } = await this._toDocCoords(
+      page,
+      this.pos.x,
+      this.pos.y,
+      zoom,
+      pageZoom,
+    );
     await page.evaluate(
       ({ id, styleId, cx, cy }) => {
         // Note: we intentionally do NOT hide the native pointer. The screencast
@@ -115,18 +129,19 @@ export class Cursor {
     toX: number,
     toY: number,
     zoom: ZoomState,
+    pageZoom = 1,
   ): Promise<void> {
     // Self-heal: a navigation (incl. click-triggered ones with no following
     // visit/waitFor) wipes the overlay. Re-inject at the carried position before
     // animating, so the move is always visible — never an instant, cursor-less jump.
-    await this.inject(page, zoom);
+    await this.inject(page, zoom, pageZoom);
 
     const dx = toX - this.pos.x;
     const dy = toY - this.pos.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const dur = cursorMoveMs(dist);
 
-    const { cx, cy } = await this._toDocCoords(page, toX, toY, zoom);
+    const { cx, cy } = await this._toDocCoords(page, toX, toY, zoom, pageZoom);
 
     await page.evaluate(
       ({ id, cx, cy, dur }) =>
@@ -153,18 +168,26 @@ export class Cursor {
    * When documentElement has a CSS transform (zoom), position:fixed children
    * are positioned relative to that ancestor (not the viewport) and scroll with
    * the page, so we add scroll and apply the inverse zoom transform.
+   *
+   * `pageZoom` is the static CSS `zoom` on documentElement (the pageZoom config).
+   * The overlay inherits that zoom, so its translate renders `pageZoom`× larger —
+   * divide it out so the cursor still lands on the target's visual position.
    */
   private async _toDocCoords(
     page: Page,
     x: number,
     y: number,
     { tx, ty, s }: ZoomState,
+    pageZoom = 1,
   ): Promise<{ cx: number; cy: number }> {
     const hasTransform = s !== 1 || tx !== 0 || ty !== 0;
     const scroll = hasTransform
       ? await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }))
       : { x: 0, y: 0 };
-    return { cx: (x + scroll.x - tx) / s, cy: (y + scroll.y - ty) / s };
+    return {
+      cx: (x + scroll.x - tx) / s / pageZoom,
+      cy: (y + scroll.y - ty) / s / pageZoom,
+    };
   }
 
   /** Briefly scale the cursor down to signal a press. */

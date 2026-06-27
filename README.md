@@ -292,6 +292,7 @@ All options are optional; defaults shown.
 ```ts
 new Recordable({
   viewport: { width: 1920, height: 1080 },
+  pageZoom: 1, // browser page zoom (Ctrl +/−); <1 reflows to fit more on screen
   fps: 30,
   outputDir: "./output",
   outputName: "recordable",
