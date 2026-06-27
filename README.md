@@ -36,7 +36,8 @@ want on camera; every captured segment is stitched into one seamless MP4.
 - **Animated cursor overlay** with realistic movement and click feedback.
 - **Smooth zoom & scroll** that animate origin and scale together.
 - **Human-like typing** with jitter and natural pauses.
-- **Element targeting** by CSS selector or visible text (`text:` prefix).
+- **Element targeting** by full CSS selector or visible text — `:text(…)`
+  composes with CSS, e.g. `button:text(Save)`.
 - **Off-camera segments** — `pause()`/`resume()` skip setup, navigations, or whole
   screens; segments are auto-stitched into one seamless video.
 - **Manual steps / logins** — `resumeOnPlay()` waits for an in-page ▶ Play button
@@ -266,8 +267,23 @@ what lands on camera:
 
 Anywhere a `target` is accepted you can pass:
 
-- a **CSS selector** — `"#id"`, `".card"`, `'[name="email"]'`
-- a **`text:` prefix** — `"text:Sign up"` matches by visible text
+- a **full CSS selector** — IDs, classes, attributes, combinators, and
+  positional pseudo-classes all work: `"#id"`, `".card"`, `'[name="email"]'`,
+  `"nav > ul li[data-active]"`, `"table tr:nth-child(3) td:first-child"`,
+  `"section:has(> h2)"`.
+- **visible text** with the `:text(…)` pseudo — `":text(Sign up)"` matches the
+  smallest element containing that text, and it **composes with CSS** so you can
+  scope it: `"button:text(Save)"`, `"nav a:text(Pricing)"`,
+  `"table tr:nth-child(3) td:text(Done)"`. The text is bare (unquoted); it can
+  hold spaces and commas but not a literal `)`.
+- **Puppeteer selectors** also pass through untouched — `::-p-aria(Submit)` for
+  accessible name, `>>>` to pierce shadow DOM.
+
+> The legacy whole-string `text:` prefix (`"text:Sign up"`) still works as an
+> alias for `:text(…)`.
+
+If a target matches more than one element, `recordable` logs a warning and acts
+on the first — tighten the selector to silence it.
 
 ## Configuration
 
