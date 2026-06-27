@@ -53,6 +53,9 @@ per-segment MP4 → concat) is the foundation the rest builds on.
   manifest `rest` machinery); the cursor now animates to the control like `click`. (Native
   `<select>` option lists are OS-drawn and can't be captured — documented; build custom
   dropdowns from `click`s for on-camera menus.)
+- **Browser language.** A `language` config (BCP-47 tag, e.g. `"fr-FR"`) sets the Chromium
+  UI / `navigator.language` via `--lang` and the `Accept-Language` request header, so demos
+  render and content-negotiate in a chosen locale. Empty (default) leaves the system locale.
 
 ## Bugs
 
@@ -123,30 +126,25 @@ footage seamlessly.
 Support **nested CSS selectors** and **complex sibling / `nth-*` selectors** (current
 matching is too limited for real-world DOMs).
 
-### 8. Set browser language
-
-Let scripts/config set the browser language (Chromium `--lang` + `Accept-Language` /
-`navigator.language`) so demos render in a chosen locale.
-
-### 9. Ignore markdown comments
+### 8. Ignore markdown comments
 
 Strip HTML comments (`<!-- ... -->`) from markdown documents so authors can leave notes
 that don't compile into narration or steps.
 
-### 10. Variables system
+### 9. Variables system
 
 A variables system for scripts — defined via `.env` and/or a dedicated variables file —
 so values (URLs, credentials, names, etc.) can be referenced and reused across a script
 rather than hard-coded inline. Decide on `.env` vs. a separate variables file (or both)
 and the reference syntax; works across JSON/Markdown/programmatic.
 
-### 11. Include other markdown scripts
+### 10. Include other markdown scripts
 
 Let a markdown script pull in another, e.g. `.include("./login.md")`, so common flows
 (sign-in, setup) live in one reusable file and compose into larger demos. Resolve paths
 against `baseDir`; merge narration/steps inline at the include point.
 
-### 12. Demo-ready product
+### 11. Demo-ready product
 
 The showcase (`08-showcase`) covers the headline flow. Remaining is general polish: more
 demos, tightening rough edges so the whole thing is presentable.

@@ -76,6 +76,9 @@
             "type": "string"
           }
         },
+        "language": {
+          "type": "string"
+        },
         "typingSpeed": {
           "type": "number"
         },
