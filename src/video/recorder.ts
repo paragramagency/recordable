@@ -214,19 +214,11 @@ export class Recorder {
   }
 
   /**
-   * Splice an external video into the timeline at the current position. Seals the
-   * active segment (silently), normalizes the clip to the recording's resolution /
-   * fps / codec / pixel format, and appends it as the next segment — first call =
-   * intro, last = outro, anywhere between = mid-roll.
-   *
-   * `options.fadeIn` / `options.fadeOut` (ms) request a cross-fade with the
-   * neighbouring recorded segment — or a fade from/to black at the timeline ends —
-   * applied at stitch time. Omit them for a hard cut.
-   *
-   * Does not touch the recording *intent*: if capture was active, the run loop
-   * lazily begins a fresh segment before the next action, so recording resumes
-   * automatically with no pause/resume needed. Audio is dropped (recorded segments
-   * are silent).
+   * Seal the active segment (silently), normalize the clip to the recording's
+   * resolution / fps / codec / pixel format, and append it as the next segment.
+   * Fades (ms) are recorded on the segment and applied at stitch time. Doesn't
+   * touch recording *intent* — if capture was active the run loop lazily begins a
+   * fresh segment before the next action, so recording resumes on its own.
    */
   async insert(path: string, options: InsertOptions = {}): Promise<void> {
     if (!existsSync(path))

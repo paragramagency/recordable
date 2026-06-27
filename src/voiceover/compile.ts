@@ -15,7 +15,7 @@ import {
 import { MockTTSProvider } from "./mock.js";
 import { extFor, type Alignment, type TTSProvider } from "./types.js";
 
-// ─── Layer C: the markdown → timed-chain compiler ────────────────────────────
+// ─── Voiceover layer: the markdown → timed-chain compiler ────────────────────
 //
 // Turns words into waits: synthesizes each narration paragraph (cached) and
 // emits a plain core script — an `audio()` clip plus computed `wait`s so each

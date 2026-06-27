@@ -7,9 +7,9 @@ import { getDuration } from "./ffmpeg.js";
 //
 // An interactive action isn't instantaneous: the cursor eases to the target,
 // dips to "press", and a click waits a beat to see if it navigated. The runtime
-// (browser/cursor.ts / browser/runtime.ts) *spends* this time; the voiceover compiler must *predict*
-// it, or every wait it computes is short by a gesture and actions drift late.
-// Both import these constants so the prediction can't silently fall out of step.
+// *spends* this time; the voiceover compiler must *predict* it, or every wait it
+// computes is short by a gesture and actions drift late. Both import these
+// constants so the prediction can't silently fall out of step.
 
 /** Cursor "press" dip on click — scale down… */
 export const PRESS_DOWN_MS = 120;
@@ -113,10 +113,9 @@ export function jitter(base: number, variance = 0.5): number {
 
 // ─── Deterministic typing ──────────────────────────────────────────────────────
 // `type` is jittered for realism yet deterministic in *total* time: the keystroke
-// delays vary, but they always sum to `typingDuration`. So the voiceover compiler
-// can predict a `type` action's length from the text alone (no stored duration),
-// and the runtime delivers exactly that. The jitter only *redistributes* time
-// within the fixed budget — it never changes the sum.
+// delays vary but always sum to `typingDuration`. So the voiceover compiler can
+// predict a `type` action's length from the text alone (no stored duration), and
+// the runtime delivers exactly that.
 
 /** Deterministic 32-bit string hash (FNV-1a). Seeds the typing PRNG so the same
  *  text always types with the same rhythm (reproducible recordings). */

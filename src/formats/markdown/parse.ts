@@ -22,9 +22,9 @@ import {
 // boundaries, indented/`~~~` fences, code spans with commas or parens) are the
 // library's problem; we only interpret the tokens.
 //
-// Pure and browser-free: no TTS, no ffmpeg, no runtime. The voiceover add-on
-// consumes the offset-bearing narration blocks to compute timing; the core path
-// extracts markers to a plain action list, exactly as JSON would run.
+// Pure and browser-free: no TTS, ffmpeg or runtime. The voiceover add-on consumes
+// the offset-bearing narration blocks for timing; the core path extracts markers
+// to a plain action list, exactly as JSON would run.
 
 const md = new MarkdownIt();
 

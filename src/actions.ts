@@ -129,7 +129,7 @@ function formatIssues(error: z.ZodError): string {
  * Validate one keyed action against the manifest: the action must exist and its
  * argument *values* (and key names) must match the action's schema — so a wrong
  * type (`{ action: "zoom", level: "big" }`) or a typo'd key fails here. Shared by
- * {@link fromJSON} and the Markdown mapper.
+ * the JSON loader and the Markdown mapper.
  */
 export function validateAction(step: Action): void {
   const schema = (ACTIONS as Record<string, z.ZodObject>)[step.action];

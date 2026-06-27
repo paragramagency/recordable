@@ -28,9 +28,8 @@ import { extractActions, parseMarkdown } from "../formats/markdown/parse.js";
 
 export class Recordable {
   private cfg: ResolvedConfig = { ...DEFAULT_CONFIG };
-  // The explicit config passed to the constructor — always wins over config that
-  // comes from a loaded document (frontmatter / script `config`), which layers
-  // underneath it.
+  // Constructor config — always wins over config from a loaded document
+  // (frontmatter / script `config`), which layers underneath.
   private readonly userConfig: RecordableConfig;
   private readonly log: Logger = createLogger(() => this.cfg.silent);
   private readonly recorder = new Recorder(() => this.cfg, this.log);
@@ -52,9 +51,7 @@ export class Recordable {
 
   // ─── Loaders ───────────────────────────────────────────────────────────────
   //
-  // `fromJSON` / `fromMarkdown` turn declarative content into queued actions on
-  // *this* instance, sitting between construction and run(). Config from the
-  // content layers *under* the constructor config, so what you pass wins.
+  // Turn declarative content into queued actions, between construction and run().
 
   /** Load a JSON script — an array of actions, a `{ config, actions }` object, or a
    *  raw JSON string — enqueuing each action. Returns `this` to chain into `.run()`. */
@@ -70,12 +67,11 @@ export class Recordable {
   }
 
   /**
-   * Load a Markdown document — a synchronous, chainable builder step. The
-   * `voiceover` frontmatter key picks the path: present → synthesize narration
-   * audio + computed waits (the add-on, dynamically imported so a no-audio run
-   * never loads TTS), deferred to `run()`; absent → flatten markers to a plain
-   * chain now. Relative `visit`/`outputDir`/`assetsDir` resolve against
-   * `config.baseDir`. The caller reads the file (and loads any `.env`).
+   * Load a Markdown document — synchronous and chainable. The `voiceover`
+   * frontmatter key picks the path: present → synthesize narration + computed
+   * waits (the add-on, dynamically imported so a no-audio run never loads TTS),
+   * deferred to `run()`; absent → flatten markers to a plain chain now. Caller
+   * reads the file (and loads any `.env`).
    */
   fromMarkdown(md: string): this {
     const parsed = parseMarkdown(md);
@@ -187,14 +183,12 @@ export class Recordable {
   }
 
   /**
-   * Lay an audio clip onto the recording timeline at this point — narration, a
-   * music bed, a sound effect. Plays an *existing* file (your own mp3/wav); it is
-   * mixed onto the silent capture at finalise, positioned by where this call
-   * lands in *recorded* time (off-camera pauses excluded).
-   *
-   * By default the chain blocks until the clip finishes (`{ wait: false }` to let
-   * it play over following actions, e.g. voiceover). `{ volume }` gains it. Don't
-   * `pause()` mid-clip — paused time is dropped, desyncing the audio.
+   * Lay an existing audio file (mp3/wav) onto the timeline at this point —
+   * narration, music bed, sound effect. Mixed onto the silent capture at
+   * finalise, positioned by where this call lands in *recorded* time (off-camera
+   * pauses excluded). By default the chain blocks until the clip finishes
+   * (`{ wait: false }` to play it over following actions); `{ volume }` gains it.
+   * Don't `pause()` mid-clip — paused time is dropped, desyncing the audio.
    */
   audio(path: string, options: AudioOptions = {}): this {
     return this._enqueue(async () => {

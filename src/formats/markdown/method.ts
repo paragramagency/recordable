@@ -10,10 +10,9 @@ import JSON5 from "json5";
 // last character once whitespace is trimmed, so there is no bracket matching.
 //
 // A call's arguments are exactly a JS array literal without its brackets, so we
-// wrap them in `[…]` and hand them to a JSON5 parser. JSON5 accepts the surface
-// we want (bare object keys, single or double quotes, trailing commas, numbers,
-// booleans, null, nested arrays/objects) and rejects everything else with a
-// clear error — no hand-rolled literal parser to maintain.
+// wrap them in `[…]` and hand them to JSON5 — which accepts the surface we want
+// (bare keys, single/double quotes, trailing commas, nested literals) and rejects
+// the rest with a clear error, so there's no hand-rolled parser to maintain.
 
 /** One parsed method call: the method name and its evaluated arguments. */
 export interface MethodCall {

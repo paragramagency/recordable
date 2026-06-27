@@ -2,11 +2,9 @@
 
 /**
  * A callable logger. Call it for a normal progress line — a padded `name` label
- * plus an optional value — and use `.success` / `.warn` / `.error` for status.
- * Status is conveyed by the colour of the `[Recordable]` prefix: soft blue for
- * progress, green for success, yellow for warnings, red for errors. Progress,
- * success and warnings go to stdout/stderr respectively and honour `silent`;
- * errors always print (to stderr) so failures are never swallowed.
+ * plus an optional value — and use `.success` / `.warn` / `.error` for status,
+ * conveyed by the colour of the `[Recordable]` prefix: blue progress, green
+ * success, yellow warn, red error. Stream + `silent` behaviour per method below.
  */
 export interface Logger {
   (name: string, value?: string): void;
