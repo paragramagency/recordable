@@ -49,8 +49,9 @@ await new Recordable({
   // Recording is ON from the top and finalises on run() — there is no start/stop.
   .pause() //                      stop capturing; the chain keeps running off-camera
   .resume() //                     resume capturing immediately, in a fresh segment
-  .resumeOnInput() //              resume only once the user clicks the in-page ▶ Play
-  .resumeOnInput("Sign in, then press ▶ Play") // …with a custom prompt message
+  .waitForPlay() //                gate only: block on the ▶ Play button, leave the camera as-is
+  .resumeOnPlay() //               wait for ▶ Play, then resume capturing (= waitForPlay().resume())
+  .resumeOnPlay("Sign in, then press ▶ Play") // …with a custom prompt message
 
   // Splice an external clip: first call = intro, last = outro, between = mid-roll.
   .insert("./intro.mp4") //                          hard cut (no fades)
@@ -69,6 +70,8 @@ await new Recordable({
   // Targets accept a CSS selector or a `text:` prefix (matched by visible text).
   .click("#submit") //                               click by selector
   .click("text:Next") //                             click by visible text
+  .click("text:Save", { waitForNav: true }) //       wait for a full-page navigation (opt-in)
+  .click("text:Save", { waitForNav: true, timeout: 10_000 }) // …with a custom nav timeout (ms)
   .hover("text:Account") //                          reveal :hover state (menus, tooltips)
   .type("#email", "hello@studio.com") //             type with human-like timing
   .type("#title", "My model", { duration: 4000 }) // type deterministically over 4s

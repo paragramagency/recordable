@@ -27,7 +27,7 @@ await new Recordable({
   .wait(400)
   .type("#address", "48 Marlow Road")
   .wait(400)
-  .click("text:Generate label")
+  .click("text:Generate label", { waitForNav: true })
   .waitFor("text:Label ready", { state: "visible" })
   .wait(1200)
   .resetZoom()

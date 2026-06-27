@@ -118,6 +118,20 @@ export interface AudioOptions {
   volume?: number;
 }
 
+/** Options for `Recordable.click`. */
+export interface ClickOptions {
+  /**
+   * Whether the click triggers a full-page navigation to wait for. Default: false
+   * — the click returns immediately. Set true to assert a full-page navigation:
+   * the wait is armed *before* the click (so a fast commit can't be missed) and
+   * the navigation must land, like `visit`. For SPA route changes or async content
+   * there is no full-page nav — use a following `waitFor("<selector>")` instead.
+   */
+  waitForNav?: boolean;
+  /** Navigation timeout in ms for `waitForNav: true`. Default: the `visitTimeout` config. */
+  timeout?: number;
+}
+
 /** Options for `Recordable.waitFor`. */
 export interface WaitForOptions {
   /**

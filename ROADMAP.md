@@ -9,9 +9,9 @@ per-segment MP4 → concat) is the foundation the rest builds on.
   `puppeteer@19` and broke `npm install`) with capture via CDP `Page.startScreencast`
   piped to the bundled ffmpeg. Removed the peer-dependency conflict — install is clean,
   no `--legacy-peer-deps` needed.
-- **pause / resume / resumeOnInput.** One universal `pause()` (camera off, the chain
+- **pause / resume / resumeOnPlay.** One universal `pause()` (camera off, the chain
   keeps running off-camera); two resumes — programmatic `resume()` and
-  `resumeOnInput()`, which waits for an in-page ▶ Play button (or Enter). No
+  `resumeOnPlay()` (was `resumeOnInput`), which waits for an in-page ▶ Play button (or Enter). No
   `start()`/`stop()`: recording is on by default and finalises on `.run()`. Captured
   stretches become segments, stitched into one seamless MP4.
 - **Insert / external video (intros, outros, mid-rolls), with cross-fades.**
@@ -43,6 +43,12 @@ per-segment MP4 → concat) is the foundation the rest builds on.
   codebase. **Logging** is a level-aware `[Recordable]`-prefixed logger (info/warn/error,
   honours `silent`; errors always surface). **`launchArgs`** config passes extra Chromium
   flags (`--no-sandbox`, …).
+- **Explicit click navigation waits.** Dropped the best-effort post-click navigation probe
+  (a 200ms race that missed slow commits and could stall on a busy page). `click()` is now
+  instantaneous by default; `click(target, { waitForNav: true })` deterministically waits
+  for a full-page navigation — the wait is armed _before_ the click (no probe race), the
+  navigation must land, and the network settles best-effort, so it behaves like `visit()`.
+  SPA route changes / async content are gated with a following `waitFor(...)`.
 - **`select` redesigned.** Single value (the variadic/`multiple` system is gone, incl. the
   manifest `rest` machinery); the cursor now animates to the control like `click`. (Native
   `<select>` option lists are OS-drawn and can't be captured — documented; build custom
@@ -50,12 +56,17 @@ per-segment MP4 → concat) is the foundation the rest builds on.
 
 ## Bugs
 
-- **`resumeOnInput()` — in-page ▶ Play button may not render.** _Hardened (this
-  session):_ added a **terminal Enter fallback** (press Enter in the shell to resume,
-  works even if the button never renders), wired up the documented **Enter/Space**
-  key handling in the injected button, and stopped swallowing injection errors (they
-  now log a warning). Still **needs a real headful browser to confirm** whether the
-  on-page button itself now renders — couldn't verify in the sandbox.
+_None open._ Recently resolved (confirmed against the real login flow in a headful browser):
+
+- **`resumeOnPlay()` (was `resumeOnInput`) — in-page ▶ Play button.** Hardened with a
+  terminal Enter fallback, Enter/Space handling on the button, and surfaced injection
+  errors (no longer swallowed). Login flow verified working end-to-end.
+- **Cursor not visible during the manual ▶ Play step.** Root cause was the `* { cursor:
+none !important }` rule the overlay injected to hide the real pointer — but the screencast
+  never captures the OS cursor, so it did nothing for the video and only blanked the live
+  headful pointer (the cursor "showed sometimes" purely by accident when a navigation
+  dropped the rule). Dropped `cursor: none` entirely. Also made `resume()` restore the
+  cursor to its `pause()` position so a resumed segment opens where the previous one ended.
 
 ## Next
 
@@ -91,7 +102,51 @@ Mostly "great docs + clean formats" (an AI emits the JSON/Markdown). Optional la
 **record-mode codegen** — watch a human click through once, emit the script — as a more
 reliable alternative to LLM-from-scratch.
 
-### 5. Demo-ready product
+### 5. New-tab recording
+
+Support links that open in a new tab and **continue recording in that new tab** (if
+feasible with CDP screencast — needs investigation). Today capture is bound to one page;
+this means detecting the new target, switching the screencast to it, and stitching the
+footage seamlessly.
+
+### 6. API additions
+
+- **Reintroduce `.start()`** — a wrapper around `pause`/`resume` for explicit
+  start-of-recording control.
+- **`.split()`** — split the output into multiple video files.
+- ~~**Rename `resumeOnInput`**~~ _Done (this session):_ `resumeOnInput()` →
+  `resumeOnPlay()`, with the gate split into a standalone `waitForPlay()`
+  (`resumeOnPlay()` = `waitForPlay().resume()`).
+
+### 7. Richer selectors
+
+Support **nested CSS selectors** and **complex sibling / `nth-*` selectors** (current
+matching is too limited for real-world DOMs).
+
+### 8. Set browser language
+
+Let scripts/config set the browser language (Chromium `--lang` + `Accept-Language` /
+`navigator.language`) so demos render in a chosen locale.
+
+### 9. Ignore markdown comments
+
+Strip HTML comments (`<!-- ... -->`) from markdown documents so authors can leave notes
+that don't compile into narration or steps.
+
+### 10. Variables system
+
+A variables system for scripts — defined via `.env` and/or a dedicated variables file —
+so values (URLs, credentials, names, etc.) can be referenced and reused across a script
+rather than hard-coded inline. Decide on `.env` vs. a separate variables file (or both)
+and the reference syntax; works across JSON/Markdown/programmatic.
+
+### 11. Include other markdown scripts
+
+Let a markdown script pull in another, e.g. `.include("./login.md")`, so common flows
+(sign-in, setup) live in one reusable file and compose into larger demos. Resolve paths
+against `baseDir`; merge narration/steps inline at the include point.
+
+### 12. Demo-ready product
 
 The showcase (`08-showcase`) covers the headline flow. Remaining is general polish: more
 demos, tightening rough edges so the whole thing is presentable.
@@ -109,5 +164,4 @@ demos, tightening rough edges so the whole thing is presentable.
   `main`). Confirm before pushing to `main`.
 - **Demos are tracked** (in `demos/`); only the generated artifacts — the output MP4s and any
   audio — are gitignored (`demos/**/assets/`). Add better demos later. Flattened from the old
-  `examples/` + `examples/demos/` split into a single numbered `demos/` folder (plus
-  `real-world-edtech.ts`, the one live-site script).
+  `examples/` + `examples/demos/` split into a single numbered `demos/` folder

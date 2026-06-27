@@ -1,9 +1,9 @@
-import {
-  type Page,
-  type Frame,
-  type GoToOptions,
-} from "puppeteer";
-import type { ResolvedConfig, WaitForOptions } from "../config.js";
+import { type Page, type GoToOptions } from "puppeteer";
+import type {
+  ClickOptions,
+  ResolvedConfig,
+  WaitForOptions,
+} from "../config.js";
 import { sleep, truncate } from "../utils.js";
 import { resolveTarget } from "../targets.js";
 import { type Logger } from "../logger.js";
@@ -14,13 +14,7 @@ import {
   smoothScrollToTarget,
 } from "./dom.js";
 import { Cursor, type ZoomState } from "./cursor.js";
-import {
-  jitter,
-  typingDuration,
-  typingGaps,
-  NAV_PROBE_MS,
-  PRE_CLICK_MS,
-} from "../timing.js";
+import { jitter, typingDuration, typingGaps, PRE_CLICK_MS } from "../timing.js";
 import {
   playButtonScript,
   PLAY_BINDING,
@@ -64,6 +58,18 @@ export class Runtime {
     if (this.getCfg().cursor) await this.cursor.inject(page, this.zoom);
   }
 
+  /** Snapshot the cursor position (on pause) so a later resume() can restore it,
+   *  ignoring any off-camera moves between pause and resume. */
+  parkCursor(): void {
+    this.cursor.park();
+  }
+
+  /** Re-inject the cursor at the parked position (on resume), so the resumed
+   *  segment opens with the cursor exactly where the paused one left it. */
+  async restoreCursor(page: Page): Promise<void> {
+    if (this.getCfg().cursor) await this.cursor.unpark(page, this.zoom);
+  }
+
   // ─── Navigation ────────────────────────────────────────────────────────────
 
   async visit(page: Page, url: string, options?: GoToOptions): Promise<void> {
@@ -96,9 +102,13 @@ export class Runtime {
 
   // ─── Interactions ──────────────────────────────────────────────────────────
 
-  async click(page: Page, target: string): Promise<void> {
+  async click(
+    page: Page,
+    target: string,
+    options: ClickOptions = {},
+  ): Promise<void> {
     this.log("Click", target);
-    await this._click(page, target);
+    await this._click(page, target, options);
   }
 
   async hover(page: Page, target: string): Promise<void> {
@@ -240,7 +250,11 @@ export class Runtime {
 
   /** Click a target's centre. Uses page.mouse.click() not ElementHandle.click()
    *  to avoid Puppeteer's built-in scrollIntoView overriding our centred scroll. */
-  private async _click(page: Page, target: string): Promise<void> {
+  private async _click(
+    page: Page,
+    target: string,
+    options: ClickOptions = {},
+  ): Promise<void> {
     if (this.getCfg().autoScroll) await this._scrollIntoView(page, target);
     const { x, y } = await getElementCenter(page, target);
     if (this.getCfg().cursor) {
@@ -248,37 +262,37 @@ export class Runtime {
       await sleep(jitter(PRE_CLICK_MS));
       await this.cursor.clickEffect(page);
     }
-    await this._clickPoint(page, x, y);
+    await this._clickPoint(page, x, y, options);
   }
 
   /**
-   * Click at viewport coords and, if the click triggers a navigation, wait for the
-   * new page to settle before returning — so a navigating `click()` behaves like a
-   * `visit()` and the next action lands on the loaded page rather than racing it.
-   * In-page clicks pay only a short probe.
+   * Click at viewport coords. By default the click returns immediately — clicks
+   * don't wait for navigation. Pass `waitForNav: true` when the click triggers a
+   * full-page navigation: the wait is armed *before* the click so a fast commit
+   * can't be missed, and the navigation must land, so the click then behaves like
+   * `visit()`. The network settle afterwards is best-effort, so a perpetually-busy
+   * page can't fail an otherwise-successful navigation. SPA route changes are not
+   * full-page navigations — gate those with a following `waitFor("<selector>")`.
    */
-  private async _clickPoint(page: Page, x: number, y: number): Promise<void> {
-    let navStarted = false;
-    const onNav = (frame: Frame) => {
-      if (frame === page.mainFrame()) navStarted = true;
-    };
-    page.on("framenavigated", onNav);
-    try {
+  private async _clickPoint(
+    page: Page,
+    x: number,
+    y: number,
+    options: ClickOptions = {},
+  ): Promise<void> {
+    if (!options.waitForNav) {
       await page.mouse.click(x, y);
-      // Give a navigation a brief moment to commit; most clicks don't navigate,
-      // so we can't block on a full navigation wait unconditionally.
-      await sleep(NAV_PROBE_MS);
-      if (navStarted) {
-        await page
-          .waitForNetworkIdle({
-            idleTime: 500,
-            timeout: this.getCfg().visitTimeout,
-          })
-          .catch(() => {});
-      }
-    } finally {
-      page.off("framenavigated", onNav);
+      return;
     }
+
+    const timeout = options.timeout ?? this.getCfg().visitTimeout;
+    // waitUntil "load" always resolves on a real navigation (unlike networkidle,
+    // which can stall on a busy page); arm it before the click so a fast commit
+    // can't be missed, then settle the network best-effort.
+    const navigated = page.waitForNavigation({ waitUntil: "load", timeout });
+    await page.mouse.click(x, y);
+    await navigated;
+    await page.waitForNetworkIdle({ idleTime: 500, timeout }).catch(() => {});
   }
 
   /** Move to viewport coords, animating the overlay when the cursor is enabled. */

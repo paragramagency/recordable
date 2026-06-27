@@ -15,7 +15,7 @@ wait(400)
 select("#service", "express")
 wait(400)
 
-click("text:Generate label")
+click("text:Generate label", { waitForNav: true })
 waitFor("text:Label ready", { state: "visible", timeout: 20000 })
 wait(1200)
 resetZoom()

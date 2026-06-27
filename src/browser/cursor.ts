@@ -3,6 +3,7 @@ import { sleep } from "../utils.js";
 import { cursorMoveMs, PRESS_DOWN_MS, PRESS_SETTLE_MS } from "../timing.js";
 
 const CURSOR_ID = "__recordable_cursor__";
+const CURSOR_STYLE_ID = "__recordable_cursor_style__";
 
 /** The page's current zoom transform, needed to position the overlay correctly. */
 export interface ZoomState {
@@ -22,61 +23,88 @@ export class Cursor {
   // real pointer) rather than snapping to the top-left corner.
   private pos = { x: 0, y: 0 };
 
+  // Position snapshotted at pause() so resume() can restore the cursor to exactly
+  // where the camera left it — off-camera steps between pause and resume may move
+  // `pos`, but the resumed segment should open where the last one ended.
+  private parked: { x: number; y: number } | null = null;
+
+  /** Snapshot the current position (called on pause) for a later unpark(). */
+  park(): void {
+    this.parked = { ...this.pos };
+  }
+
+  /** Restore the parked position (if any) and re-inject — called on resume so the
+   *  new segment opens with the cursor where the previous one ended. */
+  async unpark(page: Page, zoom: ZoomState = { tx: 0, ty: 0, s: 1 }): Promise<void> {
+    if (this.parked) {
+      this.pos = this.parked;
+      this.parked = null;
+    }
+    await this.inject(page, zoom);
+  }
+
   /**
-   * Draw the cursor SVG and hide the native pointer. Idempotent per document.
-   * Renders the overlay at the last-known position (carried across navigations)
-   * and syncs the real mouse there so hover state stays consistent.
+   * Ensure the cursor overlay exists and sits at the carried position, then sync
+   * the real mouse there. Safe to call repeatedly: it creates the overlay if the
+   * document doesn't have one (e.g. after a navigation) and otherwise just
+   * repositions it — so a resume() can restore the cursor even when the overlay
+   * survived the off-camera gap.
    */
   async inject(page: Page, zoom: ZoomState = { tx: 0, ty: 0, s: 1 }): Promise<void> {
-    // Bail early when there's nothing to do or we can't yet: already present, an
-    // iframe, or the new document's <body> hasn't parsed. A too-early call (e.g.
-    // from a navigation event) is a no-op; the next moveTo re-injects when ready.
-    const skip = await page.evaluate(
-      (id) =>
-        window !== window.parent ||
-        !document.body ||
-        !!document.getElementById(id),
-      CURSOR_ID,
+    // Can't draw into an iframe or before the document's <body> has parsed. A
+    // too-early call (e.g. from a navigation event) is a no-op; the next moveTo
+    // re-injects when ready.
+    const ready = await page.evaluate(
+      () => window === window.parent && !!document.body,
     );
-    if (skip) return;
+    if (!ready) return;
 
     const { cx, cy } = await this._toDocCoords(page, this.pos.x, this.pos.y, zoom);
     await page.evaluate(
-      ({ id, cx, cy }) => {
-        const style = document.createElement("style");
-        style.textContent = `
-          * { cursor: none !important; }
-          #${id} {
-            position: fixed;
-            top: 0; left: 0;
-            margin: -2px 0 0 -4px;
-            z-index: 2147483647;
-            pointer-events: none;
-            will-change: transform;
-            transition: transform 0.15s;
-            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
-          }
-          #${id}.pressing {
-            transform: var(--recordable-pos) scale(0.88) !important;
-            transition: transform 0.08s !important;
-          }
-        `;
-        document.head.appendChild(style);
+      ({ id, styleId, cx, cy }) => {
+        // Note: we intentionally do NOT hide the native pointer. The screencast
+        // doesn't capture the OS cursor, so it never reaches the video; hiding it
+        // only blanked the real pointer in the live headful window (incl. during
+        // manual wait-for-input steps). Both cursors showing live is harmless.
+        if (!document.getElementById(styleId)) {
+          const style = document.createElement("style");
+          style.id = styleId;
+          style.textContent = `
+            #${id} {
+              position: fixed;
+              top: 0; left: 0;
+              margin: -2px 0 0 -4px;
+              z-index: 2147483647;
+              pointer-events: none;
+              will-change: transform;
+              transition: transform 0.15s;
+              filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+            }
+            #${id}.pressing {
+              transform: var(--recordable-pos) scale(0.88) !important;
+              transition: transform 0.08s !important;
+            }
+          `;
+          document.head.appendChild(style);
+        }
 
-        const cursor = document.createElement("div");
-        cursor.id = id;
-        // Place at the carried-over position with no transition, so it appears
-        // there immediately instead of animating in from the corner.
+        let cursor = document.getElementById(id);
+        if (!cursor) {
+          cursor = document.createElement("div");
+          cursor.id = id;
+          cursor.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+            <path d="M4 2 L4 19 L8.5 14.5 L12 22 L14 21 L10.5 13.5 L17 13.5 Z"
+                  fill="white" stroke="#1e1b4b" stroke-width="1.2" stroke-linejoin="round"/>
+          </svg>`;
+          document.body.appendChild(cursor);
+        }
+        // Place at the carried position with no transition, so it appears there
+        // immediately instead of animating in from wherever it was.
         cursor.style.transition = "none";
         cursor.style.setProperty("--recordable-pos", `translate(${cx}px, ${cy}px)`);
         cursor.style.transform = `translate(${cx}px, ${cy}px)`;
-        cursor.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-          <path d="M4 2 L4 19 L8.5 14.5 L12 22 L14 21 L10.5 13.5 L17 13.5 Z"
-                fill="white" stroke="#1e1b4b" stroke-width="1.2" stroke-linejoin="round"/>
-        </svg>`;
-        document.body.appendChild(cursor);
       },
-      { id: CURSOR_ID, cx, cy },
+      { id: CURSOR_ID, styleId: CURSOR_STYLE_ID, cx, cy },
     );
     await page.mouse.move(this.pos.x, this.pos.y);
   }

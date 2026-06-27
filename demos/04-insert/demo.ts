@@ -39,7 +39,7 @@ await new Recordable({
   .zoom(1.3, { origin: "#card-toship" })
   .wait(800)
   .resetZoom()
-  .click("text:New shipment")
+  .click("text:New shipment", { waitForNav: true })
   .wait(600)
 
   .insert(clip("midroll.mp4"), { fadeIn: 600, fadeOut: 600 }) // mid-roll
@@ -48,7 +48,7 @@ await new Recordable({
   .wait(400)
   .select("#service", "express")
   .wait(600)
-  .click("text:Generate label")
+  .click("text:Generate label", { waitForNav: true })
   .waitFor("text:Label ready", { state: "visible" })
   .wait(800)
 

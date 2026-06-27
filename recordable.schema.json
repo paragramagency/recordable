@@ -128,7 +128,8 @@
           "enum": [
             "pause",
             "resume",
-            "resumeOnInput",
+            "waitForPlay",
+            "resumeOnPlay",
             "insert",
             "audio",
             "setConfig",
@@ -200,7 +201,7 @@
           "if": {
             "properties": {
               "action": {
-                "const": "resumeOnInput"
+                "const": "waitForPlay"
               }
             },
             "required": [
@@ -210,7 +211,33 @@
           "then": {
             "properties": {
               "action": {
-                "const": "resumeOnInput"
+                "const": "waitForPlay"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "resumeOnPlay"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "resumeOnPlay"
               },
               "message": {
                 "type": "string"
@@ -407,6 +434,12 @@
               },
               "target": {
                 "type": "string"
+              },
+              "waitForNav": {
+                "type": "boolean"
+              },
+              "timeout": {
+                "type": "number"
               }
             },
             "required": [

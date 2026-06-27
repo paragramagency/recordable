@@ -39,7 +39,7 @@ want on camera; every captured segment is stitched into one seamless MP4.
 - **Element targeting** by CSS selector or visible text (`text:` prefix).
 - **Off-camera segments** — `pause()`/`resume()` skip setup, navigations, or whole
   screens; segments are auto-stitched into one seamless video.
-- **Manual steps / logins** — `resumeOnInput()` waits for an in-page ▶ Play button
+- **Manual steps / logins** — `resumeOnPlay()` waits for an in-page ▶ Play button
   (see below), so you can sign in by hand before recording.
 - **Auto-scroll** to bring elements into view before interacting.
 - **Declarative JSON scripts + CLI** — author a recording as JSON (with a published
@@ -147,22 +147,26 @@ await new Recordable()
 ## Recording behind a login (manual steps)
 
 Run **headful** (`headless: false`) so the Chrome window is interactive. Keep the
-camera off while you sign in by hand, then `resumeOnInput()` waits for you to
+camera off while you sign in by hand, then `resumeOnPlay()` waits for you to
 click an **in-page ▶ Play button** (or press Enter) before recording resumes:
 
 ```ts
 await new Recordable({ headless: false })
   .pause() // camera off — the login isn't recorded
   .visit("https://app.example.com/login")
-  .resumeOnInput("Log in, then click ▶ Play to start recording")
+  .resumeOnPlay("Log in, then click ▶ Play to start recording")
   .visit("https://app.example.com/dashboard")
   .click("text:New project")
   .run();
 ```
 
-- **`resumeOnInput(message?)`** injects a ▶ Play button into the page itself and
-  blocks until you click it (Enter in the terminal also works). The button is
-  re-injected across navigations, so it survives login redirects.
+- **`resumeOnPlay(message?)`** waits for ▶ Play, then resumes recording. It's a thin
+  wrapper for **`waitForPlay().resume()`** — the ▶ Play button is injected into the
+  page itself and blocks until you click it (Enter in the terminal also works), and
+  it's re-injected across navigations so it survives login redirects.
+- **`waitForPlay(message?)`** is the gate on its own — it blocks on ▶ Play but leaves
+  the camera untouched. Use it when you want to hold the script for a manual step
+  that should stay off-camera, or pair it with `resume()` yourself.
 - Prefer an automatic trigger? Use **`waitFor("#dashboard")`** after `resume()` to
   carry on once a post-login element appears — no clicking required.
 
@@ -209,12 +213,13 @@ Create an instance with optional [config](#configuration), chain actions, then
 Recording is on by default and finalises automatically on `.run()`. These control
 what lands on camera:
 
-| Method                    | Description                                                                                                       |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `pause()`                 | Stop capturing; the chain keeps running off-camera.                                                               |
-| `resume()`                | Resume capturing in a fresh segment, immediately.                                                                 |
-| `resumeOnInput(message?)` | Resume only after the user clicks the in-page ▶ Play button (or presses Enter).                                   |
-| `insert(path, opts?)`     | Splice an external clip (intro / outro / mid-roll) into the timeline; `opts.fadeIn`/`fadeOut` (ms) cross-fade it. |
+| Method                   | Description                                                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `pause()`                | Stop capturing; the chain keeps running off-camera.                                                               |
+| `resume()`               | Resume capturing in a fresh segment, immediately.                                                                 |
+| `waitForPlay(message?)`  | Block until the user clicks the in-page ▶ Play button (or presses Enter); leaves recording state untouched.       |
+| `resumeOnPlay(message?)` | Wait for ▶ Play, then resume capturing — `waitForPlay().resume()`.                                                |
+| `insert(path, opts?)`    | Splice an external clip (intro / outro / mid-roll) into the timeline; `opts.fadeIn`/`fadeOut` (ms) cross-fade it. |
 
 ### Navigation & waiting
 
@@ -226,20 +231,27 @@ what lands on camera:
 
 ### Interactions
 
-| Method                              | Description                                                                                         |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `click(target)`                     | Click an element.                                                                                   |
-| `hover(target)`                     | Move onto an element to reveal `:hover` state (no click).                                           |
-| `type(target, text, { duration? })` | Type into a field with human-like timing; `duration` (ms) spreads keystrokes evenly with no jitter. |
-| `clear(target)`                     | Select-all + delete the contents of a field.                                                        |
-| `select(target, value)`             | Choose an option in a native `<select>` (the OS-drawn option list isn't captured — see note below). |
-| `key(key)`                          | Press a key, e.g. `"Escape"`, `"Enter"`, `"Tab"`.                                                   |
-| `mouse(target \| {x, y})`           | Move the cursor to an element or coordinates.                                                       |
+| Method                              | Description                                                                                                                                    |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `click(target, { waitForNav? })`    | Click an element. By default returns immediately; pass `{ waitForNav: true }` when the click triggers a full-page navigation (see note below). |
+| `hover(target)`                     | Move onto an element to reveal `:hover` state (no click).                                                                                      |
+| `type(target, text, { duration? })` | Type into a field with human-like timing; `duration` (ms) spreads keystrokes evenly with no jitter.                                            |
+| `clear(target)`                     | Select-all + delete the contents of a field.                                                                                                   |
+| `select(target, value)`             | Choose an option in a native `<select>` (the OS-drawn option list isn't captured — see note below).                                            |
+| `key(key)`                          | Press a key, e.g. `"Escape"`, `"Enter"`, `"Tab"`.                                                                                              |
+| `mouse(target \| {x, y})`           | Move the cursor to an element or coordinates.                                                                                                  |
 
 > The browser draws an open `<select>`'s option list with the OS, outside the page,
 > so the screencast can't capture it — `select()` shows the cursor and the value
 > changing, but not the dropdown. For an on-camera dropdown, build a custom one from
 > `click()`s.
+
+> A plain `click()` does not wait for navigation. If the click loads a new page
+> (a link, a form submit), add `{ waitForNav: true }` so the next action lands on
+> the loaded page instead of racing it — the wait is armed before the click and
+> the navigation must land, like `visit()`. For SPA route changes or async content
+> (no full-page load) there's nothing to wait on — follow the click with
+> `waitFor("<selector>")` for an element on the new view instead.
 
 ### Camera
 

@@ -16,15 +16,15 @@ visit("../site/signin.html")
 resume()
 ```
 
-`insert("intro.mp4", { fadeOut: 500 })` Welcome to Dispatch — today I'll show you how to take an order from new shipment to fully tracked, in under a minute. `type("#email", "maya@northwindgoods.com")` First we sign in with our work account — the address our admin set up `type("#password", "parcels2026")` `click("#signInBtn")` — then our password —  and we're straight into the shipments dashboard. 
+`insert("intro.mp4", { fadeOut: 500 })` Welcome to Dispatch — today I'll show you how to take an order from new shipment to fully tracked, in under a minute. `type("#email", "maya@northwindgoods.com")` First we sign in with our work account — the address our admin set up `type("#password", "parcels2026")` `click("#signInBtn", { waitForNav: true })` — then our password —  and we're straight into the shipments dashboard. 
 
-`click("text:New shipment")` From here we open a new shipment, `type("#recipient", "Priya Anand")` enter the recipient, `type("#address", "48 Marlow Road")` their address, and choose a service — `select("#service", "express")` Express, in this case. `click("text:Generate label")` Dispatch generates the label and assigns a tracking number.
+`click("text:New shipment", { waitForNav: true })` From here we open a new shipment, `type("#recipient", "Priya Anand")` enter the recipient, `type("#address", "48 Marlow Road")` their address, and choose a service — `select("#service", "express")` Express, in this case. `click("text:Generate label", { waitForNav: true })` Dispatch generates the label and assigns a tracking number.
 
 ```
 waitFor("text:Label ready", { state: "visible", timeout: 20000 })
 ```
 
-`zoom(1.3, { origin: "#label", duration: 400 })` There's the label, ready to print. `resetZoom()` We mark it as shipped `click("text:Mark as shipped")` and the parcel moves into tracking.
+`zoom(1.3, { origin: "#label", duration: 400 })` There's the label, ready to print. `resetZoom()` We mark it as shipped `click("text:Mark as shipped", { waitForNav: true })` and the parcel moves into tracking.
 
 ```
 waitFor("text:Out for delivery", { state: "visible", timeout: 20000 })

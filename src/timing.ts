@@ -5,11 +5,11 @@ import { getDuration } from "./ffmpeg.js";
 
 // ─── Gesture timing (single source of truth) ─────────────────────────────────
 //
-// An interactive action isn't instantaneous: the cursor eases to the target,
-// dips to "press", and a click waits a beat to see if it navigated. The runtime
-// *spends* this time; the voiceover compiler must *predict* it, or every wait it
-// computes is short by a gesture and actions drift late. Both import these
-// constants so the prediction can't silently fall out of step.
+// An interactive action isn't instantaneous: the cursor eases to the target and
+// dips to "press". The runtime *spends* this time; the voiceover compiler must
+// *predict* it, or every wait it computes is short by a gesture and actions drift
+// late. Both import these constants so the prediction can't silently fall out of
+// step.
 
 /** Cursor "press" dip on click — scale down… */
 export const PRESS_DOWN_MS = 120;
@@ -20,9 +20,6 @@ const CLICK_PRESS_MS = PRESS_DOWN_MS + PRESS_SETTLE_MS;
 
 /** Settle beat between arriving at a target and pressing (jitter base). */
 export const PRE_CLICK_MS = 100;
-
-/** Post-click probe: how long a click waits for a possible navigation to begin. */
-export const NAV_PROBE_MS = 200;
 
 /** Cursor-move duration bounds; the move eases from its current position. */
 const CURSOR_MOVE_MIN_MS = 150;
@@ -52,11 +49,8 @@ export function gestureLeadMs(step: Action, cfg: RecordableConfig): number {
     case "click":
     case "type":
     case "clear":
-      // type/clear focus the field with the same move-press-probe as a click.
-      return move + press + NAV_PROBE_MS;
     case "select":
-      // Animates to the control and presses, but sets the value directly — no
-      // mouse click, so no navigation probe.
+      // Travel to the target and press; type/clear/select then act on the field.
       return move + press;
     case "hover":
       return move; // moves only — no press

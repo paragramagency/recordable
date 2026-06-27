@@ -3,6 +3,7 @@ import { isAbsolute, resolve } from "node:path";
 import {
   DEFAULT_CONFIG,
   type AudioOptions,
+  type ClickOptions,
   type InsertOptions,
   type RecordableConfig,
   type ResolvedConfig,
@@ -138,31 +139,43 @@ export class Recordable {
   pause(): this {
     return this._enqueue(async () => {
       this.recording = false;
+      this.runtime.parkCursor(); // remember where the cursor is for resume()
       await this.recorder.end();
     }, true);
   }
 
-  /** Resume capturing in a fresh segment, immediately. */
+  /** Resume capturing in a fresh segment, immediately. Restores the cursor to its
+   *  pause() position (a manual step may have navigated away and wiped the overlay,
+   *  or off-camera steps moved it). */
   resume(): this {
     return this._enqueue(async (page) => {
       this.recording = true;
       await this.recorder.begin(page);
+      await this.runtime.restoreCursor(page);
     }, true);
   }
 
   /**
-   * Resume capturing, but only once the user *plays* — clicks the in-page ▶ Play
-   * button (or presses Enter in the terminal). Use for manual actions such as a
-   * login: `pause()` first, sign in by hand (headful), then `resumeOnInput()`.
+   * Block the chain until the user *plays* — clicks the in-page ▶ Play button (or
+   * presses Enter in the terminal). Recording state is left untouched, so this is
+   * just a gate: pair it with `resume()` to gate a resume, or use it standalone to
+   * hold the script for a manual step that stays off-camera. The common
+   * pause → sign-in-by-hand → resume flow is `resumeOnPlay()`.
    */
-  resumeOnInput(message = "Press ▶ Play when you're ready to record"): this {
+  waitForPlay(message = "Press ▶ Play to continue"): this {
     return this._enqueue(async (page) => {
       await this.runtime.waitForPlay(page, message);
-      this.recording = true;
-      await this.recorder.begin(page);
-      // The page may have navigated during the manual step — re-inject cursor.
-      await this.runtime.injectCursor(page);
     }, true);
+  }
+
+  /**
+   * Resume capturing, but only once the user *plays*. Convenience wrapper for
+   * `waitForPlay().resume()` — the usual manual flow: `pause()` first, do the
+   * manual step by hand (headful), then `resumeOnPlay()`.
+   */
+  resumeOnPlay(message = "Press ▶ Play when you're ready to record"): this {
+    this.waitForPlay(message);
+    return this.resume();
   }
 
   /**
@@ -226,10 +239,13 @@ export class Recordable {
 
   /**
    * Click an element. Accepts a CSS selector (`#id`, `.class`, `input[name="…"]`)
-   * or a `text:` prefix (`"text:Next"`, matched by visible text).
+   * or a `text:` prefix (`"text:Next"`, matched by visible text). Pass
+   * `{ waitForNav: true }` when the click triggers a full-page navigation; for SPA
+   * route changes or async content, follow with `waitFor(...)`. See
+   * {@link ClickOptions}.
    */
-  click(target: string): this {
-    return this._enqueue((page) => this.runtime.click(page, target));
+  click(target: string, options: ClickOptions = {}): this {
+    return this._enqueue((page) => this.runtime.click(page, target, options));
   }
 
   /**

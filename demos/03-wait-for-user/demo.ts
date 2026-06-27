@@ -1,9 +1,11 @@
 // Demo 3 — Wait-for-user: recording behind a manual step (a login).
 //
 // The pattern: keep the camera OFF (`pause()`) while you sign in by hand, then
-// `resumeOnInput()` injects an in-page ▶ Play button and blocks until you click
+// `resumeOnPlay()` injects an in-page ▶ Play button and blocks until you click
 // it (Enter in the terminal also works). The login never appears in the video;
-// recording starts the moment you hit Play.
+// recording starts the moment you hit Play. (`resumeOnPlay()` is just
+// `waitForPlay().resume()` — use the standalone `waitForPlay()` gate if you want
+// to hold for a manual step without resuming the camera.)
 //
 // Drives the shared demo site in ../site: sign in by hand on signin.html, then
 // the recorded part picks up on the shipments dashboard (index.html).
@@ -30,7 +32,7 @@ await new Recordable({
 })
   .pause() // camera off — the login below is NOT recorded
   .visit(url("signin.html"))
-  .resumeOnInput("Sign in by hand, then click ▶ Play to start recording")
+  .resumeOnPlay("Sign in by hand, then click ▶ Play to start recording")
 
   // ── Authenticated: everything below is what lands in the video ──────────────
   .waitFor("text:Good afternoon") // we're now on the shipments dashboard

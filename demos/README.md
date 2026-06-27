@@ -34,7 +34,7 @@ All demos drive the shared `site/` mockup; the column notes which slice each use
 | 0 | `00-kitchen-sink`   | — (reference only, not run)     | every method + every option + every config field, in one annotated chain |
 | 1 | `01-simple`         | new-shipment form → label       | visit · zoom · type · click · waitFor |
 | 2 | `02-complex`        | dashboard ↔ reports ↔ settings  | search · hover menu · key(Escape) · cross-page nav · modal · select · pause/resume off-camera · scroll · zoom |
-| 3 | `03-wait-for-user`  | sign-in → dashboard             | `resumeOnInput()` manual login behind a `pause()` |
+| 3 | `03-wait-for-user`  | sign-in → dashboard             | `resumeOnPlay()` manual login behind a `pause()` |
 | 4 | `04-insert`         | dashboard → new shipment → label | `insert()` intro / mid-roll / outro — splices the bundled `*.mp4` clips in with `fadeIn`/`fadeOut` cross-fades |
 | 5 | `05-json`           | new-shipment form → label       | the **JSON script format** (`demo.json`) run via `Recordable.fromJSON` — same flow as #1, authored as data |
 | 6 | `06-cli`            | new-shipment form → label       | the **CLI** — `demo.json` (type · select · waitFor) run through the `recordable` binary, no TypeScript |

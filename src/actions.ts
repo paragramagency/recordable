@@ -21,7 +21,8 @@ const ACTIONS = {
   // Recording control
   pause: z.strictObject({}),
   resume: z.strictObject({}),
-  resumeOnInput: z.strictObject({ message: z.string().optional() }),
+  waitForPlay: z.strictObject({ message: z.string().optional() }),
+  resumeOnPlay: z.strictObject({ message: z.string().optional() }),
   insert: z.strictObject({
     path: z.string(),
     fadeIn: z.number().optional(),
@@ -48,7 +49,11 @@ const ACTIONS = {
   }),
 
   // Interactions
-  click: z.strictObject({ target: z.string() }),
+  click: z.strictObject({
+    target: z.string(),
+    waitForNav: z.boolean().optional(),
+    timeout: z.number().optional(),
+  }),
   hover: z.strictObject({ target: z.string() }),
   type: z.strictObject({
     target: z.string(),
@@ -82,7 +87,8 @@ const ACTIONS = {
  * fact not derivable from the schema.
  */
 const POSITIONAL_OPTIONAL: Record<string, readonly string[]> = {
-  resumeOnInput: ["message"],
+  waitForPlay: ["message"],
+  resumeOnPlay: ["message"],
 };
 
 /** A single action: the action name plus its flat named arguments. */
