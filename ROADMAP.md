@@ -73,6 +73,13 @@ per-segment MP4 → concat) is the foundation the rest builds on.
   cursor overlay tracks it.
 - **Test suite + CI.** `npm test` now gates CI: unit (pure logic), I/O (real bundled ffmpeg
   via fixtures), and an opt-in end-to-end pipeline run (`npm run test:e2e`).
+- **Container scrolling.** `scroll(target, { container })` scrolls within a named overflow
+  pane (modal / sidebar / list) instead of the window — `smoothScroll` is scroller-agnostic
+  (animates `el.scrollTop` or the window), and `"top"`/`"bottom"`/number/selector resolve
+  against the container (a child is centred within it). Auto-scroll-before-action also walks
+  to the target's nearest scrollable ancestor, so `click`/`type`/`select`/`hover` reveal
+  elements nested in a container before acting (config `autoScroll`, default on). Demo
+  `10-container-scroll`; e2e in `test/e2e/container-scroll.e2e.ts`.
 
 ## Bugs
 
@@ -166,16 +173,11 @@ Let a markdown script pull in another, e.g. `.include("./login.md")`, so common 
 (sign-in, setup) live in one reusable file and compose into larger demos. Resolve paths
 against `baseDir`; merge narration/steps inline at the include point.
 
-### 11. Container scrolling
+### 11. ~~Container scrolling~~ — Done
 
-Both `scroll()` and auto-scroll-before-action are window-only — `smoothScroll` drives
-`window.scrollTo`/`window.scrollY` and `"bottom"` reads `document.body.scrollHeight`
-(`src/browser/dom.ts`). They can't reach content inside an overflow container (a scrollable
-modal, sidebar, or pane), which stays put while the page doesn't move. Add scrolling of a
-named scroll container: resolve the nearest scrollable ancestor (or an explicit target),
-animate its `scrollTop` instead of the window, and make auto-scroll-into-view walk
-containers too so `click`/`type` work on elements nested in one. Keep the `"top"`/`"bottom"`
-/ number / selector target forms; works across programmatic / JSON / Markdown.
+Shipped — see Done. `scroll(target, { container })` scrolls within an overflow pane, and
+auto-scroll-before-action walks to the nearest scrollable ancestor. Remaining nice-to-have:
+horizontal container scrolling (current support is vertical only).
 
 ### 12. Demo-ready product
 

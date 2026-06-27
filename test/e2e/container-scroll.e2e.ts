@@ -38,7 +38,10 @@ const FIXTURE = `<!doctype html>
       { length: ROWS },
       (_, i) => `<div class="row" id="row-${i + 1}">Row ${i + 1}</div>`,
     ).join("\n    ")}
+    <button class="row" id="deep-btn"
+      onclick="document.getElementById('clicked').textContent='yes'">Deep button</button>
   </div>
+  <p id="clicked"></p>
   <div class="page-spacer"></div>
   <div id="page-bottom">Page bottom</div>
 </body></html>`;
@@ -61,11 +64,12 @@ beforeEach(async () => {
   await page.setContent(FIXTURE, { waitUntil: "load" });
 });
 
-// No cursor; autoScroll off so the container scroll under test is the only thing
-// touching scroll position.
-function mkRuntime() {
+// No cursor; autoScroll off by default so the explicit container scroll under test
+// is the only thing touching scroll position. Pass { autoScroll: true } for the
+// auto-scroll-into-view cases.
+function mkRuntime(over: { autoScroll?: boolean } = {}) {
   const log = recordingLogger();
-  const cfg = { ...DEFAULT_CONFIG, cursor: false, autoScroll: false };
+  const cfg = { ...DEFAULT_CONFIG, cursor: false, autoScroll: false, ...over };
   return { runtime: new Runtime(() => cfg, log), log };
 }
 
@@ -161,4 +165,28 @@ test("no container scrolls the window, leaving the pane untouched", async () => 
   await runtime.scroll(page, "#page-bottom", FAST);
   assert.ok((await winY()) > 100, "window should have scrolled toward the bottom");
   assert.equal(await paneTop(), 0, "the container must not have moved");
+});
+
+// ─── Auto-scroll-into-view walks into the nearest scrollable container ─────────
+
+test("click auto-scrolls the container to reveal an off-screen target", async () => {
+  const { runtime } = mkRuntime({ autoScroll: true });
+  assert.equal(await paneTop(), 0);
+  assert.equal(
+    await childVisibleInContainer("#deep-btn", "#pane"),
+    false,
+    "deep button should start below the pane fold",
+  );
+  await runtime.click(page, "#deep-btn");
+  assert.equal(
+    await page.$eval("#clicked", (el) => el.textContent),
+    "yes",
+    "the click should have landed on the deep button",
+  );
+  assert.ok((await paneTop()) > 0, "the pane should have scrolled to reveal it");
+  assert.equal(
+    await childVisibleInContainer("#deep-btn", "#pane"),
+    true,
+    "deep button should be visible in the pane after the click",
+  );
 });

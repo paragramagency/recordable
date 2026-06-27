@@ -177,10 +177,95 @@ export async function smoothScrollToTarget(
   return smoothScroll(page, top, duration, scroller);
 }
 
+/** One scroller's reading of where the target sits, all in its own axis:
+ *  `relTop` = element top relative to the scroller's visible area. */
+interface ScrollMetrics {
+  relTop: number;
+  height: number;
+  vh: number;
+  scrollTop: number;
+}
+
+/** The scrollTop that brings the element comfortably into the scroller's view, or
+ *  null when it's already comfortably visible. Pure geometry, shared by the window
+ *  and container passes so both reveal an element the same way. */
+function comfortTarget(m: ScrollMetrics, margin: number): number | null {
+  const { relTop, height, vh, scrollTop } = m;
+  const relBottom = relTop + height;
+  const comfort = margin * 2;
+  if (relTop >= comfort && relBottom <= vh - comfort) return null;
+  // Tall element: top-align with margin.
+  if (height > vh - margin * 2) return scrollTop + relTop - margin;
+  // Below the bottom comfort zone: scroll just enough to show it fully (centring
+  // would often overshoot the scroller's max and leave it pinned to the edge).
+  if (relBottom > vh - margin) return scrollTop + relBottom - (vh - margin);
+  // Above the top comfort zone: scroll to show the top.
+  if (relTop < margin) return scrollTop + relTop - margin;
+  // Within the comfort band but not comfortable: centre it.
+  return scrollTop + relTop + height / 2 - vh / 2;
+}
+
+/** Read the target's position within `container` (an element scroller) or, when
+ *  null, within the window. */
+function readMetrics(
+  page: Page,
+  handle: ElementHandle<Element>,
+  container: ElementHandle<Element> | null,
+): Promise<ScrollMetrics> {
+  return page.evaluate(
+    (el, c) => {
+      const r = el.getBoundingClientRect();
+      if (c) {
+        const b = c.getBoundingClientRect();
+        return {
+          relTop: r.top - b.top,
+          height: r.height,
+          vh: c.clientHeight,
+          scrollTop: c.scrollTop,
+        };
+      }
+      return {
+        relTop: r.top,
+        height: r.height,
+        vh: window.innerHeight,
+        scrollTop: window.scrollY,
+      };
+    },
+    handle,
+    container,
+  );
+}
+
+/** The nearest ancestor that actually scrolls vertically (overflow auto/scroll +
+ *  overflowing content), or null if none short of the document — in which case the
+ *  window is the scroller. */
+async function nearestScrollableAncestor(
+  handle: ElementHandle<Element>,
+): Promise<ElementHandle<Element> | null> {
+  const h = await handle.evaluateHandle((el) => {
+    let p = el.parentElement;
+    while (p && p !== document.body && p !== document.documentElement) {
+      const oy = getComputedStyle(p).overflowY;
+      if (
+        (oy === "auto" || oy === "scroll" || oy === "overlay") &&
+        p.scrollHeight > p.clientHeight
+      )
+        return p;
+      p = p.parentElement;
+    }
+    return null;
+  });
+  const el = h.asElement() as ElementHandle<Element> | null;
+  if (!el) await h.dispose();
+  return el;
+}
+
 /**
- * Scroll `target` into view if it lies outside the visible viewport (keeping
- * `margin` px clear on each side). No-op when the element is already fully
- * visible. `speed` (px/s) sets the scroll duration.
+ * Scroll `target` into view if it lies outside the visible area (keeping `margin`
+ * px clear on each side). No-op when already comfortably visible. `speed` (px/s)
+ * sets the scroll duration. Scrolls the target's nearest scrollable container
+ * first (so it's revealed inside a modal / sidebar / pane), then the window so the
+ * container itself is on screen.
  */
 export async function scrollIntoView(
   page: Page,
@@ -189,35 +274,19 @@ export async function scrollIntoView(
   speed: number,
 ): Promise<void> {
   const handle = await getHandle(page, target);
-  const scrollY = await page.evaluate(
-    (el, margin) => {
-      const rect = el.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const comfort = margin * 2;
-      if (rect.top >= comfort && rect.bottom <= vh - comfort) return null;
+  const container = await nearestScrollableAncestor(handle);
 
-      // Tall element: top-align with margin
-      if (rect.height > vh - margin * 2)
-        return window.scrollY + rect.top - margin;
+  const reveal = async (scroller: ElementHandle<Element> | null) => {
+    const metrics = await readMetrics(page, handle, scroller);
+    const top = comfortTarget(metrics, margin);
+    if (top === null) return;
+    const dist = Math.abs(top - metrics.scrollTop);
+    const duration = Math.max(200, (dist / speed) * 1000);
+    await smoothScroll(page, top, duration, scroller);
+  };
 
-      // Element extends below the bottom comfort zone: scroll just enough to
-      // show it fully, rather than trying to centre it (which often overshoots
-      // the page's max scroll and leaves the element at the viewport edge).
-      if (rect.bottom > vh - margin)
-        return window.scrollY + rect.bottom - (vh - margin);
+  if (container) await reveal(container);
+  await reveal(null);
 
-      // Element extends above the top comfort zone: scroll to show top
-      if (rect.top < margin) return window.scrollY + rect.top - margin;
-
-      // In view but within the comfort band: centre it
-      return window.scrollY + rect.top + rect.height / 2 - vh / 2;
-    },
-    handle,
-    margin,
-  );
-  if (scrollY === null) return;
-  const currentY = await page.evaluate(() => window.scrollY);
-  const dist = Math.abs(scrollY - currentY);
-  const duration = Math.max(200, (dist / speed) * 1000);
-  await smoothScroll(page, scrollY, duration);
+  await container?.dispose();
 }
