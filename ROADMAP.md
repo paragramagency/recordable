@@ -130,10 +130,14 @@ cursor injection on the new tab, and trim the loading time by default.
 Support **nested CSS selectors** and **complex sibling / `nth-*` selectors** (current
 matching is too limited for real-world DOMs).
 
-### 8. Ignore markdown comments
+### 8. ~~Ignore markdown comments~~ — Done
 
-Strip HTML comments (`<!-- ... -->`) from markdown documents so authors can leave notes
-that don't compile into narration or steps.
+Whole-line `//` comments (the syntax VS Code injects on toggle-comment) are stripped from
+the markdown body before tokenising, so an author note never compiles into narration the
+TTS reads or into a step. Only a line whose first non-whitespace is `//` is dropped (incl.
+its newline, so a note inside a paragraph doesn't split it); `//` mid-line — e.g. in
+`https://…` — is left untouched, and a `//` line inside a fenced action list comments that
+step out. (Chose `//` over HTML `<!-- -->` for the friendlier editor affordance.)
 
 ### 9. Variables system
 
