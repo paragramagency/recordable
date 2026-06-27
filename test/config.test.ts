@@ -16,6 +16,7 @@ test("DEFAULT_CONFIG: every documented default is resolved", () => {
     outputTimestamp: true,
     assetsDir: "assets",
     headless: false,
+    language: "",
     launchArgs: [],
     typingSpeed: 7,
     videoCrf: 18,
