@@ -25,8 +25,7 @@ import type { RecordableConfig } from "./config.js";
 
 /** A whole script: a bare array of actions, or an object pairing config + actions. */
 export type Script =
-  | Action[]
-  | { $schema?: string; config?: RecordableConfig; actions: Action[] };
+  Action[] | { $schema?: string; config?: RecordableConfig; actions: Action[] };
 
 /** Split a `Script` into its optional config and action array. */
 export function splitScript(script: Script): {
