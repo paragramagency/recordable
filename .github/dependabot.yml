@@ -1,0 +1,30 @@
+version: 2
+updates:
+  # npm dependencies — keep runtime + dev deps current (and clear audit vulns
+  # as upstream fixes land). Minor/patch bumps are grouped to cut PR noise.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: build # → Conventional Commits, so commitlint passes
+    groups:
+      dev-minor-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      prod-minor-patch:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions versions used in the workflows.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

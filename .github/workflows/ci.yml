@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# Least privilege: CI only reads the repo. Override per-job if a job needs more.
+permissions:
+  contents: read
+
 jobs:
   commitlint:
     # Enforce Conventional Commits on every commit in a PR (see CONTRIBUTING.md).
@@ -24,6 +28,22 @@ jobs:
 
       - name: Lint PR commit messages
         run: npx commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}" --verbose
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Gate only on high/critical vulns in *production* deps — those ship to
+      # consumers. Dev-only and lower-severity advisories are left to Dependabot.
+      - run: npm audit --omit=dev --audit-level=high
 
   build:
     runs-on: ubuntu-latest

@@ -82,6 +82,7 @@
     "eslint": "^10.5.0",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.8.4",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
@@ -89,5 +90,12 @@
   },
   "optionalDependencies": {
     "@elevenlabs/elevenlabs-js": "^2.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,js,mjs,cjs}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml,css,html}": "prettier --write"
   }
 }
