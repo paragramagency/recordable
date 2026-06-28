@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-28
+
+### Changed
+
+- **Minimum Node.js is now 22** (`engines.node: ">=22"`), up from 20, and CI
+  runs on Node 22 and 24 (the Node 20 leg is dropped). The toolchain moved past
+  Node 20: Puppeteer 25 requires Node ≥ 22.12 and `lint-staged` 17 requires
+  ≥ 22.22. Node 20 consumers should stay on 0.5.x.
+- **Bundled Puppeteer upgraded 22 → 25.** The 22.x line is no longer supported
+  upstream. No API change for recordable callers.
+- **Dev/CI toolchain bumps:** TypeScript 6, `@types/node` 26, `lint-staged` 17,
+  and the `actions/checkout` / `actions/setup-node` GitHub Actions (v7 / v6).
+
 ## [0.5.0] - 2026-06-28
 
 ### Added
@@ -151,7 +164,8 @@ Initial release.
 - Declarative JSON authoring format with published JSON Schema and `recordable` CLI
   (`--check` to validate without a browser).
 
-[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/paragramagency/recordable/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/paragramagency/recordable/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/paragramagency/recordable/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/paragramagency/recordable/compare/v0.2.0...v0.3.0
