@@ -14,7 +14,7 @@ jobs:
       id-token: write # OIDC token for npm trusted publishing
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -49,7 +49,7 @@ jobs:
     permissions:
       contents: write # create the GitHub Release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Pull the body between this version's "## [x.y.z]" heading and the next
       # "## [" heading — so the Release notes mirror the CHANGELOG section exactly.
