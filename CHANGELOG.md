@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Audio mixing and cross-fades on Linux.** The bundled ffmpeg now comes from
+  `ffmpeg-static` (current ffmpeg 6.x on every platform) instead of
+  `@ffmpeg-installer/ffmpeg`, whose Linux binary was 4.1 — too old for `xfade`
+  (cross-fades, ffmpeg 4.3) and `adelay`'s `all` option (audio overlays, 4.2).
+  Both silently failed on Linux; they now work. A system `ffmpeg` on `PATH`
+  remains the fallback.
+
 ### Changed
 
 - **Minimum Node.js is now 20** (`engines.node: ">=20"`), up from 18. Node 18

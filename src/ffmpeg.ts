@@ -31,11 +31,18 @@ export function getDuration(path: string): Promise<number> {
   });
 }
 
-// Prefer the ffmpeg binary bundled by @ffmpeg-installer/ffmpeg; fall back to a
-// system `ffmpeg` on PATH if it isn't present for some reason.
+// Prefer the ffmpeg binary bundled by ffmpeg-static; fall back to a system
+// `ffmpeg` on PATH if it isn't present for some reason. ffmpeg-static ships a
+// current ffmpeg (>= 6) on every platform — unlike @ffmpeg-installer, whose
+// Linux binary was 4.1 and lacked `xfade` (4.3) and adelay's `all` option (4.2).
 function resolveFfmpegPath(): string {
   try {
-    return createRequire(import.meta.url)("@ffmpeg-installer/ffmpeg").path;
+    // ffmpeg-static exports the binary path directly (null on an unsupported
+    // platform, in which case we defer to a system ffmpeg).
+    const path = createRequire(import.meta.url)("ffmpeg-static") as
+      | string
+      | null;
+    return path ?? "ffmpeg";
   } catch {
     return "ffmpeg";
   }

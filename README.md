@@ -60,7 +60,7 @@ npm install recordable
 
 Frames are captured via the Chrome DevTools Protocol and encoded with **FFmpeg** —
 there's no external screen-recorder dependency. The ffmpeg binary ships via
-[`@ffmpeg-installer/ffmpeg`](https://www.npmjs.com/package/@ffmpeg-installer/ffmpeg),
+[`ffmpeg-static`](https://www.npmjs.com/package/ffmpeg-static),
 so there's nothing else to install (a system `ffmpeg` on your `PATH` is used as a
 fallback).
 
