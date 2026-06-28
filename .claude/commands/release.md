@@ -1,5 +1,5 @@
 ---
-description: Audit unreleased commits, update docs, bump version, commit/tag/push a release
+description: Audit unreleased commits, update docs, bump version, ship via a release PR, then tag
 ---
 
 Cut a new release of `recordable`. Work through these steps in order. Be concise.
@@ -37,18 +37,30 @@ State the chosen version and the one-line reason before editing files.
 - Edit `version` in `package.json`.
 - Update the two `"version"` fields near the top of `package-lock.json` to match.
 
-## 6. Commit, tag, push
+## 6. Open the release PR
 
-The user asked for a release, so this is authorized — proceed without re-confirming (but stop if anything in steps 1–2 failed).
+`main` is protected by a ruleset (required CI checks + a PR before merge), so a release lands through a PR, **not** a direct push. Creating the branch, commit, and PR are authorized by the release request — proceed without re-confirming (but stop if anything in steps 1–2 failed). **The merge itself requires explicit approval** — see the merge bullet below.
 
+- Create a release branch off `main`: `git checkout -b release/vX.Y.Z`.
 - Stage everything: `git add -A`.
-- Commit with a `Release vX.Y.Z` subject and a short body summarising the headline changes. End the message with:
+- Commit with a `Release vX.Y.Z` subject and a short body summarising the headline changes (commitlint is configured to exempt `Release vX` subjects, so this passes the hook and the CI `commitlint` job). End the message with:
   ```
   Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
   ```
-- Annotated tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`.
-- Push both: `git push origin main && git push origin vX.Y.Z`.
+- Push and open the PR: `git push -u origin release/vX.Y.Z`, then `gh pr create --base main --title "Release vX.Y.Z" --body "<headline summary>"`.
+- Wait for CI to pass: `gh pr checks --watch`. The ruleset requires `build (20)`, `build (22)`, `build (24)`, `audit`, and `commitlint` to be green. If any check fails, **stop and report** — do not merge.
+- **Request approval to merge.** Once the checks are green, share the PR link and the check summary and **ask the user to approve the merge — do not merge unprompted.** Only after they approve, merge from the GitHub CLI: `gh pr merge --squash --delete-branch` (with the admin bypass and 0 required approvals, this merges as soon as the required checks pass — no `--admin` force needed). It lands a single `Release vX.Y.Z (#N)` commit on `main` carrying the version bump.
 
-## 7. Report
+## 7. Tag the merged release
 
-Summarise: version released, the changelog highlights, which docs changed, and confirm build/test were green and the push + tag succeeded.
+The **tag** — not the branch push — is what publishes: `release.yml` runs on `v*` tags (npm publish via OIDC + a GitHub Release from the changelog). Tags aren't covered by the branch ruleset, so the tag pushes directly.
+
+- Sync local `main` to the merged commit: `git checkout main && git pull`.
+- Sanity-check the version landed: `node -p "require('./package.json').version"` must equal `X.Y.Z` (the `release.yml` guard fails the publish if the tag and `package.json` disagree).
+- Annotated tag on the merge result: `git tag -a vX.Y.Z -m "vX.Y.Z"`.
+- Push the tag: `git push origin vX.Y.Z`.
+- Watch the publish workflow: `gh run watch` (or `gh run list --workflow=release.yml`). If it fails, report — the tag is pushed but nothing was published.
+
+## 8. Report
+
+Summarise: version released, the changelog highlights, which docs changed, confirm the local gates were green, the PR number and that its checks passed and it merged, and that the tag pushed and the publish workflow succeeded (or its status if still running).
