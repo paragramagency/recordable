@@ -103,14 +103,26 @@ const rectOf = (sel: string) =>
     return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
   });
 
-async function assertCursorOnMarker(markerId: string, tol: number) {
+// The cursor is driven to each marker's *centre* (getElementCenter, +jitter), so
+// its pointer hotspot must fall inside the marker's box — not coincide with the
+// marker's top-left corner. A wrong coordinate space under zoom would push the
+// hotspot outside the box, and grow the miss with distance from the origin.
+async function assertCursorOnMarker(markerId: string, slack: number) {
   const cur = await rectOf(`#${CURSOR_ID}`);
   const mark = await rectOf(`#${markerId}`);
-  const dx = cur.left - mark.left;
-  const dy = cur.top - mark.top;
+  // The overlay's transform origin (= the real mouse point) sits at the cursor
+  // box's top-left plus the -4px/-2px hotspot margin.
+  const hx = cur.left + 4;
+  const hy = cur.top + 2;
+  const inside =
+    hx >= mark.left - slack &&
+    hx <= mark.right + slack &&
+    hy >= mark.top - slack &&
+    hy <= mark.bottom + slack;
   assert.ok(
-    Math.abs(dx) <= tol && Math.abs(dy) <= tol,
-    `cursor should sit on ${markerId} (off by ${dx.toFixed(1)}, ${dy.toFixed(1)}px; tol ${tol})`,
+    inside,
+    `cursor hotspot (${hx.toFixed(1)}, ${hy.toFixed(1)}) should fall on ${markerId} ` +
+      `[${mark.left.toFixed(0)}–${mark.right.toFixed(0)}, ${mark.top.toFixed(0)}–${mark.bottom.toFixed(0)}]`,
   );
 }
 
@@ -130,11 +142,11 @@ test(`pageZoom ${ZOOM}: layout reflows wider (innerWidth ≈ width / zoom)`, asy
 test(`pageZoom ${ZOOM}: cursor lands on every target across the page`, async () => {
   const runtime = mkRuntime();
   for (const m of MARKERS) {
-    // Drive the cursor to each marker by selector; the overlay's top-left must
-    // coincide with the marker's. A wrong coordinate space puts the far markers
-    // well outside the tolerance.
+    // Drive the cursor to each marker by selector; the overlay's pointer must
+    // land inside the marker's box. A wrong coordinate space puts the far markers
+    // well outside it.
     await runtime.mouse(page, `#${m.id}`);
-    await assertCursorOnMarker(m.id, 8);
+    await assertCursorOnMarker(m.id, 4);
   }
 });
 
