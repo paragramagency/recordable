@@ -234,15 +234,15 @@ what lands on camera:
 
 ### Interactions
 
-| Method                              | Description                                                                                                                                    |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Method                                          | Description                                                                                                                                                                                                             |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `click(target, { waitForNav?, followNewTab? })` | Click an element. Returns immediately by default; pass `{ waitForNav: true }` when the click triggers a full-page navigation, or `{ followNewTab: true }` to keep recording in a tab the click opens (see notes below). |
-| `hover(target)`                     | Move onto an element to reveal `:hover` state (no click).                                                                                      |
-| `type(target, text, { duration? })` | Type into a field with human-like timing; `duration` (ms) spreads keystrokes evenly with no jitter.                                            |
-| `clear(target)`                     | Select-all + delete the contents of a field.                                                                                                   |
-| `select(target, value)`             | Choose an option in a native `<select>` by `value`, or by `:option-index(N)` / `:option-label(Text)` (see note below; OS-drawn list isn't captured). |
-| `key(key)`                          | Press a key, e.g. `"Escape"`, `"Enter"`, `"Tab"`.                                                                                              |
-| `mouse(target \| {x, y})`           | Move the cursor to an element or coordinates.                                                                                                  |
+| `hover(target)`                                 | Move onto an element to reveal `:hover` state (no click).                                                                                                                                                               |
+| `type(target, text, { duration? })`             | Type into a field with human-like timing; `duration` (ms) spreads keystrokes evenly with no jitter.                                                                                                                     |
+| `clear(target)`                                 | Select-all + delete the contents of a field.                                                                                                                                                                            |
+| `select(target, value)`                         | Choose an option in a native `<select>` by `value`, or by `:option-index(N)` / `:option-label(Text)` (see note below; OS-drawn list isn't captured).                                                                    |
+| `key(key)`                                      | Press a key, e.g. `"Escape"`, `"Enter"`, `"Tab"`.                                                                                                                                                                       |
+| `mouse(target \| {x, y})`                       | Move the cursor to an element or coordinates.                                                                                                                                                                           |
 
 > The browser draws an open `<select>`'s option list with the OS, outside the page,
 > so the screencast can't capture it — `select()` shows the cursor and the value

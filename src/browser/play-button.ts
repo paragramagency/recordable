@@ -5,11 +5,7 @@ export const PLAY_BINDING = "__recordablePlay__";
  * Injected into the page to render the in-page ▶ Play button. Runs in the
  * browser context, so it must be fully self-contained (no outer references).
  */
-function injectPlayButton(
-  message: string,
-  id: string,
-  binding: string,
-): void {
+function injectPlayButton(message: string, id: string, binding: string): void {
   // Skip iframes — only the top document gets the button.
   if (window !== window.parent) return;
   const build = () => {

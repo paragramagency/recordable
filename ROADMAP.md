@@ -55,10 +55,10 @@ Add explicit recording bookends and multi-file output, on a **two-axis model** t
 them distinct from `pause`/`resume` (no duplicate functionality under new names):
 
 - **Off-camera gaps (within one file):** `pause()` stops the camera, `resume()` continues
-  it into the *same* output file — the gap is stitched out, the clip stays continuous.
+  it into the _same_ output file — the gap is stitched out, the clip stays continuous.
   (Unchanged.)
 - **File boundaries (which file):** `start()` opens an output file, `end()` closes it,
-  `split()` does both at once. These produce *separate* files.
+  `split()` does both at once. These produce _separate_ files.
 
 They share the segment plumbing; the only mechanical difference is where the next segment
 goes — `resume()` appends to the current file, `start()`/`split()` open a new one. So
@@ -69,7 +69,7 @@ goes — `resume()` appends to the current file, `start()`/`split()` open a new 
 closing boundary (content after is off-camera); absent, at the bottom. A simple script
 needs neither — it records top-to-bottom as today; add only the bookend you actually need.
 `split() ≡ end() + start()` fused with no gap (camera keeps rolling, output switches
-files); put off-camera work *between* an `end()` and the next `start()` to get two files
+files); put off-camera work _between_ an `end()` and the next `start()` to get two files
 with a gap instead. **Pause never crosses a boundary** — `split()` always starts a fresh,
 rolling file.
 

@@ -214,7 +214,9 @@ export class Recordable {
       // Pin the clip to where we are in recorded time (the video timeline), then
       // hand it to the audio layer to probe + collect for the final mix.
       const startMs = this.recorder.currentTimelineMs();
-      const { durationMs } = await this.audioTrack.add(file, startMs, { volume });
+      const { durationMs } = await this.audioTrack.add(file, startMs, {
+        volume,
+      });
       this.log(
         "Audio",
         `${truncate(file)} @ ${Math.round(startMs)}ms (${Math.round(durationMs)}ms)`,
@@ -268,7 +270,11 @@ export class Recordable {
    * compiler can predict this action's length. Pass `{ duration }` (ms) to
    * override that total.
    */
-  type(target: string, text: string, options: { duration?: number } = {}): this {
+  type(
+    target: string,
+    text: string,
+    options: { duration?: number } = {},
+  ): this {
     return this._enqueue((page) =>
       this.runtime.type(page, target, text, options),
     );
@@ -328,7 +334,10 @@ export class Recordable {
    * `origin` accepts position keywords, percentages, a CSS selector, or `text:`.
    * `duration` overrides `zoomDuration` for this call.
    */
-  zoom(level: number, options: { origin?: string; duration?: number } = {}): this {
+  zoom(
+    level: number,
+    options: { origin?: string; duration?: number } = {},
+  ): this {
     return this._enqueue((page) => this.runtime.zoomTo(page, level, options));
   }
 
@@ -364,7 +373,10 @@ export class Recordable {
       audioTrack: this.audioTrack,
       runtime: this.runtime,
     } as Composition;
-    Object.defineProperty(comp, "cfg", { get: () => this.cfg, enumerable: true });
+    Object.defineProperty(comp, "cfg", {
+      get: () => this.cfg,
+      enumerable: true,
+    });
     Object.defineProperty(comp, "recording", {
       get: () => this.recording,
       enumerable: true,
@@ -393,7 +405,11 @@ export class Recordable {
   /** Recompute `cfg` as defaults < content config < constructor config, then
    *  resolve a relative `outputDir`/`assetsDir` against `baseDir`. */
   private _applyContentConfig(content: RecordableConfig): void {
-    this.cfg = { ...DEFAULT_CONFIG, ...parseConfig(content), ...this.userConfig };
+    this.cfg = {
+      ...DEFAULT_CONFIG,
+      ...parseConfig(content),
+      ...this.userConfig,
+    };
     const base = this.cfg.baseDir;
     if (base) {
       if (!isAbsolute(this.cfg.outputDir))

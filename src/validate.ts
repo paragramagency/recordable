@@ -75,5 +75,10 @@ export function parseConfig(input: unknown): RecordableConfig {
 /** Validate a `voiceover` frontmatter block. Returns it typed; throws
  *  {@link RecordableError} `CONFIG_INVALID` on a bad shape. */
 export function parseVoiceover(input: unknown): VoiceoverConfig {
-  return parseWith(VoiceoverSchema, "voiceover", "Invalid voiceover config — ", input);
+  return parseWith(
+    VoiceoverSchema,
+    "voiceover",
+    "Invalid voiceover config — ",
+    input,
+  );
 }

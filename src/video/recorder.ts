@@ -3,7 +3,12 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { type Page, type CDPSession } from "puppeteer";
-import { FFMPEG_PATH, getDuration, runFfmpeg, videoEncodeArgs } from "../ffmpeg.js";
+import {
+  FFMPEG_PATH,
+  getDuration,
+  runFfmpeg,
+  videoEncodeArgs,
+} from "../ffmpeg.js";
 import { RecordableError } from "../errors.js";
 import { type Logger } from "../logger.js";
 import { type InsertOptions, type ResolvedConfig } from "../config.js";
@@ -76,7 +81,12 @@ export class Recorder {
   /** Recorded-time position now: finalised segments + the in-flight segment. */
   currentTimelineMs(): number {
     const fps = this.segmentFps || this.getCfg().fps;
-    return timelineMs(this.completedMs, this.segmentFrames, fps, this.capturing);
+    return timelineMs(
+      this.completedMs,
+      this.segmentFrames,
+      fps,
+      this.capturing,
+    );
   }
 
   /** Create the temp working directory for segment files. Call once before use. */
@@ -110,7 +120,10 @@ export class Recorder {
     if (this.ffmpegProc) return;
     const cfg = this.getCfg();
     const idx = this.segmentList.length;
-    const file = join(this.tmpDirPath, `seg-${String(idx).padStart(3, "0")}.mp4`);
+    const file = join(
+      this.tmpDirPath,
+      `seg-${String(idx).padStart(3, "0")}.mp4`,
+    );
     const { width, height } = cfg.viewport;
     const fps = cfg.fps;
 
@@ -208,7 +221,11 @@ export class Recorder {
 
     // Only keep segments that actually captured frames (avoids empty/invalid mp4).
     if (this.currentSegment && frames > 0) {
-      this.segmentList.push({ path: this.currentSegment, fadeIn: 0, fadeOut: 0 });
+      this.segmentList.push({
+        path: this.currentSegment,
+        fadeIn: 0,
+        fadeOut: 0,
+      });
       this.completedMs +=
         (frames / (this.segmentFps || this.getCfg().fps)) * 1000;
     }
@@ -226,12 +243,18 @@ export class Recorder {
    */
   async insert(path: string, options: InsertOptions = {}): Promise<void> {
     if (!existsSync(path))
-      throw new RecordableError("FILE_NOT_FOUND", `insert: file not found: ${path}`);
+      throw new RecordableError(
+        "FILE_NOT_FOUND",
+        `insert: file not found: ${path}`,
+      );
     await this.end(true);
 
     const cfg = this.getCfg();
     const idx = this.segmentList.length;
-    const file = join(this.tmpDirPath, `seg-${String(idx).padStart(3, "0")}.mp4`);
+    const file = join(
+      this.tmpDirPath,
+      `seg-${String(idx).padStart(3, "0")}.mp4`,
+    );
     const { width, height } = cfg.viewport;
 
     // Letterbox-fit to the viewport and conform fps/codec/pixel format so the clip
@@ -269,6 +292,7 @@ export class Recorder {
 
   /** Remove the temp working directory. Call once the output is written. */
   removeTmp(): void {
-    if (this.tmpDirPath) rmSync(this.tmpDirPath, { recursive: true, force: true });
+    if (this.tmpDirPath)
+      rmSync(this.tmpDirPath, { recursive: true, force: true });
   }
 }

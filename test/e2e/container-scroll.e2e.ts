@@ -152,9 +152,12 @@ test("selector target centres an off-screen child inside the container", async (
   const offset = await page.evaluate(() => {
     const c = document.querySelector("#row-9")!.getBoundingClientRect();
     const b = document.querySelector("#pane")!.getBoundingClientRect();
-    return Math.abs((c.top + c.height / 2) - (b.top + b.height / 2));
+    return Math.abs(c.top + c.height / 2 - (b.top + b.height / 2));
   });
-  assert.ok(offset < 5, `row-9 should be centred in the pane (off by ${offset}px)`);
+  assert.ok(
+    offset < 5,
+    `row-9 should be centred in the pane (off by ${offset}px)`,
+  );
   assert.equal(await winY(), 0, "window must not have scrolled");
 });
 
@@ -163,7 +166,10 @@ test("selector target centres an off-screen child inside the container", async (
 test("no container scrolls the window, leaving the pane untouched", async () => {
   const { runtime } = mkRuntime();
   await runtime.scroll(page, "#page-bottom", FAST);
-  assert.ok((await winY()) > 100, "window should have scrolled toward the bottom");
+  assert.ok(
+    (await winY()) > 100,
+    "window should have scrolled toward the bottom",
+  );
   assert.equal(await paneTop(), 0, "the container must not have moved");
 });
 
@@ -183,7 +189,10 @@ test("click auto-scrolls the container to reveal an off-screen target", async ()
     "yes",
     "the click should have landed on the deep button",
   );
-  assert.ok((await paneTop()) > 0, "the pane should have scrolled to reveal it");
+  assert.ok(
+    (await paneTop()) > 0,
+    "the pane should have scrolled to reveal it",
+  );
   assert.equal(
     await childVisibleInContainer("#deep-btn", "#pane"),
     true,

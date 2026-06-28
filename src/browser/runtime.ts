@@ -228,7 +228,9 @@ export class Runtime {
     const resolved = await el.evaluate((node, spec) => {
       const opts = [...(node as HTMLSelectElement).options];
       const hit =
-        "index" in spec ? opts[spec.index - 1] : opts.find((o) => o.textContent?.trim() === spec.label);
+        "index" in spec
+          ? opts[spec.index - 1]
+          : opts.find((o) => o.textContent?.trim() === spec.label);
       return hit?.value;
     }, spec);
     if (resolved == null) {
@@ -382,8 +384,7 @@ export class Runtime {
 
   /** Move to viewport coords, animating the overlay when the cursor is enabled. */
   private async _moveTo(page: Page, x: number, y: number): Promise<void> {
-    if (this.getCfg().cursor)
-      await this.cursor.moveTo(page, x, y, this.zoom);
+    if (this.getCfg().cursor) await this.cursor.moveTo(page, x, y, this.zoom);
     else await page.mouse.move(x, y);
   }
 

@@ -10,7 +10,10 @@ import { stitch } from "../video/stitch.js";
 import { type AudioTrack } from "../audio/track.js";
 import { addAudio } from "./mix.js";
 import { type Runtime } from "../browser/runtime.js";
-import { createZoomExtension, type ZoomExtension } from "../browser/page-zoom.js";
+import {
+  createZoomExtension,
+  type ZoomExtension,
+} from "../browser/page-zoom.js";
 
 // ─── Compose layer: the session ──────────────────────────────────────────────
 //
@@ -109,7 +112,8 @@ export class Session {
         if (next && next !== page) {
           page = await this._switchTab(next, runtime, cfg, recorder);
         }
-        if (this.comp.cfg.actionDelay > 0) await sleep(this.comp.cfg.actionDelay);
+        if (this.comp.cfg.actionDelay > 0)
+          await sleep(this.comp.cfg.actionDelay);
       }
     } catch (err) {
       ok = false;
@@ -175,7 +179,9 @@ export class Session {
     await newPage
       .waitForFunction(() => document.readyState === "complete", { timeout })
       .catch(() => {});
-    await newPage.waitForNetworkIdle({ idleTime: 500, timeout }).catch(() => {});
+    await newPage
+      .waitForNetworkIdle({ idleTime: 500, timeout })
+      .catch(() => {});
     if (cfg.cursor) await runtime.injectCursor(newPage).catch(() => {});
     this.comp.log("Tab", "following new tab");
     return newPage;

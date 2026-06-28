@@ -33,7 +33,10 @@ test("callToAction: gather flattens the trailing options to top-level keys", () 
     },
   );
   assert.deepEqual(
-    callToAction("waitFor", ["text:Done", { state: "visible", timeout: 20000 }]),
+    callToAction("waitFor", [
+      "text:Done",
+      { state: "visible", timeout: 20000 },
+    ]),
     {
       action: "waitFor",
       target: "text:Done",
@@ -149,7 +152,11 @@ test("parseBlocks: a fenced block is a step list regardless of language tag", ()
     const { blocks } = parseMarkdown("```" + lang + "\n" + body + "\n```\n");
     assert.equal(blocks.length, 1, `lang=${lang}`);
     assert.equal(blocks[0].type, "actions");
-    assert.deepEqual((blocks[0] as ActionsBlock).actions, expected, `lang=${lang}`);
+    assert.deepEqual(
+      (blocks[0] as ActionsBlock).actions,
+      expected,
+      `lang=${lang}`,
+    );
   }
 });
 
@@ -236,5 +243,8 @@ test("parseMarkdown: `//` mid-line (a URL) and in a code span are left untouched
   assert.equal(blocks.length, 1);
   const b = blocks[0] as NarrationBlock;
   assert.equal(b.narration, "See `//config` here.");
-  assert.deepEqual(b.markers[0].step, { action: "visit", url: "https://x.test" });
+  assert.deepEqual(b.markers[0].step, {
+    action: "visit",
+    url: "https://x.test",
+  });
 });

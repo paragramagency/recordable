@@ -79,7 +79,9 @@ function extractSynthesis(res: unknown): {
   const data = prop(res, "data") ?? res;
   // Audio field is `audioBase64` (camelCase SDK) / `audio_base64` (raw REST).
   const audioBase64 =
-    prop(data, "audioBase64") ?? prop(data, "audio_base64") ?? prop(data, "audio");
+    prop(data, "audioBase64") ??
+    prop(data, "audio_base64") ??
+    prop(data, "audio");
   if (typeof audioBase64 !== "string") {
     throw new RecordableError(
       "TTS_FAILED",

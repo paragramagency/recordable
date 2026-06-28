@@ -35,10 +35,9 @@ test("scroll: duration gathers; bare target trims the empty options", () => {
     buildArgs({ action: "scroll", target: "top", duration: 500 }, "scroll"),
     ["top", { duration: 500 }],
   );
-  assert.deepEqual(
-    buildArgs({ action: "scroll", target: "top" }, "scroll"),
-    ["top"],
-  );
+  assert.deepEqual(buildArgs({ action: "scroll", target: "top" }, "scroll"), [
+    "top",
+  ]);
 });
 
 test("scroll: container gathers into the options object", () => {
@@ -95,7 +94,8 @@ test("validateAction: click accepts followNewTab, rejects a non-boolean", () => 
     validateAction({ action: "click", target: "#go", followNewTab: true }),
   );
   assert.throws(
-    () => validateAction({ action: "click", target: "#go", followNewTab: "yes" }),
+    () =>
+      validateAction({ action: "click", target: "#go", followNewTab: "yes" }),
     (err) => isRecordableError(err) && err.code === "CONFIG_INVALID",
   );
 });

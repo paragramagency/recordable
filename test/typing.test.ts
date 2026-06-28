@@ -1,11 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  hashString,
-  rng,
-  typingDuration,
-  typingGaps,
-} from "../src/timing.js";
+import { hashString, rng, typingDuration, typingGaps } from "../src/timing.js";
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
@@ -14,10 +9,7 @@ const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 test("typingDuration: pure function of length and speed", () => {
   assert.equal(typingDuration("hello", 5), 1000); // 5 chars / 5 cps = 1s
   assert.equal(typingDuration("", 7), 0);
-  assert.equal(
-    typingDuration("abcdefg", 7),
-    Math.round((7 / 7) * 1000),
-  );
+  assert.equal(typingDuration("abcdefg", 7), Math.round((7 / 7) * 1000));
 });
 
 test("typingDuration: guards non-positive speed (no Infinity)", () => {
@@ -64,7 +56,10 @@ test("typingGaps: punctuation carries a heavier delay than a letter", () => {
   const g = typingGaps("a,aaaaaa", 7, 8000, 0);
   const commaDelay = g[2]; // after char[1] = ','
   const letterDelay = g[1]; // after char[0] = 'a'
-  assert.ok(commaDelay > letterDelay, "comma delay should exceed a letter delay");
+  assert.ok(
+    commaDelay > letterDelay,
+    "comma delay should exceed a letter delay",
+  );
 });
 
 // ─── Reproducibility: same text → same rhythm ────────────────────────────────

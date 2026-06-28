@@ -65,7 +65,10 @@ test("compileMarkdown: a type's slot covers its cursor lead and keystrokes", asy
   // the start of "typing" → fires at 400ms. Its slot is the cursor lead plus the
   // keystroke time for "ab", so the tail wait is what's left after both.
   const md = 'Now `type("#x", "ab")` typing here done.';
-  const { actions } = await compileMarkdown(md, { provider, assetsDir: freshDir() });
+  const { actions } = await compileMarkdown(md, {
+    provider,
+    assetsDir: freshDir(),
+  });
 
   const lead = gestureLeadMs({ action: "type" }, {});
   const keys = typingDuration("ab", 7); // default typingSpeed
@@ -87,7 +90,10 @@ test("compileMarkdown: a fenced block between paragraphs is a no-audio pause", a
   ].join("\n");
 
   const assetsDir = freshDir();
-  const { actions, assets } = await compileMarkdown(md, { provider, assetsDir });
+  const { actions, assets } = await compileMarkdown(md, {
+    provider,
+    assetsDir,
+  });
 
   assert.equal(assets.length, 1); // only the narration paragraph synthesizes
   const tail = actions.length;
@@ -117,15 +123,26 @@ test("compileMarkdown: an overlaid insert eats its length from the next wait", a
   const clip = join(dir, "intro.mp4");
   // A ~0.3s black clip (9 frames @ 30fps) — short enough to leave a positive wait.
   await runFfmpeg([
-    "-y", "-f", "lavfi", "-i", "color=c=black:s=320x240:d=0.3", "-r", "30",
-    "-pix_fmt", "yuv420p", clip,
+    "-y",
+    "-f",
+    "lavfi",
+    "-i",
+    "color=c=black:s=320x240:d=0.3",
+    "-r",
+    "30",
+    "-pix_fmt",
+    "yuv420p",
+    clip,
   ]);
   const clipMs = Math.round((await getDuration(clip)) * 1000);
   assert.ok(clipMs > 0 && clipMs < 600, `clip ${clipMs}ms leaves room`);
 
   // "Click the button now." (2100ms); click fires on "the" at 600ms.
   const md = `\`insert("${clip}")\` Click \`click("text:Go")\` the button now.`;
-  const { actions } = await compileMarkdown(md, { provider, assetsDir: freshDir() });
+  const { actions } = await compileMarkdown(md, {
+    provider,
+    assetsDir: freshDir(),
+  });
 
   const lead = gestureLeadMs({ action: "click" }, {});
   assert.deepEqual(actions.slice(1), [

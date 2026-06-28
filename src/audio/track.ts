@@ -43,7 +43,10 @@ export class AudioTrack {
     options: { volume?: number } = {},
   ): Promise<{ startMs: number; durationMs: number }> {
     if (!existsSync(path))
-      throw new RecordableError("FILE_NOT_FOUND", `audio: file not found: ${path}`);
+      throw new RecordableError(
+        "FILE_NOT_FOUND",
+        `audio: file not found: ${path}`,
+      );
     const durationMs = (await getDuration(path)) * 1000;
     this.clips.push({ path, startMs, durationMs, volume: options.volume });
     return { startMs, durationMs };

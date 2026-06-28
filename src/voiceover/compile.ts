@@ -193,7 +193,12 @@ async function placeMarkers(
   let elapsed = 0;
   let prevOffset = -1;
   for (const m of markers) {
-    const fire = markerFireMs(m.offset, narration, alignment, result.durationMs);
+    const fire = markerFireMs(
+      m.offset,
+      narration,
+      alignment,
+      result.durationMs,
+    );
     const gap = Math.round(fire - elapsed);
     if (gap > 0) {
       actions.push({ action: "wait", ms: gap });
@@ -287,7 +292,8 @@ export async function compileMarkdown(
   const parsed = parseMarkdown(md);
   // Progress is opt-in (silent default); warnings always surface.
   const log = options.log ?? createLogger(() => true);
-  const warn = options.warn ?? options.log?.warn ?? createLogger(() => false).warn;
+  const warn =
+    options.warn ?? options.log?.warn ?? createLogger(() => false).warn;
   const voiceover = withEnvDefaults(options.voiceover ?? parsed.voiceover);
   const provider = resolveProvider(options.provider, voiceover);
   const providerName =
@@ -306,8 +312,13 @@ export async function compileMarkdown(
   const actions: Action[] = [];
   const assets: string[] = [];
 
-  const narrationCount = parsed.blocks.filter((b) => b.type !== "actions").length;
-  log("Voice", `compiling ${narrationCount} narration block(s) → ${providerName}`);
+  const narrationCount = parsed.blocks.filter(
+    (b) => b.type !== "actions",
+  ).length;
+  log(
+    "Voice",
+    `compiling ${narrationCount} narration block(s) → ${providerName}`,
+  );
 
   for (const block of parsed.blocks) {
     if (block.type === "actions") {

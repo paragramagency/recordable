@@ -117,7 +117,7 @@ audio(path: string, opts?: { wait?: boolean; volume?: number }): this
 The compiler must predict each action's duration to lay out waits. Most actions are
 already deterministic (`scroll`/`zoom` take an explicit `duration`; `click`/`key` are
 ~fixed). The outlier was human-jittered `type`. **Resolved (implemented):** `type` is
-now jittered *and* deterministic in total — the jitter is **zero-sum**, redistributing
+now jittered _and_ deterministic in total — the jitter is **zero-sum**, redistributing
 time within a fixed budget rather than changing it.
 
 ```ts
@@ -126,7 +126,7 @@ type(target, text, { duration?: number }): this
 
 - **Total budget** = `typingDuration(text, speed)` = `round(text.length / speed × 1000)`
   (`src/utils.ts`). A pure function of the text — the compiler estimates against the
-  *same* function (`stepDurationMs` in `compile.ts` imports it), so predicted == actual.
+  _same_ function (`stepDurationMs` in `compile.ts` imports it), so predicted == actual.
 - **Jitter** (`typingGaps`) draws seeded per-key weights (punctuation heavier, a lead
   beat), then **normalises them back onto the budget** so the delays always sum to the
   total. Seeded by `hashString(text)` (mulberry32) → same text types with the same rhythm
@@ -135,7 +135,7 @@ type(target, text, { duration?: number }): this
   redistributed within it. Omitted → the natural per-length budget, the common path.
 
 **This dissolves the typing-duration problem without elastic surgery:** typing is
-*always* deterministic, so the compiler reads `typingDuration(text)` to lay out waits and
+_always_ deterministic, so the compiler reads `typingDuration(text)` to lay out waits and
 only sets `{ duration }` when it deliberately wants a non-natural length. (Decided this
 session: omitted duration = the natural budget, same meaning across chain/JSON/markdown —
 not a compiler-controlled elastic fit.) Tests: `test/typing.test.ts` (sum-invariant,

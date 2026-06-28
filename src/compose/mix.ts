@@ -1,5 +1,9 @@
 import { getDuration, runFfmpeg } from "../ffmpeg.js";
-import { audioFilterGraph, audioOverruns, type AudioClip } from "../audio/track.js";
+import {
+  audioFilterGraph,
+  audioOverruns,
+  type AudioClip,
+} from "../audio/track.js";
 import type { Logger } from "../logger.js";
 
 // ─── Compose layer: combining audio onto the video ───────────────────────────

@@ -45,7 +45,10 @@ export class Cursor {
 
   /** Restore the parked position (if any) and re-inject — called on resume so the
    *  new segment opens with the cursor where the previous one ended. */
-  async unpark(page: Page, zoom: ZoomState = { tx: 0, ty: 0, s: 1 }): Promise<void> {
+  async unpark(
+    page: Page,
+    zoom: ZoomState = { tx: 0, ty: 0, s: 1 },
+  ): Promise<void> {
     if (this.parked) {
       this.pos = this.parked;
       this.parked = null;
@@ -60,7 +63,10 @@ export class Cursor {
    * repositions it — so a resume() can restore the cursor even when the overlay
    * survived the off-camera gap.
    */
-  async inject(page: Page, zoom: ZoomState = { tx: 0, ty: 0, s: 1 }): Promise<void> {
+  async inject(
+    page: Page,
+    zoom: ZoomState = { tx: 0, ty: 0, s: 1 },
+  ): Promise<void> {
     // Can't draw into an iframe or before the document's <body> has parsed. A
     // too-early call (e.g. from a navigation event) is a no-op; the next moveTo
     // re-injects when ready.
@@ -69,7 +75,12 @@ export class Cursor {
     );
     if (!ready) return;
 
-    const { cx, cy } = await this._toDocCoords(page, this.pos.x, this.pos.y, zoom);
+    const { cx, cy } = await this._toDocCoords(
+      page,
+      this.pos.x,
+      this.pos.y,
+      zoom,
+    );
     await page.evaluate(
       ({ id, styleId, cx, cy, moveMs, pressScale, pressMs }) => {
         // Note: we intentionally do NOT hide the native pointer. The screencast
@@ -111,7 +122,10 @@ export class Cursor {
         // Place at the carried position with no transition, so it appears there
         // immediately instead of animating in from wherever it was.
         cursor.style.transition = "none";
-        cursor.style.setProperty("--recordable-pos", `translate(${cx}px, ${cy}px)`);
+        cursor.style.setProperty(
+          "--recordable-pos",
+          `translate(${cx}px, ${cy}px)`,
+        );
         cursor.style.transform = `translate(${cx}px, ${cy}px)`;
       },
       {
@@ -155,7 +169,10 @@ export class Cursor {
             return;
           }
           cursor.style.transition = `transform ${dur}ms cubic-bezier(0.4,0,0.2,1)`;
-          cursor.style.setProperty("--recordable-pos", `translate(${cx}px, ${cy}px)`);
+          cursor.style.setProperty(
+            "--recordable-pos",
+            `translate(${cx}px, ${cy}px)`,
+          );
           cursor.style.transform = `translate(${cx}px, ${cy}px)`;
           setTimeout(resolve, dur);
         }),

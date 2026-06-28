@@ -38,7 +38,9 @@ function format(
   label: string,
   value?: string,
 ): string {
-  const prefix = colorEnabled(stream) ? `\x1b[${code}m${PREFIX}\x1b[0m` : PREFIX;
+  const prefix = colorEnabled(stream)
+    ? `\x1b[${code}m${PREFIX}\x1b[0m`
+    : PREFIX;
   const body = value !== undefined ? `${label.padEnd(8)}${value}` : label;
   return `${prefix} ${body}`;
 }

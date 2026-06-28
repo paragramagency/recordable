@@ -5,7 +5,14 @@ import type { ResolvedConfig } from "./config.js";
 
 /** Shared video-encode args (codec/preset/crf) for every re-encode site. */
 export function videoEncodeArgs(cfg: ResolvedConfig): string[] {
-  return ["-c:v", cfg.videoCodec, "-preset", cfg.videoPreset, "-crf", String(cfg.videoCrf)];
+  return [
+    "-c:v",
+    cfg.videoCodec,
+    "-preset",
+    cfg.videoPreset,
+    "-crf",
+    String(cfg.videoCrf),
+  ];
 }
 
 /** Probe a clip's duration in seconds by parsing ffmpeg's stderr banner. 0 if unreadable. */
@@ -48,14 +55,20 @@ function tail(text: string, max = 8): string {
  *  so the real cause (bad filter, missing codec, unreadable input) is visible. */
 export function runFfmpeg(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(FFMPEG_PATH, args, { stdio: ["ignore", "ignore", "pipe"] });
+    const proc = spawn(FFMPEG_PATH, args, {
+      stdio: ["ignore", "ignore", "pipe"],
+    });
     let err = "";
     proc.stderr?.on("data", (d) => (err += String(d)));
     proc.on("error", (e) =>
       reject(
-        new RecordableError("FFMPEG_FAILED", `Could not run ffmpeg: ${e.message}`, {
-          cause: e,
-        }),
+        new RecordableError(
+          "FFMPEG_FAILED",
+          `Could not run ffmpeg: ${e.message}`,
+          {
+            cause: e,
+          },
+        ),
       ),
     );
     proc.on("close", (code) => {
