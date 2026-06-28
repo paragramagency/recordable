@@ -49,72 +49,9 @@ Mostly "great docs + clean formats" (an AI emits the JSON/Markdown). Optional la
 **record-mode codegen** — watch a human click through once, emit the script — as a more
 reliable alternative to LLM-from-scratch.
 
-### 6. Recording control: `start` / `end` / `split`
+### 6. ~~Recording control: `start` / `end` / `split`~~ — Done
 
-Add explicit recording bookends and multi-file output, on a **two-axis model** that keeps
-them distinct from `pause`/`resume` (no duplicate functionality under new names):
-
-- **Off-camera gaps (within one file):** `pause()` stops the camera, `resume()` continues
-  it into the _same_ output file — the gap is stitched out, the clip stays continuous.
-  (Unchanged.)
-- **File boundaries (which file):** `start()` opens an output file, `end()` closes it,
-  `split()` does both at once. These produce _separate_ files.
-
-They share the segment plumbing; the only mechanical difference is where the next segment
-goes — `resume()` appends to the current file, `start()`/`split()` open a new one. So
-`resume`≠`start` and `pause`≠`end`.
-
-**Boundaries default to the script edges.** `start()` relocates the opening boundary
-(content before it is off-camera); absent, it sits at the top. `end()` relocates the
-closing boundary (content after is off-camera); absent, at the bottom. A simple script
-needs neither — it records top-to-bottom as today; add only the bookend you actually need.
-`split() ≡ end() + start()` fused with no gap (camera keeps rolling, output switches
-files); put off-camera work _between_ an `end()` and the next `start()` to get two files
-with a gap instead. **Pause never crosses a boundary** — `split()` always starts a fresh,
-rolling file.
-
-**Naming:** `${outputName}-${label ?? index}.mp4`. `start`/`split` take an optional `name`
-label (`split("checkout")`); unlabeled files fall back to 1-based position; a run-wide
-timestamp (when enabled) is shared across all files. **A label always wins** — a single
-file produced by a labelled `start("intro")` is `${outputName}-intro.mp4`; the bare
-`${outputName}.mp4` fallback applies only when there are _no_ labels and _no_ splits.
-**No concatenated master** — splitting means you want separate files.
-
-**Audio is per-file** — each output is a standalone deliverable with its own zero-based
-timeline. A clip is assigned to the file containing its start; one overrunning a `split` is
-trimmed to its file, with a warning. (Folds into the audio-layers work, #4.)
-
-**State machine / validation** — at any point either no file is open (off-camera) or one
-is (capturing or paused):
-
-- `start()` while already recording → **error** (use `split()`/`end()` first).
-- A `start()` with no matching `end()` → **implicit end at the bottom** (symmetric with an
-  absent `start` meaning top): the file stays open to the script's end, no warning.
-- `end()` / `split()` / `pause()` / `resume()` with no open file → **error**.
-- `insert()` requires an open file (it's an on-camera segment) → **error** in a gap.
-- Redundant `pause()`/`resume()` → **no-op**.
-- Empty file (`start`→`end` with no captured frames) → **skipped**, warned.
-- `split()`/`end()` while paused → allowed (seal as-is; the new file rolls).
-- Trailing actions after the last `end()` → run off-camera, **no warning** (cleanup is
-  common).
-
-**`run()` returns a `RecordableResult`** and logs a clean completion summary listing each
-file:
-
-```ts
-{ status: "completed" | "empty";   // "empty" = nothing captured
-  files: Array<{ path: string; label: string | null; index: number;
-                 durationMs: number; bytes: number }>;
-  outputDir: string; durationMs: number; elapsedMs: number; warnings: string[] }
-```
-
-Hard failures — browser/ffmpeg, or a script that can't run to completion — still **throw**
-`RecordableError`; the result is the success path only, so `files` is always real (no
-two-ways-to-fail). `run()` is `void` today, so this is additive.
-
-**Formats:** new actions `start`/`split` (`{ name? }`) and `end` (`{}`) in the `ACTIONS`
-manifest, surfaced as backtick method markers in Markdown (`name` positional-optional like
-`waitForPlay`'s `message`). Programmatic chain first, then JSON/Markdown.
+Shipped in 0.5.0 — see [Done](#done).
 
 ### 7. Richer selectors
 
@@ -144,6 +81,17 @@ the remaining nice-to-have.
 
 The showcase (`08-showcase`) covers the headline flow. Remaining is general polish: more
 demos, tightening rough edges so the whole thing is presentable.
+
+## Done
+
+### Recording control: `start` / `end` / `split` (0.5.0)
+
+Explicit recording bookends and multi-file output on a two-axis model:
+`pause`/`resume` carve off-camera gaps _within_ one file; `start`/`end`/`split` move the
+file boundaries to emit _separate_ files. Boundaries default to the script edges (a plain
+script is still one file), audio is per-file (zero-based), and `run()` resolves to a
+`RecordableResult` (files/paths/timing/warnings) or throws on a hard/incomplete run. Works
+programmatically and in JSON/Markdown. See the README "Multiple output files" section.
 
 ## Code quality
 
