@@ -1,5 +1,7 @@
 # recordable
 
+[![npm version](https://img.shields.io/npm/v/recordable.svg)](https://www.npmjs.com/package/recordable)
+
 Programmatic, repeatable browser screen recording. Describe a session as a fluent
 chain of actions — `visit`, `click`, `type`, `zoom`, `scroll` — and `recordable`
 drives a real [Puppeteer](https://pptr.dev/) browser and captures a clean MP4,
