@@ -63,7 +63,7 @@
   "author": "Cam Parry <hello@camparry.com>",
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

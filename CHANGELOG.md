@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Minimum Node.js is now 20** (`engines.node: ">=20"`), up from 18. Node 18
+  reached end-of-life in April 2025 and the lint toolchain (eslint 10) already
+  requires Node ≥ 20.19. CI now runs on Node 20, 22, and 24.
+
 ## [0.4.0] - 2026-06-28
 
 ### Added

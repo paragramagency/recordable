@@ -4,7 +4,7 @@ Thanks for your interest in improving `recordable`.
 
 ## Setup
 
-Requires Node.js >= 18.
+Requires Node.js >= 20.
 
 ```bash
 npm install
