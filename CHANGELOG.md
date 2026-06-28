@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-28
+
+### Added
+
+- **Recording control & multiple output files.** `start()` / `end()` / `split()`
+  move the recording's _file_ boundaries — distinct from `pause()` / `resume()`,
+  which carve off-camera gaps _within_ one file — so a single script can emit
+  several MP4s: `start("intro")` … `split("checkout")` … `end()` →
+  `demo-intro.mp4`, `demo-checkout.mp4`. Boundaries default to the script edges,
+  so a plain top-to-bottom script is still a single file, unchanged. Each file is
+  a standalone deliverable with its own zero-based audio timeline, and `run()`
+  now resolves to a `RecordableResult` describing every file written (path,
+  label, duration, size) plus any warnings. Available programmatically and in
+  JSON / Markdown (`start` / `end` / `split` actions). (ROADMAP #6)
+
+### Changed
+
+- **Minimum Node.js is now 20** (`engines.node: ">=20"`), up from 18. Node 18
+  reached end-of-life in April 2025 and the lint toolchain (eslint 10) already
+  requires Node ≥ 20.19. CI now runs on Node 20, 22, and 24.
+
 ### Fixed
 
 - **Audio mixing and cross-fades on Linux.** The bundled ffmpeg now comes from
@@ -15,12 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (cross-fades, ffmpeg 4.3) and `adelay`'s `all` option (audio overlays, 4.2).
   Both silently failed on Linux; they now work. A system `ffmpeg` on `PATH`
   remains the fallback.
-
-### Changed
-
-- **Minimum Node.js is now 20** (`engines.node: ">=20"`), up from 18. Node 18
-  reached end-of-life in April 2025 and the lint toolchain (eslint 10) already
-  requires Node ≥ 20.19. CI now runs on Node 20, 22, and 24.
 
 ## [0.4.0] - 2026-06-28
 
@@ -136,7 +151,8 @@ Initial release.
 - Declarative JSON authoring format with published JSON Schema and `recordable` CLI
   (`--check` to validate without a browser).
 
-[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/paragramagency/recordable/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/paragramagency/recordable/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/paragramagency/recordable/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/paragramagency/recordable/compare/v0.1.0...v0.2.0

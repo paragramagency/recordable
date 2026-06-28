@@ -19,3 +19,4 @@ export type {
   WaitForOptions,
   ResolvedConfig,
 } from "./config.js";
+export type { RecordableResult, RecordableFile } from "./result.js";

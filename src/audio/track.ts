@@ -54,6 +54,28 @@ export class AudioTrack {
 }
 
 /**
+ * Partition clips across a run's output files (ROADMAP §6: per-file audio). A
+ * clip is assigned to the file *containing its start* — the last file whose
+ * global `startMs` is at or before the clip — then rebased to that file's own
+ * zero-based timeline. A clip overrunning its file's end is left for the mixer
+ * to trim (and warn). Returns one clip list per file, aligned to `files`.
+ */
+export function partitionAudioByFiles(
+  clips: readonly AudioClip[],
+  files: readonly { startMs: number }[],
+): AudioClip[][] {
+  const groups: AudioClip[][] = files.map(() => []);
+  for (const c of clips) {
+    let idx = 0;
+    for (let i = 0; i < files.length; i++)
+      if (files[i].startMs <= c.startMs) idx = i;
+    if (groups[idx])
+      groups[idx].push({ ...c, startMs: c.startMs - files[idx].startMs });
+  }
+  return groups;
+}
+
+/**
  * Build the `filter_complex` chain that delays each clip to its `startMs`,
  * applies volume, and mixes them. Input index `i+1` (input 0 is the video).
  * Returns the filter parts and the label to `-map` as the output audio.

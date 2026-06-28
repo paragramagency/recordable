@@ -24,6 +24,25 @@ import { type Segment } from "./stitch.js";
 // Segments are started lazily and ended on pause, so off-camera gaps (page loads,
 // logins, data setup) leave no trace. Config is read through `getCfg` on each call
 // so runtime changes take effect.
+//
+// Captured segments are partitioned into output files (ROADMAP §6): start/end/split
+// open and close files; each captured/inserted segment lands in the file that's
+// open at the time. The recorded-time clock runs continuously across files, so a
+// file's global range `[startMs, startMs+durationMs)` lets the audio layer assign
+// and rebase its clips.
+
+/** One output file's captured + inserted segments, with its place on the global
+ *  recorded-time line (so audio clips can be partitioned and rebased per file). */
+export interface OutputFile {
+  /** The `start`/`split` label, or null for an unlabelled / implicit file. */
+  label: string | null;
+  /** Segments in timeline order, for stitching. */
+  segments: Segment[];
+  /** Global recorded-time position (ms) where this file opened. */
+  startMs: number;
+  /** Recorded length (ms); set when the file closes. */
+  durationMs: number;
+}
 
 /**
  * Recorded-time position now: finalised segment time plus the in-flight segment's
@@ -42,7 +61,12 @@ export function timelineMs(
 
 export class Recorder {
   private tmpDirPath = "";
-  private segmentList: Segment[] = [];
+  // Output files, in timeline order, plus the one currently open (null in an
+  // off-camera gap). Segments land in `current`; start/end/split manage the set.
+  private files: OutputFile[] = [];
+  private current: OutputFile | null = null;
+  // Monotonic segment counter for unique temp filenames across all files.
+  private segCount = 0;
   private currentSegment = "";
   private cdp: CDPSession | null = null;
   // The page `cdp` is attached to — a new tab needs a fresh session (per-target).
@@ -68,14 +92,46 @@ export class Recorder {
     return this.ffmpegProc !== null;
   }
 
-  /** The captured + inserted segments, in timeline order (for stitching). */
-  get segments(): Segment[] {
-    return this.segmentList;
+  /** True while an output file is open (capturing or paused). */
+  get fileOpen(): boolean {
+    return this.current !== null;
+  }
+
+  /** The closed output files, in timeline order (for finalising). */
+  get outputFiles(): readonly OutputFile[] {
+    return this.files;
   }
 
   /** The temp working directory holding segment files. */
   get tmpDir(): string {
     return this.tmpDirPath;
+  }
+
+  /** Open a new output file at the current recorded-time position. Segments
+   *  captured/inserted from here on land in it until `closeFile`. */
+  openFile(label: string | null): void {
+    if (this.current)
+      throw new RecordableError(
+        "CONFIG_INVALID",
+        "openFile: a recording is already open",
+      );
+    this.current = {
+      label,
+      segments: [],
+      startMs: this.completedMs,
+      durationMs: 0,
+    };
+  }
+
+  /** Seal the active segment and close the open file (recording its duration).
+   *  An empty file (no captured frames) is still recorded so finalisation can
+   *  report and skip it. No-op if no file is open. */
+  async closeFile(): Promise<void> {
+    await this.end(true); // seal the in-flight segment, no "pause" log
+    if (!this.current) return;
+    this.current.durationMs = this.completedMs - this.current.startMs;
+    this.files.push(this.current);
+    this.current = null;
   }
 
   /** Recorded-time position now: finalised segments + the in-flight segment. */
@@ -119,7 +175,7 @@ export class Recorder {
   async begin(page: Page): Promise<void> {
     if (this.ffmpegProc) return;
     const cfg = this.getCfg();
-    const idx = this.segmentList.length;
+    const idx = this.segCount++;
     const file = join(
       this.tmpDirPath,
       `seg-${String(idx).padStart(3, "0")}.mp4`,
@@ -220,8 +276,8 @@ export class Recorder {
     }
 
     // Only keep segments that actually captured frames (avoids empty/invalid mp4).
-    if (this.currentSegment && frames > 0) {
-      this.segmentList.push({
+    if (this.currentSegment && frames > 0 && this.current) {
+      this.current.segments.push({
         path: this.currentSegment,
         fadeIn: 0,
         fadeOut: 0,
@@ -248,9 +304,14 @@ export class Recorder {
         `insert: file not found: ${path}`,
       );
     await this.end(true);
+    if (!this.current)
+      throw new RecordableError(
+        "CONFIG_INVALID",
+        "insert: no open recording — call start() first",
+      );
 
     const cfg = this.getCfg();
-    const idx = this.segmentList.length;
+    const idx = this.segCount++;
     const file = join(
       this.tmpDirPath,
       `seg-${String(idx).padStart(3, "0")}.mp4`,
@@ -273,7 +334,7 @@ export class Recorder {
       file,
     ]);
 
-    this.segmentList.push({
+    this.current.segments.push({
       path: file,
       fadeIn: Math.max(0, options.fadeIn ?? 0) / 1000,
       fadeOut: Math.max(0, options.fadeOut ?? 0) / 1000,

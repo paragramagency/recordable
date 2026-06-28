@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { audioFilterGraph, audioOverruns } from "../src/audio/track.js";
+import {
+  audioFilterGraph,
+  audioOverruns,
+  partitionAudioByFiles,
+} from "../src/audio/track.js";
 import { timelineMs } from "../src/video/recorder.js";
 import { callToAction } from "../src/actions.js";
 
@@ -63,6 +67,39 @@ test("audioOverruns: flags clips past the video end beyond tolerance", () => {
   assert.deepEqual(
     audioOverruns([{ path: "x", startMs: 0, durationMs: 6030 }], 6000),
     [],
+  );
+});
+
+// ─── Per-file partition (ROADMAP §6) ─────────────────────────────────────────
+
+test("partitionAudioByFiles: assigns each clip to its file and rebases to zero", () => {
+  // Two files on the global recorded-time line: [0,5000) and [5000,9000).
+  const files = [
+    { startMs: 0, durationMs: 5000 },
+    { startMs: 5000, durationMs: 4000 },
+  ];
+  const clips = [
+    { path: "a", startMs: 1000, durationMs: 500 }, // file 0
+    { path: "b", startMs: 6000, durationMs: 500 }, // file 1 → rebased to 1000
+  ];
+  assert.deepEqual(partitionAudioByFiles(clips, files), [
+    [{ path: "a", startMs: 1000, durationMs: 500 }],
+    [{ path: "b", startMs: 1000, durationMs: 500 }],
+  ]);
+});
+
+test("partitionAudioByFiles: a clip on a boundary belongs to the file it starts", () => {
+  const files = [
+    { startMs: 0, durationMs: 5000 },
+    { startMs: 5000, durationMs: 4000 },
+  ];
+  // Exactly at 5000 → the second file (last file whose start ≤ clip start).
+  assert.deepEqual(
+    partitionAudioByFiles(
+      [{ path: "x", startMs: 5000, durationMs: 100 }],
+      files,
+    ),
+    [[], [{ path: "x", startMs: 0, durationMs: 100 }]],
   );
 });
 

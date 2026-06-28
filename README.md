@@ -24,12 +24,14 @@ await new Recordable({ typingSpeed: 120 })
   .scroll("bottom")
   .resetZoom()
   .wait(1500)
-  .run(); // finalises automatically — no start()/stop()
+  .run(); // finalises automatically — bookends are optional
 ```
 
-Recording is **on by default** and finalises when `.run()` ends — there's no
-`start()`/`stop()`. Use `pause()` / `resume()` to carve out anything you don't
-want on camera; every captured segment is stitched into one seamless MP4.
+Recording is **on by default** and finalises when `.run()` ends. Use `pause()` /
+`resume()` to carve out anything you don't want on camera; every captured segment
+is stitched into one seamless MP4. Need explicit bookends or several output files?
+`start()` / `end()` / `split()` move the file boundaries (see
+[Multiple output files](#multiple-output-files-start--end--split)).
 
 ## Features
 
@@ -315,6 +317,39 @@ on `fadeOut`, while an outro's `fadeOut` dissolves down to black. Omit them for 
 hard cut. A cross-fade of _d_ ms overlaps the two pieces by _d_, shortening the
 timeline by that much at each faded boundary.
 
+## Multiple output files (`start` / `end` / `split`)
+
+`pause()`/`resume()` carve off-camera gaps **within one file**. To produce
+**separate files**, move the file boundaries with `start()` / `end()` / `split()`:
+
+```ts
+await new Recordable({ outputName: "demo" })
+  .start("intro") // open the first file (content before it is off-camera)
+  .visit("https://example.com")
+  .click("text:Get started")
+  .split("checkout") // close "intro", open the next — camera keeps rolling
+  .click("text:Buy")
+  .end() // close "checkout"; the teardown below runs off-camera
+  .click("text:Sign out")
+  .run(); // → demo-intro.mp4, demo-checkout.mp4
+```
+
+- **Boundaries default to the script edges.** With no `start()`, recording opens
+  at the top; with no `end()`, it closes at the bottom — so a plain script is one
+  file, exactly as before. Add only the bookend you need.
+- **`pause`/`resume` ≠ `start`/`end`.** `resume()` continues the _same_ file (the
+  gap is stitched out); `start()`/`split()` open a _new_ file. `split() ≡ end() +
+start()` fused with no gap; for two files _with_ an off-camera gap between them,
+  use `end()` … `start()`.
+- **Naming.** Each file is `${outputName}-${label ?? index}.mp4`; a label always
+  wins. A single unlabelled file stays `${outputName}.mp4`.
+- **Audio is per-file** — each output is standalone with its own zero-based
+  timeline; a clip is assigned to the file containing its start.
+
+`run()` resolves to a `RecordableResult` — `{ status, files: [{ path, label,
+index, durationMs, bytes }], outputDir, durationMs, elapsedMs, warnings }` — so
+you can find every file that was written. Hard failures throw instead.
+
 ## API
 
 Create an instance with optional [config](#configuration), chain actions, then
@@ -322,13 +357,18 @@ Create an instance with optional [config](#configuration), chain actions, then
 
 ### Recording
 
-Recording is on by default and finalises automatically on `.run()`. These control
-what lands on camera:
+Recording is on by default and finalises automatically on `.run()`, which resolves
+to a [`RecordableResult`](#multiple-output-files-start--end--split). `pause`/`resume`
+control what lands on camera _within_ a file; `start`/`end`/`split` move the file
+boundaries to produce [separate files](#multiple-output-files-start--end--split):
 
 | Method                   | Description                                                                                                                                                                                                  |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `pause()`                | Stop capturing; the chain keeps running off-camera.                                                                                                                                                          |
 | `resume()`               | Resume capturing in a fresh segment, immediately.                                                                                                                                                            |
+| `start(name?)`           | Open an output file (opening boundary); content before the first `start()` is off-camera. `name` labels the file.                                                                                            |
+| `end()`                  | Close the current output file (closing boundary); content after it runs off-camera.                                                                                                                          |
+| `split(name?)`           | Close the current file and open the next in one move, camera still rolling — `end()` + `start()` with no gap.                                                                                                |
 | `waitForPlay(message?)`  | Block until the user clicks the in-page ▶ Play button (or presses Enter); leaves recording state untouched.                                                                                                  |
 | `resumeOnPlay(message?)` | Wait for ▶ Play, then resume capturing — `waitForPlay().resume()`.                                                                                                                                           |
 | `insert(path, opts?)`    | Splice an external clip (intro / outro / mid-roll) into the timeline; `opts.fadeIn`/`fadeOut` (ms) cross-fade it.                                                                                            |

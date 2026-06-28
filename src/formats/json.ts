@@ -1,5 +1,6 @@
 import { Recordable } from "../compose/recordable.js";
 import type { RecordableConfig } from "../config.js";
+import type { RecordableResult } from "../result.js";
 import type { Script } from "../script.js";
 
 // ─── JSON authoring format ───────────────────────────────────────────────────
@@ -25,6 +26,6 @@ export function fromJSON(
 export function runScript(
   script: Script | string,
   configOverride?: RecordableConfig,
-): Promise<void> {
+): Promise<RecordableResult> {
   return fromJSON(script, configOverride).run();
 }

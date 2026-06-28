@@ -19,6 +19,9 @@ const XY = z.strictObject({ x: z.number(), y: z.number() });
  */
 const ACTIONS = {
   // Recording control
+  start: z.strictObject({ name: z.string().optional() }),
+  end: z.strictObject({}),
+  split: z.strictObject({ name: z.string().optional() }),
   pause: z.strictObject({}),
   resume: z.strictObject({}),
   waitForPlay: z.strictObject({ message: z.string().optional() }),
@@ -89,6 +92,8 @@ const ACTIONS = {
  * fact not derivable from the schema.
  */
 const POSITIONAL_OPTIONAL: Record<string, readonly string[]> = {
+  start: ["name"],
+  split: ["name"],
   waitForPlay: ["message"],
   resumeOnPlay: ["message"],
 };

@@ -21,21 +21,23 @@ import type { Logger } from "../logger.js";
  *
  * Per the timing contract the video defines the length: a clip that runs past
  * the end is the author's cue to add a trailing `wait()`, so we warn and let
- * `-t` truncate it rather than padding the video.
+ * `-t` truncate it rather than padding the video. Returns the overrun warnings
+ * (also logged) so the caller can surface them on the run result.
  */
 export async function addAudio(
   videoPath: string,
   clips: readonly AudioClip[],
   out: string,
   log: Logger,
-): Promise<void> {
+): Promise<string[]> {
   const videoMs = (await getDuration(videoPath)) * 1000;
+  const warnings: string[] = [];
   for (const { path, overMs } of audioOverruns(clips, videoMs)) {
-    log(
-      "Audio",
-      `warning: "${path}" runs ${overMs}ms past the video end and will be cut — ` +
-        `add a trailing wait() to give it room`,
-    );
+    const msg =
+      `"${path}" runs ${overMs}ms past the video end and will be cut — ` +
+      `add a trailing wait() to give it room`;
+    warnings.push(msg);
+    log("Audio", `warning: ${msg}`);
   }
 
   const { filters, mapLabel } = audioFilterGraph(clips);
@@ -62,4 +64,5 @@ export async function addAudio(
     out,
   ]);
   log("Audio", `mixed ${clips.length} audio clip(s)`);
+  return warnings;
 }

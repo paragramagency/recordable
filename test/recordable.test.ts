@@ -97,6 +97,30 @@ test("fromJSON: an unknown key on an action (strictObject) throws CONFIG_INVALID
   );
 });
 
+// ─── Recording control: start / end / split load via JSON ────────────────────
+
+test("fromJSON: start/end/split actions (with and without a name) load and chain", () => {
+  const r = new Recordable();
+  const ret = r.fromJSON([
+    { action: "start", name: "intro" },
+    { action: "visit", url: "https://example.com" },
+    { action: "split", name: "checkout" },
+    { action: "wait", ms: 50 },
+    { action: "end" },
+  ] as Script);
+  assert.equal(ret, r);
+});
+
+test("fromJSON: end with a stray arg is rejected (strictObject)", () => {
+  assertRecordableError(
+    () =>
+      new Recordable().fromJSON([
+        { action: "end", name: "nope" },
+      ] as unknown as Script),
+    "CONFIG_INVALID",
+  );
+});
+
 // ─── fromMarkdown: synchronous flatten (no voiceover frontmatter) ─────────────
 
 test("fromMarkdown: a no-voiceover doc flattens markers and returns the same instance", () => {
