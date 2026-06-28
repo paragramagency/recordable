@@ -114,7 +114,9 @@ export async function smoothScroll(
   container: ElementHandle<Element> | null = null,
 ): Promise<void> {
   await page.evaluate(
-    (el, { targetTop, duration }) => {
+    // frameMs is passed in: a module-level const isn't visible inside this
+    // browser-context closure.
+    (el, { targetTop, duration, frameMs }) => {
       return new Promise<void>((resolve) => {
         const max = el
           ? el.scrollHeight - el.clientHeight
@@ -122,7 +124,7 @@ export async function smoothScroll(
         const end = Math.max(0, Math.min(targetTop, max));
         const startY = el ? el.scrollTop : window.scrollY;
         const dist = end - startY;
-        const frames = Math.ceil(duration / FRAME_MS);
+        const frames = Math.ceil(duration / frameMs);
         let i = 0;
         const id = setInterval(() => {
           i++;
@@ -136,11 +138,11 @@ export async function smoothScroll(
             clearInterval(id);
             resolve();
           }
-        }, FRAME_MS);
+        }, frameMs);
       });
     },
     container,
-    { targetTop, duration },
+    { targetTop, duration, frameMs: FRAME_MS },
   );
 }
 
