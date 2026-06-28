@@ -61,6 +61,23 @@ The **tag** — not the branch push — is what publishes: `release.yml` runs on
 - Push the tag: `git push origin vX.Y.Z`.
 - Watch the publish workflow: `gh run watch` (or `gh run list --workflow=release.yml`). If it fails, report — the tag is pushed but nothing was published.
 
-## 8. Report
+## 8. Clean up the release branch
 
-Summarise: version released, the changelog highlights, which docs changed, confirm the local gates were green, the PR number and that its checks passed and it merged, and that the tag pushed and the publish workflow succeeded (or its status if still running).
+`gh pr merge --squash --delete-branch` deletes the remote branch **only if it
+succeeds end-to-end** — and it can silently skip the delete when the local repo
+has a worktree whose name collides with `main` (e.g. a release cut from a
+separate worktree), leaving `origin/release/vX.Y.Z` plus the local branch and
+worktree behind. After the publish workflow is green, reconcile:
+
+- If the release was cut in a dedicated worktree, remove it:
+  `git worktree remove --force <path>` (force is fine — only `node_modules` is
+  ever untracked there), then `git worktree prune`.
+- Delete the local release branch: `git branch -D release/vX.Y.Z`.
+- Delete the remote branch if it survived the merge:
+  `git push origin --delete release/vX.Y.Z 2>/dev/null || true`.
+- Confirm with `git worktree list` and `git branch` that only `main` (and any
+  genuinely active work) remains.
+
+## 9. Report
+
+Summarise: version released, the changelog highlights, which docs changed, confirm the local gates were green, the PR number and that its checks passed and it merged, that the tag pushed and the publish workflow succeeded (or its status if still running), and that the release branch/worktree were cleaned up.

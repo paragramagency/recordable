@@ -302,7 +302,7 @@ for (const [name, value, want] of [
   [":option-label(...)", ":option-label(Express)", "express"],
 ] as const) {
   test(`select by ${name} targets the iframe's <select>, not the decoy`, async () => {
-    await page.setContent(IFRAME_FIXTURE, { waitUntil: "networkidle0" });
+    await page.setContent(IFRAME_FIXTURE, { waitUntil: "load" });
     const { runtime } = mkRuntime();
     await runtime.select(page, "#svc", value);
     assert.equal(await dialogValue(), want, "iframe <select> should change");
