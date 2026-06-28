@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-28
+
+### Added
+
+- **Container scrolling.** `scroll(target, { container })` scrolls a named
+  overflow pane (modal, sidebar, scrollable list) instead of the window —
+  `target` resolves `"top"`/`"bottom"`/an absolute Y/a selector against that
+  container (centring a child within it). Auto-scroll-before-action now also
+  reveals a target nested in a scrollable ancestor: it scrolls that container
+  first, then brings the container itself on screen. (ROADMAP #10)
+
+### Changed
+
+- **`pageZoom` is now genuine browser page zoom.** It's applied via a bundled,
+  per-run MV3 extension driving `chrome.tabs.setZoom` (what Ctrl +/− does)
+  instead of CSS `zoom` on the document. Page zoom keeps a single coordinate
+  space, so the animated cursor overlay and real clicks stay aligned with the
+  zoomed layout — the CSS approach split the coordinate space and drifted by the
+  zoom factor. No API change: same `pageZoom` config.
+
+### Fixed
+
+- **pageZoom cursor drift.** The animated cursor overlay was thrown off target by
+  the zoom factor under page zoom; it now tracks its target. (Real clicks, which
+  used raw CDP coords, were unaffected.)
+- **`select()` inside an iframe.** A `<select>` in a dialog iframe was missed —
+  `select()` acted on a hidden same-id decoy in the main frame, so
+  `:option-index` threw "no matching option" and a literal value silently
+  no-opped. It now resolves and acts in the element's own frame.
+- **`language` config under headless.** `--lang` only set the Chromium UI
+  language, leaving `navigator.language` at the system locale. Added
+  `--accept-lang` so the documented two-layer behaviour
+  (`navigator.language`/`languages` + the `Accept-Language` header) actually
+  holds.
+- **Smooth-scroll runtime crash.** Container and window smooth-scroll threw
+  `FRAME_MS is not defined` — a constant name leaked into a browser-context
+  closure during internal cleanup; the frame interval is now passed in correctly.
+
 ## [0.3.0] - 2026-06-27
 
 ### Added
@@ -83,7 +121,8 @@ Initial release.
 - Declarative JSON authoring format with published JSON Schema and `recordable` CLI
   (`--check` to validate without a browser).
 
-[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/paragramagency/recordable/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/paragramagency/recordable/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/paragramagency/recordable/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/paragramagency/recordable/releases/tag/v0.1.0

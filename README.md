@@ -267,12 +267,12 @@ what lands on camera:
 
 ### Camera
 
-| Method                                | Description                                                       |
-| ------------------------------------- | ----------------------------------------------------------------- |
-| `scroll(target, { duration? })`       | Smooth-scroll to `"top"`/`"bottom"`, a selector, or a Y position. |
-| `zoom(level, { origin?, duration? })` | Smoothly scale from an origin (keyword, `%`, or selector).        |
-| `resetZoom({ duration? })`            | Smoothly return to 1×.                                            |
-| `setConfig(config)`                   | Merge config mid-sequence (takes effect at that point).           |
+| Method                                      | Description                                                                                                                                               |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scroll(target, { container?, duration? })` | Smooth-scroll to `"top"`/`"bottom"`, a selector, or a Y position. `container` scrolls a named overflow pane (modal, sidebar, list) instead of the window. |
+| `zoom(level, { origin?, duration? })`       | Smoothly scale from an origin (keyword, `%`, or selector).                                                                                                |
+| `resetZoom({ duration? })`                  | Smoothly return to 1×.                                                                                                                                    |
+| `setConfig(config)`                         | Merge config mid-sequence (takes effect at that point).                                                                                                   |
 
 ### Targeting
 
