@@ -40,8 +40,7 @@ function resolveFfmpegPath(): string {
     // ffmpeg-static exports the binary path directly (null on an unsupported
     // platform, in which case we defer to a system ffmpeg).
     const path = createRequire(import.meta.url)("ffmpeg-static") as
-      | string
-      | null;
+      string | null;
     return path ?? "ffmpeg";
   } catch {
     return "ffmpeg";

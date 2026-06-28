@@ -12,13 +12,7 @@ import { RecordableError } from "../errors.js";
 /** Control actions whose ordering the state machine cares about. Plain actions
  *  (click, type, visit, …) are legal anywhere and aren't tracked. */
 export type QueueKind =
-  | "start"
-  | "end"
-  | "split"
-  | "pause"
-  | "resume"
-  | "insert"
-  | "audio";
+  "start" | "end" | "split" | "pause" | "resume" | "insert" | "audio";
 
 const err = (message: string) => new RecordableError("CONFIG_INVALID", message);
 
