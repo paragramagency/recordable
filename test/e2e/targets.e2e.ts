@@ -306,7 +306,11 @@ for (const [name, value, want] of [
     const { runtime } = mkRuntime();
     await runtime.select(page, "#svc", value);
     assert.equal(await dialogValue(), want, "iframe <select> should change");
-    assert.equal(await decoyValue(), "decoy", "main-frame decoy must be untouched");
+    assert.equal(
+      await decoyValue(),
+      "decoy",
+      "main-frame decoy must be untouched",
+    );
   });
 }
 
@@ -314,7 +318,10 @@ test("waitFor resolves once a deferred element appears", async () => {
   const { runtime } = mkRuntime();
   await runtime.click(page, "#reveal");
   await runtime.waitFor(page, "#later"); // unhides ~150ms after the click
-  assert.equal(await page.$eval("#later", (el) => el.hidden), false);
+  assert.equal(
+    await page.$eval("#later", (el) => (el as HTMLElement).hidden),
+    false,
+  );
 });
 
 test("scroll brings an off-screen target into view", async () => {

@@ -13,7 +13,7 @@ Cut a new release of `recordable`. Work through these steps in order. Be concise
 
 ## 2. Audit the code
 
-- Run `npm run lint`, `npm run format:check`, `npm run build`, and `npm test` — these mirror the CI gates and must all pass before releasing. If any fails, stop and report — do not release broken code (`npm run lint:fix` / `npm run format` fix most lint/format issues).
+- Run `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm run build`, and `npm test` — these mirror the CI gates and must all pass before releasing. If any fails, stop and report — do not release broken code (`npm run lint:fix` / `npm run format` fix most lint/format issues). `npm run typecheck` type-checks the whole project including `test/` (which `tsx` only transpiles, so type errors there slip past `build` and `test`).
 - Skim the actual diff since the last tag (`git diff $(git describe --tags --abbrev=0)..HEAD`) for anything that contradicts the commit messages or needs documenting (new config keys, new method options, behaviour changes, removed APIs).
 
 ## 3. Decide the version bump (SemVer, pre-1.0 rules)

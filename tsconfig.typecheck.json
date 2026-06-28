@@ -1,0 +1,15 @@
+{
+  // Whole-project type check (no emit). The build's tsconfig only includes src/,
+  // and tests run through tsx (which transpiles without type-checking), so this is
+  // the only gate that type-checks test/ and scripts/.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
+  "exclude": ["node_modules", "dist", "output"]
+}

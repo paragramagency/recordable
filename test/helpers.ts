@@ -69,12 +69,14 @@ export function probe(path: string): Promise<string> {
 /** A Logger that records every call instead of printing, for assertions. */
 export function recordingLogger(): Logger & { lines: string[] } {
   const lines: string[] = [];
-  const log = ((name: string, value?: string) =>
-    lines.push(value !== undefined ? `${name} ${value}` : name)) as Logger & {
-    lines: string[];
-  };
-  log.success = (name, value) =>
+  const record = (name: string, value?: string): void => {
     lines.push(value !== undefined ? `${name} ${value}` : name);
+  };
+  // A callable-with-methods object: the base call signature plus the Logger
+  // methods attached below — cast through unknown since a bare function doesn't
+  // structurally overlap the full Logger until the methods are assigned.
+  const log = record as unknown as Logger & { lines: string[] };
+  log.success = record;
   log.warn = (m) => lines.push(m);
   log.error = (m) => lines.push(m);
   log.lines = lines;
