@@ -16,10 +16,12 @@ import { Recorder } from "../video/recorder.js";
 import { AudioTrack } from "../audio/track.js";
 import { Runtime } from "../browser/runtime.js";
 import { Session, type Composition, type QueueItem } from "./session.js";
+import { validateBoundaries, type QueueKind } from "./boundaries.js";
 import { buildArgs, validateAction, type Action } from "../actions.js";
 import { resolveVisitUrls, splitScript, type Script } from "../script.js";
 import { extractActions, parseMarkdown } from "../formats/markdown/parse.js";
 import { RecordableError } from "../errors.js";
+import { type RecordableResult } from "../result.js";
 
 // ─── Compose layer: the builder ──────────────────────────────────────────────
 //
@@ -131,9 +133,61 @@ export class Recordable {
 
   // ─── Recording control ───────────────────────────────────────────────────────
   //
-  // Recording is ON from the top by default and finalises automatically when
-  // run() ends — there is no start()/stop(). Use pause()/resume() to carve
-  // off-camera gaps; every captured segment is stitched into one seamless MP4.
+  // Two axes (ROADMAP §6). pause()/resume() carve off-camera gaps *within* one
+  // output file — the gap is stitched out, the clip stays continuous.
+  // start()/end()/split() move the *file* boundaries, producing separate files.
+  // Boundaries default to the script edges: with neither, recording runs ON from
+  // the top and finalises into one MP4 at run() end — add only the bookend you need.
+
+  /**
+   * Open an output file (the opening boundary). Content *before* the first
+   * `start()` runs off-camera; absent, recording opens at the top. Pass an
+   * optional `name` to label the file (`start("intro")` → `…-intro.mp4`).
+   * Pair with `end()`, or leave it to close implicitly at the bottom.
+   */
+  start(name?: string): this {
+    return this._enqueue(
+      async () => {
+        this.recorder.openFile(name ?? null);
+      },
+      true,
+      "start",
+    );
+  }
+
+  /**
+   * Close the current output file (the closing boundary). Content *after* `end()`
+   * runs off-camera (cleanup is common, so no warning); absent, recording closes
+   * at the bottom. Open another file with `start()` for a second output.
+   */
+  end(): this {
+    return this._enqueue(
+      async () => {
+        await this.recorder.closeFile();
+      },
+      true,
+      "end",
+    );
+  }
+
+  /**
+   * Split the output here: close the current file and open the next in one move,
+   * camera still rolling (`split() ≡ end() + start()` fused, no gap). Pass an
+   * optional `name` to label the new file. For two files with an off-camera gap
+   * between them, use `end()` … `start()` instead.
+   */
+  split(name?: string): this {
+    return this._enqueue(
+      async (page) => {
+        await this.recorder.closeFile();
+        this.recorder.openFile(name ?? null);
+        // Keep rolling: begin the next file's first segment now (no off-camera gap).
+        if (this.recording) await this.recorder.begin(page);
+      },
+      true,
+      "split",
+    );
+  }
 
   /**
    * Stop capturing. The chain keeps running — anything between `pause()` and the
@@ -141,22 +195,30 @@ export class Recordable {
    * omitted from the final video. Place it first to skip the cold open.
    */
   pause(): this {
-    return this._enqueue(async () => {
-      this.recording = false;
-      this.runtime.parkCursor(); // remember where the cursor is for resume()
-      await this.recorder.end();
-    }, true);
+    return this._enqueue(
+      async () => {
+        this.recording = false;
+        this.runtime.parkCursor(); // remember where the cursor is for resume()
+        await this.recorder.end();
+      },
+      true,
+      "pause",
+    );
   }
 
   /** Resume capturing in a fresh segment, immediately. Restores the cursor to its
    *  pause() position (a manual step may have navigated away and wiped the overlay,
    *  or off-camera steps moved it). */
   resume(): this {
-    return this._enqueue(async (page) => {
-      this.recording = true;
-      await this.recorder.begin(page);
-      await this.runtime.restoreCursor(page);
-    }, true);
+    return this._enqueue(
+      async (page) => {
+        this.recording = true;
+        await this.recorder.begin(page);
+        await this.runtime.restoreCursor(page);
+      },
+      true,
+      "resume",
+    );
   }
 
   /**
@@ -192,11 +254,15 @@ export class Recordable {
    * Auto-segments: no pause/resume needed.
    */
   insert(path: string, options: InsertOptions = {}): this {
-    return this._enqueue(async () => {
-      const file = this._resolveFile(path);
-      this.log("Insert", file);
-      await this.recorder.insert(file, options);
-    }, true);
+    return this._enqueue(
+      async () => {
+        const file = this._resolveFile(path);
+        this.log("Insert", file);
+        await this.recorder.insert(file, options);
+      },
+      true,
+      "insert",
+    );
   }
 
   /**
@@ -208,21 +274,25 @@ export class Recordable {
    * Don't `pause()` mid-clip — paused time is dropped, desyncing the audio.
    */
   audio(path: string, options: AudioOptions = {}): this {
-    return this._enqueue(async () => {
-      const { wait = true, volume } = options;
-      const file = this._resolveFile(path);
-      // Pin the clip to where we are in recorded time (the video timeline), then
-      // hand it to the audio layer to probe + collect for the final mix.
-      const startMs = this.recorder.currentTimelineMs();
-      const { durationMs } = await this.audioTrack.add(file, startMs, {
-        volume,
-      });
-      this.log(
-        "Audio",
-        `${truncate(file)} @ ${Math.round(startMs)}ms (${Math.round(durationMs)}ms)`,
-      );
-      if (wait) await sleep(durationMs);
-    });
+    return this._enqueue(
+      async () => {
+        const { wait = true, volume } = options;
+        const file = this._resolveFile(path);
+        // Pin the clip to where we are in recorded time (the video timeline), then
+        // hand it to the audio layer to probe + collect for the final mix.
+        const startMs = this.recorder.currentTimelineMs();
+        const { durationMs } = await this.audioTrack.add(file, startMs, {
+          volume,
+        });
+        this.log(
+          "Audio",
+          `${truncate(file)} @ ${Math.round(startMs)}ms (${Math.round(durationMs)}ms)`,
+        );
+        if (wait) await sleep(durationMs);
+      },
+      false,
+      "audio",
+    );
   }
 
   // ─── Navigation ────────────────────────────────────────────────────────────
@@ -358,11 +428,20 @@ export class Recordable {
 
   // ─── Execution ─────────────────────────────────────────────────────────────
 
-  /** Execute the queued action sequence, then finalise the recording. */
-  async run(): Promise<void> {
+  /** Execute the queued action sequence, then finalise the recording. Resolves to
+   *  a {@link RecordableResult} describing the written file(s). */
+  async run(): Promise<RecordableResult> {
     // Finish any deferred load work (voiceover synthesis) before recording.
     for (const job of this.pending) await job();
     this.pending = [];
+
+    // Validate the recording-control state machine up front (ROADMAP §6), so an
+    // illegal start/end/split/pause sequence fails before the browser launches.
+    validateBoundaries(
+      this.queue
+        .map((i) => i.kind)
+        .filter((k): k is QueueKind => k !== undefined),
+    );
 
     // Expose just what the session needs; cfg/recording are read live via arrow
     // getters (this instance mutates them as control actions run).
@@ -382,7 +461,7 @@ export class Recordable {
       enumerable: true,
     });
 
-    await new Session(comp).run();
+    return new Session(comp).run();
   }
 
   // ─── Private ───────────────────────────────────────────────────────────────
@@ -397,8 +476,9 @@ export class Recordable {
   private _enqueue(
     run: (page: Page) => Promise<Page | void>,
     control = false,
+    kind?: QueueKind,
   ): this {
-    this.queue.push({ run, control });
+    this.queue.push({ run, control, kind });
     return this;
   }
 

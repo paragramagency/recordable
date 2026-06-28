@@ -75,8 +75,10 @@ rolling file.
 
 **Naming:** `${outputName}-${label ?? index}.mp4`. `start`/`split` take an optional `name`
 label (`split("checkout")`); unlabeled files fall back to 1-based position; a run-wide
-timestamp (when enabled) is shared across all files. Single-file runs (no splits) stay
-`${outputName}.mp4`. **No concatenated master** — splitting means you want separate files.
+timestamp (when enabled) is shared across all files. **A label always wins** — a single
+file produced by a labelled `start("intro")` is `${outputName}-intro.mp4`; the bare
+`${outputName}.mp4` fallback applies only when there are _no_ labels and _no_ splits.
+**No concatenated master** — splitting means you want separate files.
 
 **Audio is per-file** — each output is a standalone deliverable with its own zero-based
 timeline. A clip is assigned to the file containing its start; one overrunning a `split` is
@@ -86,6 +88,8 @@ trimmed to its file, with a warning. (Folds into the audio-layers work, #4.)
 is (capturing or paused):
 
 - `start()` while already recording → **error** (use `split()`/`end()` first).
+- A `start()` with no matching `end()` → **implicit end at the bottom** (symmetric with an
+  absent `start` meaning top): the file stays open to the script's end, no warning.
 - `end()` / `split()` / `pause()` / `resume()` with no open file → **error**.
 - `insert()` requires an open file (it's an on-camera segment) → **error** in a gap.
 - Redundant `pause()`/`resume()` → **no-op**.

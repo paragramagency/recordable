@@ -87,6 +87,37 @@ test("click: followNewTab + waitForNav gather into the options object", () => {
   );
 });
 
+// ─── Recording control: start / end / split (ROADMAP §6) ─────────────────────
+
+test("start/split: optional name is positional; bare call trims it", () => {
+  assert.deepEqual(buildArgs({ action: "start", name: "intro" }, "start"), [
+    "intro",
+  ]);
+  assert.deepEqual(buildArgs({ action: "start" }, "start"), []);
+  assert.deepEqual(buildArgs({ action: "split", name: "checkout" }, "split"), [
+    "checkout",
+  ]);
+  assert.deepEqual(buildArgs({ action: "split" }, "split"), []);
+});
+
+test("end: takes no arguments", () => {
+  assert.deepEqual(buildArgs({ action: "end" }, "end"), []);
+});
+
+test("validateAction: start/end/split accept their schema, reject bad shapes", () => {
+  assert.doesNotThrow(() => validateAction({ action: "start", name: "intro" }));
+  assert.doesNotThrow(() => validateAction({ action: "end" }));
+  assert.doesNotThrow(() => validateAction({ action: "split" }));
+  assert.throws(
+    () => validateAction({ action: "start", name: 5 }),
+    (err) => isRecordableError(err) && err.code === "CONFIG_INVALID",
+  );
+  assert.throws(
+    () => validateAction({ action: "end", name: "x" }), // end takes no args
+    (err) => isRecordableError(err) && err.code === "CONFIG_INVALID",
+  );
+});
+
 // ─── Value-level validation (the gap the Zod manifest closes) ─────────────────
 
 test("validateAction: click accepts followNewTab, rejects a non-boolean", () => {

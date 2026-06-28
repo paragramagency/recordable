@@ -1,15 +1,18 @@
 import puppeteer, { type Browser, type Page } from "puppeteer";
 import { join } from "node:path";
+import { statSync } from "node:fs";
 import { sleep } from "../utils.js";
-import { getOutputPath } from "../fs.js";
+import { resolveOutputPaths } from "../fs.js";
 import { type Logger } from "../logger.js";
 import type { ResolvedConfig } from "../config.js";
 import { RecordableError } from "../errors.js";
-import { type Recorder } from "../video/recorder.js";
+import { type Recorder, type OutputFile } from "../video/recorder.js";
 import { stitch } from "../video/stitch.js";
-import { type AudioTrack } from "../audio/track.js";
+import { type AudioTrack, partitionAudioByFiles } from "../audio/track.js";
 import { addAudio } from "./mix.js";
 import { type Runtime } from "../browser/runtime.js";
+import { type QueueKind } from "./boundaries.js";
+import { type RecordableResult, type RecordableFile } from "../result.js";
 import {
   createZoomExtension,
   type ZoomExtension,
@@ -19,16 +22,20 @@ import {
 //
 // Drives one run end-to-end: launch the browser, walk the queue (beginning a
 // capture segment lazily before the first on-camera action), then seal the
-// recording — stitch the video, mix the audio onto it. Owns the browser + output
-// lifecycle; reads the composed script and live config from the builder.
+// recording — stitch each output file's video, mix its audio onto it. Owns the
+// browser + output lifecycle; reads the composed script and live config from the
+// builder. Multi-file output (start/end/split) is finalised per file in
+// `_finalize`; a plain top-to-bottom script is just the single-file case.
 
-/** One queued action. `control` actions (pause/resume/insert) run without forcing a
- *  capture segment to begin. */
+/** One queued action. `control` actions (pause/resume/insert/boundaries) run
+ *  without forcing a capture segment to begin; `kind` tags the recording-control
+ *  actions so the boundary state machine and finalisation can reason about them. */
 export interface QueueItem {
   /** Returns a `Page` to switch the active tab to (e.g. a `followNewTab` click),
    *  otherwise void — capture stays on the current tab. */
   run: (page: Page) => Promise<Page | void>;
   control: boolean;
+  kind?: QueueKind;
 }
 
 /** What the session needs from the builder to execute a composed recording.
@@ -46,17 +53,21 @@ export interface Composition {
 export class Session {
   private browser: Browser | null = null;
   private zoomExt: ZoomExtension | null = null;
-  private outputPath = "";
   private finalised = false;
+  private startedAt = 0;
+  private readonly warnings: string[] = [];
+  private result: RecordableResult | null = null;
 
   constructor(private readonly comp: Composition) {}
 
-  /** Execute the queued action sequence, then finalise the recording. */
-  async run(): Promise<void> {
+  /** Execute the queued action sequence, then finalise the recording. Resolves to
+   *  a {@link RecordableResult} on success; throws (browser/ffmpeg failure, or a
+   *  script that can't run to completion) otherwise — so the result is the success
+   *  path only and its `files` are always real. */
+  async run(): Promise<RecordableResult> {
     const { log, recorder, runtime } = this.comp;
     log("Start", "recording…");
-    let ok = true;
-    this.outputPath = getOutputPath(this.comp.cfg);
+    this.startedAt = Date.now();
     recorder.init();
 
     const cfg = this.comp.cfg;
@@ -91,6 +102,12 @@ export class Session {
     let page = await this.browser.newPage();
     await this._setupPage(page, runtime, cfg);
 
+    // Boundaries default to the script edges (ROADMAP §6): with no explicit
+    // start() the first file is open from the top; otherwise the file opens
+    // closed and the first start() opens it (content before runs off-camera).
+    if (!this.comp.queue.some((i) => i.kind === "start"))
+      recorder.openFile(null);
+
     // Finalise the recording and close the browser on SIGINT / SIGTERM.
     const onSignal = () => {
       log("Signal", "finalising recording…");
@@ -99,11 +116,18 @@ export class Session {
     process.once("SIGINT", onSignal);
     process.once("SIGTERM", onSignal);
 
+    let caught: unknown = null;
     try {
       for (const item of this.comp.queue) {
         // Lazily begin a segment before the first capture-worthy action while
-        // recording is intended — keeps a leading pause() from making an empty clip.
-        if (!item.control && this.comp.recording && !recorder.capturing) {
+        // recording is intended *and* a file is open — keeps a leading pause()
+        // (or an off-camera gap between end() and start()) from making a clip.
+        if (
+          !item.control &&
+          this.comp.recording &&
+          recorder.fileOpen &&
+          !recorder.capturing
+        ) {
           await recorder.begin(page);
         }
         // A `followNewTab` click returns the tab it opened: seal the current segment
@@ -116,16 +140,20 @@ export class Session {
           await sleep(this.comp.cfg.actionDelay);
       }
     } catch (err) {
-      ok = false;
+      caught = err;
       log.error(String(err));
     } finally {
       process.off("SIGINT", onSignal);
       process.off("SIGTERM", onSignal);
       await this._cleanup();
-      log("Output", this.outputPath);
+      for (const f of this.result?.files ?? []) log("Output", f.path);
       // Bookends the "Start" line; green only when the run actually succeeded.
-      if (ok) log.success("Done", "recording complete");
+      if (!caught) log.success("Done", "recording complete");
     }
+
+    // A run that couldn't complete throws — never a half-real result.
+    if (caught) throw caught;
+    return this.result as RecordableResult;
   }
 
   /** Prepare a page for capture: set the viewport, the `Accept-Language` header (when
@@ -151,9 +179,9 @@ export class Session {
     page.on("framenavigated", (frame) => {
       if (frame !== page.mainFrame()) return;
       runtime.resetZoomState();
-      // Only mask the real pointer while recording — a paused / wait-for-user
-      // step is driven by hand, so the `cursor: none` overlay stays off.
-      if (!this.comp.recording) return;
+      // Only mask the real pointer while actually recording — a paused / off-camera
+      // (no file open) step is driven by hand, so the `cursor: none` overlay stays off.
+      if (!this.comp.recording || !this.comp.recorder.fileOpen) return;
       void runtime.injectCursor(page).catch(() => {});
     });
   }
@@ -198,33 +226,85 @@ export class Session {
     this.zoomExt = null;
   }
 
-  /** Seal the recording: stitch the captured/inserted segments (video layer),
-   *  then mix the audio track onto them (audio layer). The video defines the
-   *  length. Idempotent — a signal handler and the normal path both call it. */
+  /** Seal the recording: close any open file (implicit end at the bottom), then for
+   *  each output file stitch its segments (video layer) and mix its slice of the
+   *  audio track onto it (audio layer). Empty files are reported and skipped.
+   *  Builds the {@link RecordableResult}. Idempotent — a signal handler and the
+   *  normal path both call it. */
   private async _finalize(): Promise<void> {
     if (this.finalised) return;
     this.finalised = true;
     const { recorder, audioTrack, cfg, log } = this.comp;
-    await recorder.end();
 
-    const segs = recorder.segments;
-    if (segs.length === 0) {
+    // Implicit end: close the file still open at the script's end (seals the
+    // in-flight segment). A no-op when the script ended with an explicit end().
+    if (recorder.fileOpen) await recorder.closeFile();
+
+    const elapsedMs = Date.now() - this.startedAt;
+    const files = recorder.outputFiles;
+
+    // Drop files that captured no frames (e.g. start→end with nothing between),
+    // warning each — they're never written.
+    const kept: OutputFile[] = [];
+    files.forEach((f, i) => {
+      if (f.segments.length > 0) {
+        kept.push(f);
+        return;
+      }
+      const name = f.label ? `"${f.label}"` : `#${i + 1}`;
+      const msg = `empty recording ${name} captured no frames — skipped`;
+      this.warnings.push(msg);
+      log("Record", msg);
+    });
+
+    if (kept.length === 0) {
       log("Record", "nothing was recorded — no output written");
       recorder.removeTmp();
+      this.result = {
+        status: "empty",
+        files: [],
+        outputDir: cfg.outputDir,
+        durationMs: 0,
+        elapsedMs,
+        warnings: this.warnings,
+      };
       return;
     }
 
-    // With audio, render the silent video to a temp file then mix onto it;
-    // otherwise stitch straight to the output.
-    const needAudio = audioTrack.length > 0;
-    const videoOut = needAudio
-      ? join(recorder.tmpDir, "video.mp4")
-      : this.outputPath;
+    const paths = resolveOutputPaths(cfg, kept);
+    const clipsByFile = partitionAudioByFiles(audioTrack.list(), kept);
 
-    await stitch(segs, cfg, log, videoOut, recorder.tmpDir);
-    if (needAudio)
-      await addAudio(videoOut, audioTrack.list(), this.outputPath, log);
+    const resultFiles: RecordableFile[] = [];
+    for (let i = 0; i < kept.length; i++) {
+      const f = kept[i];
+      const out = paths[i];
+      const clips = clipsByFile[i];
+      const needAudio = clips.length > 0;
+      // With audio, render the silent video to a temp file then mix onto it;
+      // otherwise stitch straight to the output.
+      const videoOut = needAudio
+        ? join(recorder.tmpDir, `video-${i}.mp4`)
+        : out;
+      await stitch(f.segments, cfg, log, videoOut, recorder.tmpDir);
+      if (needAudio)
+        this.warnings.push(...(await addAudio(videoOut, clips, out, log)));
+      resultFiles.push({
+        path: out,
+        label: f.label,
+        index: i + 1,
+        durationMs: Math.round(f.durationMs),
+        bytes: statSync(out).size,
+      });
+    }
 
     recorder.removeTmp();
+    this.result = {
+      status: "completed",
+      files: resultFiles,
+      outputDir: cfg.outputDir,
+      durationMs: resultFiles.reduce((sum, f) => sum + f.durationMs, 0),
+      elapsedMs,
+      warnings: this.warnings,
+    };
   }
 }

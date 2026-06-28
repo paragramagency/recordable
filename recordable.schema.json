@@ -132,6 +132,9 @@
       "properties": {
         "action": {
           "enum": [
+            "start",
+            "end",
+            "split",
             "pause",
             "resume",
             "waitForPlay",
@@ -157,6 +160,81 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "start"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "start"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "end"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "end"
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "split"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "properties": {
+              "action": {
+                "const": "split"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "action"
+            ],
+            "additionalProperties": false
+          }
+        },
         {
           "if": {
             "properties": {
