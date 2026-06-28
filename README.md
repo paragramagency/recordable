@@ -384,15 +384,15 @@ boundaries to produce [separate files](#multiple-output-files-start--end--split)
 
 ### Interactions
 
-| Method                                          | Description                                                                                                                                                                                                             |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `click(target, { waitForNav?, followNewTab? })` | Click an element. Returns immediately by default; pass `{ waitForNav: true }` when the click triggers a full-page navigation, or `{ followNewTab: true }` to keep recording in a tab the click opens (see notes below). |
-| `hover(target)`                                 | Move onto an element to reveal `:hover` state (no click).                                                                                                                                                               |
-| `type(target, text, { duration? })`             | Type into a field with human-like timing; `duration` (ms) spreads keystrokes evenly with no jitter.                                                                                                                     |
-| `clear(target)`                                 | Select-all + delete the contents of a field.                                                                                                                                                                            |
-| `select(target, value)`                         | Choose an option in a native `<select>` by `value`, or by `:option-index(N)` / `:option-label(Text)` (see note below; OS-drawn list isn't captured).                                                                    |
-| `key(key)`                                      | Press a key, e.g. `"Escape"`, `"Enter"`, `"Tab"`.                                                                                                                                                                       |
-| `mouse(target \| {x, y})`                       | Move the cursor to an element or coordinates.                                                                                                                                                                           |
+| Method                                                           | Description                                                                                                                                                                                                                                                                    |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `click(target, { waitForNav?, trimNavigation?, followNewTab? })` | Click an element. Returns immediately by default; pass `{ waitForNav: true }` when the click triggers a full-page navigation, or `{ followNewTab: true }` to keep recording in a tab the click opens (see notes below). `{ trimNavigation: false }` keeps that load on-camera. |
+| `hover(target)`                                                  | Move onto an element to reveal `:hover` state (no click).                                                                                                                                                                                                                      |
+| `type(target, text, { duration? })`                              | Type into a field with human-like timing; `duration` (ms) spreads keystrokes evenly with no jitter.                                                                                                                                                                            |
+| `clear(target)`                                                  | Select-all + delete the contents of a field.                                                                                                                                                                                                                                   |
+| `select(target, value)`                                          | Choose an option in a native `<select>` by `value`, or by `:option-index(N)` / `:option-label(Text)` (see note below; OS-drawn list isn't captured).                                                                                                                           |
+| `key(key)`                                                       | Press a key, e.g. `"Escape"`, `"Enter"`, `"Tab"`.                                                                                                                                                                                                                              |
+| `mouse(target \| {x, y})`                                        | Move the cursor to an element or coordinates.                                                                                                                                                                                                                                  |
 
 > The browser draws an open `<select>`'s option list with the OS, outside the page,
 > so the screencast can't capture it — `select()` shows the cursor and the value
@@ -414,6 +414,15 @@ boundaries to produce [separate files](#multiple-output-files-start--end--split)
 > `recordable` switches capture to the new tab and stitches it into the same
 > recording (the new tab's load happens off-camera, the old tab stays open).
 > Without it, recording stays on the original tab.
+
+> **Navigation is trimmed by default.** With `trimNavigation` on (the default),
+> a same-tab navigation — `visit(url)` or a `waitForNav` click — seals the clip
+> at the action and runs the page load off-camera, so the video cuts straight
+> from action to result with no dead loading time. Because the load captures no
+> frames, its duration never advances the recorded timeline, which keeps
+> voiceover/narration timing deterministic (page-load time stops being a variable
+> the alignment has to absorb). Set `trimNavigation: false` globally to keep loads
+> on-camera, or per click with `click(target, { waitForNav: true, trimNavigation: false })`.
 
 ### Camera
 
@@ -475,6 +484,7 @@ new Recordable({
   scrollDuration: 1200, // ms for the scroll action's transition
   cursor: true, // show the animated cursor overlay
   visitTimeout: 30_000, // ms for navigation / waitFor
+  trimNavigation: true, // run a same-tab nav's page load off-camera (see notes under Interactions)
   baseDir: "", // dir that relative visit URLs, outputDir & assetsDir resolve against; "" = cwd
 });
 ```

@@ -32,6 +32,7 @@ test("DEFAULT_CONFIG: every documented default is resolved", () => {
     scrollDuration: 1200,
     cursor: true,
     visitTimeout: 30_000,
+    trimNavigation: true,
     baseDir: "",
   });
 });

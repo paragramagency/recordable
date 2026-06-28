@@ -27,13 +27,27 @@ import {
 // builder. Multi-file output (start/end/split) is finalised per file in
 // `_finalize`; a plain top-to-bottom script is just the single-file case.
 
+/** A same-tab navigation that trims its load off-camera: the action does its
+ *  on-camera part, then hands back `offCamera` (the page-load wait). The session
+ *  seals the current segment first, then runs it, so the dead time isn't captured
+ *  — the same seal-then-load shape as `_switchTab`, minus the tab swap. */
+export interface TrimNav {
+  offCamera: () => Promise<void>;
+}
+
+/** Whether an action result is a {@link TrimNav} directive (vs. a `Page`/void). */
+export function isTrimNav(result: Page | TrimNav | void): result is TrimNav {
+  return result != null && typeof (result as TrimNav).offCamera === "function";
+}
+
 /** One queued action. `control` actions (pause/resume/insert/boundaries) run
  *  without forcing a capture segment to begin; `kind` tags the recording-control
  *  actions so the boundary state machine and finalisation can reason about them. */
 export interface QueueItem {
-  /** Returns a `Page` to switch the active tab to (e.g. a `followNewTab` click),
-   *  otherwise void — capture stays on the current tab. */
-  run: (page: Page) => Promise<Page | void>;
+  /** Returns a `Page` to switch the active tab to (a `followNewTab` click), a
+   *  {@link TrimNav} directive to trim a same-tab navigation, or void — capture
+   *  stays on the current tab. */
+  run: (page: Page) => Promise<Page | TrimNav | void>;
   control: boolean;
   kind?: QueueKind;
 }
@@ -130,10 +144,16 @@ export class Session {
         ) {
           await recorder.begin(page);
         }
-        // A `followNewTab` click returns the tab it opened: seal the current segment
-        // and switch capture to the new tab (which becomes the active page).
         const next = await item.run(page);
-        if (next && next !== page) {
+        if (isTrimNav(next)) {
+          // A same-tab navigation: seal the segment (no-op if not capturing),
+          // run the load off-camera, then let the next action lazily resume —
+          // so the page-load dead time leaves no frames.
+          await recorder.end(true);
+          await next.offCamera();
+        } else if (next && next !== page) {
+          // A `followNewTab` click returns the tab it opened: seal the current
+          // segment and switch capture to the new tab (the new active page).
           page = await this._switchTab(next, runtime, cfg, recorder);
         }
         if (this.comp.cfg.actionDelay > 0)

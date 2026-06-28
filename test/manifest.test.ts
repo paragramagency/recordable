@@ -87,6 +87,32 @@ test("click: followNewTab + waitForNav gather into the options object", () => {
   );
 });
 
+test("click: trimNavigation gathers into the options object", () => {
+  assert.deepEqual(
+    buildArgs(
+      {
+        action: "click",
+        target: "text:Next",
+        waitForNav: true,
+        trimNavigation: false,
+      },
+      "click",
+    ),
+    ["text:Next", { waitForNav: true, trimNavigation: false }],
+  );
+});
+
+test("validateAction: click accepts trimNavigation, rejects a non-boolean", () => {
+  assert.doesNotThrow(() =>
+    validateAction({ action: "click", target: "#go", trimNavigation: false }),
+  );
+  assert.throws(
+    () =>
+      validateAction({ action: "click", target: "#go", trimNavigation: "no" }),
+    (err) => isRecordableError(err) && err.code === "CONFIG_INVALID",
+  );
+});
+
 // ─── Recording control: start / end / split (ROADMAP §6) ─────────────────────
 
 test("start/split: optional name is positional; bare call trims it", () => {
