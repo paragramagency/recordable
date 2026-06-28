@@ -325,13 +325,13 @@ Create an instance with optional [config](#configuration), chain actions, then
 Recording is on by default and finalises automatically on `.run()`. These control
 what lands on camera:
 
-| Method                   | Description                                                                                                       |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `pause()`                | Stop capturing; the chain keeps running off-camera.                                                               |
-| `resume()`               | Resume capturing in a fresh segment, immediately.                                                                 |
-| `waitForPlay(message?)`  | Block until the user clicks the in-page ▶ Play button (or presses Enter); leaves recording state untouched.       |
-| `resumeOnPlay(message?)` | Wait for ▶ Play, then resume capturing — `waitForPlay().resume()`.                                                |
-| `insert(path, opts?)`    | Splice an external clip (intro / outro / mid-roll) into the timeline; `opts.fadeIn`/`fadeOut` (ms) cross-fade it. |
+| Method                   | Description                                                                                                                                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pause()`                | Stop capturing; the chain keeps running off-camera.                                                                                                                                                          |
+| `resume()`               | Resume capturing in a fresh segment, immediately.                                                                                                                                                            |
+| `waitForPlay(message?)`  | Block until the user clicks the in-page ▶ Play button (or presses Enter); leaves recording state untouched.                                                                                                  |
+| `resumeOnPlay(message?)` | Wait for ▶ Play, then resume capturing — `waitForPlay().resume()`.                                                                                                                                           |
+| `insert(path, opts?)`    | Splice an external clip (intro / outro / mid-roll) into the timeline; `opts.fadeIn`/`fadeOut` (ms) cross-fade it.                                                                                            |
 | `audio(path, opts?)`     | Lay an existing audio file (mp3/wav) onto the timeline here — narration, music bed, SFX. Blocks until the clip ends by default (`opts.wait: false` plays it over following actions); `opts.volume` gains it. |
 
 ### Navigation & waiting
