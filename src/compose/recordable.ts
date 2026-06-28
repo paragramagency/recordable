@@ -12,6 +12,7 @@ import {
 import { sleep, truncate } from "../utils.js";
 import { createLogger, type Logger } from "../logger.js";
 import { parseConfig } from "../validate.js";
+import { configFromEnv } from "../env.js";
 import { Recorder } from "../video/recorder.js";
 import { AudioTrack } from "../audio/track.js";
 import { Runtime } from "../browser/runtime.js";
@@ -53,6 +54,9 @@ export class Recordable {
   // recorder starts segments lazily so a leading pause() never makes a clip.
   private recording = true;
 
+  // Whether the sibling `.env` has been loaded into `process.env` (once).
+  private envLoaded = false;
+
   constructor(config: RecordableConfig = {}) {
     this.userConfig = parseConfig(config);
     this._applyContentConfig({}); // sets cfg = defaults < userConfig, resolving paths
@@ -86,7 +90,7 @@ export class Recordable {
    * reads the file (and loads any `.env`).
    */
   fromMarkdown(md: string): this {
-    const parsed = parseMarkdown(md);
+    const parsed = parseMarkdown(md, this.cfg.baseDir);
     this._applyContentConfig(parsed.config);
 
     if (!parsed.voiceover) {
@@ -103,17 +107,12 @@ export class Recordable {
    *  position `fromMarkdown` was called (so chaining order is preserved). */
   private async _stageVoiceover(md: string, insertAt: number): Promise<void> {
     // Pick up secrets (ELEVENLABS_API_KEY) from a .env beside the document.
-    if (this.cfg.baseDir) {
-      try {
-        process.loadEnvFile(resolve(this.cfg.baseDir, ".env"));
-      } catch {
-        // No .env beside the document — fine, secrets may already be in the env.
-      }
-    }
+    this._loadEnvFile(this.cfg.baseDir);
 
     const { compileMarkdown } = await import("../voiceover/index.js");
     const compiled = await compileMarkdown(md, {
       assetsDir: this.cfg.assetsDir,
+      baseDir: this.cfg.baseDir,
       configOverride: this.cfg,
       log: this.log,
     });
@@ -134,6 +133,14 @@ export class Recordable {
     return this._enqueue(async () => {
       this.cfg = { ...this.cfg, ...parseConfig(config) };
     });
+  }
+
+  /** The fully-resolved config for this recording — defaults < `.env`
+   *  (`DEFAULT_*`) < document config (frontmatter / JSON `config`) < explicit
+   *  constructor / CLI config, with `outputDir`/`assetsDir` resolved against
+   *  `baseDir`. Returns a fresh snapshot: mutating it has no effect. */
+  getConfig(): ResolvedConfig {
+    return structuredClone(this.cfg);
   }
 
   // ─── Recording control ───────────────────────────────────────────────────────
@@ -388,15 +395,18 @@ export class Recordable {
   // ─── Scrolling ─────────────────────────────────────────────────────────────
 
   /**
-   * Smooth-scroll to an element or position: `"top"`/`"bottom"`, a CSS selector or
-   * plain text (centred), or a number (absolute Y). `duration` (ms) overrides the
-   * default animation length. Pass `container` (a selector) to scroll *within* that
-   * scroll container — `target` is then resolved against it (extremes, absolute
-   * scrollTop, or a child centred in the container) instead of the window.
+   * Smooth-scroll to an element or position. Vertically by default:
+   * `"top"`/`"bottom"`, a CSS selector or plain text (centred), or a number
+   * (absolute offset). `"left"`/`"right"` scroll horizontally; for a number or
+   * selector pass `axis: "x"` to scroll horizontally instead of vertically.
+   * `duration` (ms) overrides the default animation length. Pass `container` (a
+   * selector) to scroll *within* that scroll container — `target` is then resolved
+   * against it (extremes, absolute offset, or a child centred in the container)
+   * instead of the window.
    */
   scroll(
     target: string | number,
-    options: { container?: string; duration?: number } = {},
+    options: { container?: string; duration?: number; axis?: "x" | "y" } = {},
   ): this {
     return this._enqueue((page) => this.runtime.scroll(page, target, options));
   }
@@ -487,11 +497,15 @@ export class Recordable {
     return this;
   }
 
-  /** Recompute `cfg` as defaults < content config < constructor config, then
-   *  resolve a relative `outputDir`/`assetsDir` against `baseDir`. */
+  /** Recompute `cfg` as defaults < env defaults < content config < constructor
+   *  config, then resolve a relative `outputDir`/`assetsDir` against `baseDir`. */
   private _applyContentConfig(content: RecordableConfig): void {
+    // `baseDir` comes from the constructor (CLI) or, rarely, the content; load the
+    // sibling `.env` from it before reading `DEFAULT_*` env defaults.
+    this._loadEnvFile(this.userConfig.baseDir ?? content.baseDir ?? "");
     this.cfg = {
       ...DEFAULT_CONFIG,
+      ...configFromEnv(),
       ...parseConfig(content),
       ...this.userConfig,
     };
@@ -501,6 +515,19 @@ export class Recordable {
         this.cfg.outputDir = resolve(base, this.cfg.outputDir);
       if (!isAbsolute(this.cfg.assetsDir))
         this.cfg.assetsDir = resolve(base, this.cfg.assetsDir);
+    }
+  }
+
+  /** Load a `.env` beside `baseDir` into `process.env` (once), so `DEFAULT_*`
+   *  config defaults and voiceover secrets are available. No-op without a
+   *  `baseDir` or when the file is absent. */
+  private _loadEnvFile(baseDir: string): void {
+    if (this.envLoaded || !baseDir) return;
+    this.envLoaded = true;
+    try {
+      process.loadEnvFile(resolve(baseDir, ".env"));
+    } catch {
+      // No .env beside the document — fine, values may already be in the env.
     }
   }
 

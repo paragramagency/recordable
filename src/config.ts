@@ -94,11 +94,11 @@ export const DEFAULT_CONFIG: ResolvedConfig = ConfigSchema.parse({});
  * core only needs the type to round-trip frontmatter.
  */
 export interface VoiceoverConfig {
-  /** TTS backend. Omit to take `RECORDABLE_TTS_PROVIDER` (default: elevenlabs). */
+  /** TTS backend. Omit to take `DEFAULT_TTS_PROVIDER` (default: elevenlabs). */
   provider?: string;
-  /** Voice to synthesize with. Omit to take `RECORDABLE_VOICE_ID`. */
+  /** Voice to synthesize with. Omit to take `DEFAULT_VOICE_ID`. */
   voiceId?: string;
-  /** Omit to take `RECORDABLE_MODEL_ID`, else the provider default. */
+  /** Omit to take `DEFAULT_MODEL_ID`, else the provider default. */
   modelId?: string;
   /** Prefer `ELEVENLABS_API_KEY` in the environment over inlining a key here. */
   apiKey?: string;

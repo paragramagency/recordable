@@ -39,6 +39,9 @@ export interface CompileOptions {
   provider?: TTSProvider;
   /** Directory the generated (committable) audio assets are written to. */
   assetsDir: string;
+  /** Directory relative `include(...)` paths resolve against (the document's
+   *  folder). Default: "" → resolve against cwd. */
+  baseDir?: string;
   /** Voiceover settings (provider/voice/model). Falls back to document frontmatter. */
   voiceover?: VoiceoverConfig;
   /** Config merged over frontmatter (e.g. CLI flags). `actionDelay` is always forced to 0. */
@@ -239,10 +242,9 @@ function withEnvDefaults(
   if (!vo) return vo;
   return {
     ...vo,
-    provider:
-      vo.provider || process.env.RECORDABLE_TTS_PROVIDER || "elevenlabs",
-    voiceId: vo.voiceId || process.env.RECORDABLE_VOICE_ID || "",
-    modelId: vo.modelId ?? process.env.RECORDABLE_MODEL_ID,
+    provider: vo.provider || process.env.DEFAULT_TTS_PROVIDER || "elevenlabs",
+    voiceId: vo.voiceId || process.env.DEFAULT_VOICE_ID || "",
+    modelId: vo.modelId ?? process.env.DEFAULT_MODEL_ID,
   };
 }
 
@@ -289,7 +291,7 @@ export async function compileMarkdown(
   md: string,
   options: CompileOptions,
 ): Promise<CompiledScript> {
-  const parsed = parseMarkdown(md);
+  const parsed = parseMarkdown(md, options.baseDir);
   // Progress is opt-in (silent default); warnings always surface.
   const log = options.log ?? createLogger(() => true);
   const warn =

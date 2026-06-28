@@ -8,6 +8,8 @@ const JITTER_FRACTION = 0.4;
 const FRAME_MS = 16;
 /** Default viewport height (px) when the page has no viewport set. */
 const DEFAULT_VIEWPORT_HEIGHT = 900;
+/** Default viewport width (px) when the page has no viewport set. */
+const DEFAULT_VIEWPORT_WIDTH = 1440;
 
 /** Coordinates in viewport pixels. */
 export interface Point {
@@ -103,27 +105,39 @@ export async function originToCoords(
 }
 
 /**
- * Animate a scroller's vertical position to `targetTop` over `duration` ms with an
- * ease curve. `container` null scrolls the window; a handle scrolls that element's
- * `scrollTop`. The target is clamped to the scroller's range.
+ * Animate a scroller's position to `targetPos` over `duration` ms with an ease
+ * curve, along `axis` (`"y"` = `scrollTop`/vertical, `"x"` = `scrollLeft`/
+ * horizontal). `container` null scrolls the window; a handle scrolls that element.
+ * The target is clamped to the scroller's range on that axis.
  */
 export async function smoothScroll(
   page: Page,
-  targetTop: number,
+  targetPos: number,
   duration: number,
   container: ElementHandle<Element> | null = null,
+  axis: "x" | "y" = "y",
 ): Promise<void> {
   await page.evaluate(
     // frameMs is passed in: a module-level const isn't visible inside this
     // browser-context closure.
-    (el, { targetTop, duration, frameMs }) => {
+    (el, { targetPos, duration, frameMs, horiz }) => {
       return new Promise<void>((resolve) => {
         const max = el
-          ? el.scrollHeight - el.clientHeight
-          : document.documentElement.scrollHeight - window.innerHeight;
-        const end = Math.max(0, Math.min(targetTop, max));
-        const startY = el ? el.scrollTop : window.scrollY;
-        const dist = end - startY;
+          ? horiz
+            ? el.scrollWidth - el.clientWidth
+            : el.scrollHeight - el.clientHeight
+          : horiz
+            ? document.documentElement.scrollWidth - window.innerWidth
+            : document.documentElement.scrollHeight - window.innerHeight;
+        const end = Math.max(0, Math.min(targetPos, max));
+        const start = el
+          ? horiz
+            ? el.scrollLeft
+            : el.scrollTop
+          : horiz
+            ? window.scrollX
+            : window.scrollY;
+        const dist = end - start;
         const frames = Math.ceil(duration / frameMs);
         let i = 0;
         const id = setInterval(() => {
@@ -131,9 +145,12 @@ export async function smoothScroll(
           const p = Math.min(i / frames, 1);
           const e =
             p < 0.5 ? 4 * p * p * p : (p - 1) * (2 * p - 2) * (2 * p - 2) + 1;
-          const y = startY + dist * e;
-          if (el) el.scrollTop = y;
-          else window.scrollTo(0, y);
+          const pos = start + dist * e;
+          if (el) {
+            if (horiz) el.scrollLeft = pos;
+            else el.scrollTop = pos;
+          } else if (horiz) window.scrollTo(pos, window.scrollY);
+          else window.scrollTo(window.scrollX, pos);
           if (p >= 1) {
             clearInterval(id);
             resolve();
@@ -142,57 +159,85 @@ export async function smoothScroll(
       });
     },
     container,
-    { targetTop, duration, frameMs: FRAME_MS },
+    { targetPos, duration, frameMs: FRAME_MS, horiz: axis === "x" },
   );
 }
 
 /**
  * Smooth-scroll to an element or position. Without `container` the window scrolls;
  * with one, `target` is resolved against that scroll container instead:
- * - `"top"` / `"bottom"` → scroller extremes
- * - number → absolute scrollTop (px)
- * - CSS selector or `text:` prefix → element centred within the scroller
+ * - `"top"`/`"bottom"` (y) or `"left"`/`"right"` (x) → scroller extremes
+ * - number → absolute scroll offset (px) along `axis`
+ * - CSS selector or `text:` prefix → element centred within the scroller on `axis`
+ *
+ * Directional keywords pin the axis (`"left"`/`"right"` → x, `"top"`/`"bottom"` →
+ * y); a number or selector takes the `axis` argument (default `"y"`).
  */
 export async function smoothScrollToTarget(
   page: Page,
   target: string | number,
   duration: number,
   container?: string,
+  axis: "x" | "y" = "y",
 ): Promise<void> {
+  const ax: "x" | "y" =
+    target === "left" || target === "right"
+      ? "x"
+      : target === "top" || target === "bottom"
+        ? "y"
+        : axis;
+  const horiz = ax === "x";
   const scroller = container ? await getHandle(page, container) : null;
 
   if (typeof target === "number")
-    return smoothScroll(page, target, duration, scroller);
-  if (target === "top") return smoothScroll(page, 0, duration, scroller);
-  if (target === "bottom") {
-    const bottom = await page.evaluate(
-      (el) => (el ? el.scrollHeight : document.body.scrollHeight),
+    return smoothScroll(page, target, duration, scroller, ax);
+  if (target === "top" || target === "left")
+    return smoothScroll(page, 0, duration, scroller, ax);
+  if (target === "bottom" || target === "right") {
+    const end = await page.evaluate(
+      (el, h) =>
+        el
+          ? h
+            ? el.scrollWidth
+            : el.scrollHeight
+          : h
+            ? document.body.scrollWidth
+            : document.body.scrollHeight,
       scroller,
+      horiz,
     );
-    return smoothScroll(page, bottom, duration, scroller);
+    return smoothScroll(page, end, duration, scroller, ax);
   }
 
   const handle = await getHandle(page, target);
-  const top = await page.evaluate(
-    (el, scrollEl, vh) => {
+  const pos = await page.evaluate(
+    (el, scrollEl, viewport, h) => {
       const rect = el.getBoundingClientRect();
       if (scrollEl) {
-        // Centre the child within the container's visible area.
+        // Centre the child within the container's visible area, on this axis.
         const box = scrollEl.getBoundingClientRect();
-        return (
-          scrollEl.scrollTop +
-          (rect.top - box.top) +
-          rect.height / 2 -
-          scrollEl.clientHeight / 2
-        );
+        return h
+          ? scrollEl.scrollLeft +
+              (rect.left - box.left) +
+              rect.width / 2 -
+              scrollEl.clientWidth / 2
+          : scrollEl.scrollTop +
+              (rect.top - box.top) +
+              rect.height / 2 -
+              scrollEl.clientHeight / 2;
       }
-      return window.scrollY + rect.top + rect.height / 2 - vh / 2;
+      return h
+        ? window.scrollX + rect.left + rect.width / 2 - viewport / 2
+        : window.scrollY + rect.top + rect.height / 2 - viewport / 2;
     },
     handle,
     scroller,
-    page.viewport()?.height ?? DEFAULT_VIEWPORT_HEIGHT,
+    horiz
+      ? (page.viewport()?.width ?? DEFAULT_VIEWPORT_WIDTH)
+      : (page.viewport()?.height ?? DEFAULT_VIEWPORT_HEIGHT),
+    horiz,
   );
-  return smoothScroll(page, top, duration, scroller);
+  return smoothScroll(page, pos, duration, scroller, ax);
 }
 
 /** One scroller's reading of where the target sits, all in its own axis:

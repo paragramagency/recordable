@@ -75,6 +75,7 @@ const ACTIONS = {
     target: z.union([z.string(), z.number()]),
     container: z.string().optional(),
     duration: z.number().optional(),
+    axis: z.enum(["x", "y"]).optional(),
   }),
   zoom: z.strictObject({
     level: z.number(),

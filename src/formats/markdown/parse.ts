@@ -1,9 +1,12 @@
 import matter from "gray-matter";
 import MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { callToAction, type Action } from "../../actions.js";
 import type { RecordableConfig, VoiceoverConfig } from "../../config.js";
 import { parseVoiceover } from "../../validate.js";
+import { RecordableError } from "../../errors.js";
 import {
   isMethodCall,
   parseMethodCall,
@@ -50,6 +53,16 @@ export interface ActionsBlock {
 
 export type MarkdownBlock = NarrationBlock | ActionsBlock;
 
+/** A resolved `include(path)` directive. Expanded into the calling document's
+ *  blocks before {@link parseMarkdown} returns, so consumers never see it. */
+interface IncludeBlock {
+  type: "include";
+  path: string;
+}
+
+/** A block as first parsed, before include expansion. */
+type RawBlock = MarkdownBlock | IncludeBlock;
+
 /** The fully parsed document: recording config, optional voiceover, blocks. */
 export interface ParsedMarkdown {
   config: RecordableConfig;
@@ -74,11 +87,13 @@ function stripComments(content: string): string {
 }
 
 /**
- * Parse a Markdown document into config + ordered blocks. Pure: no audio, no
- * network. Frontmatter (YAML, via gray-matter) carries recording config and an
- * optional `voiceover` block; everything else is body content.
+ * Parse a Markdown document into config + ordered blocks. Body-pure (no audio, no
+ * network), but reads any files pulled in by `include(...)`, resolved against
+ * `baseDir` (the document's folder). Frontmatter (YAML, via gray-matter) carries
+ * recording config and an optional `voiceover` block; everything else is body
+ * content.
  */
-export function parseMarkdown(md: string): ParsedMarkdown {
+export function parseMarkdown(md: string, baseDir = ""): ParsedMarkdown {
   const { data, content } = matter(md);
   const { voiceover, ...config } = (data ?? {}) as RecordableConfig & {
     voiceover?: VoiceoverConfig | boolean;
@@ -97,32 +112,143 @@ export function parseMarkdown(md: string): ParsedMarkdown {
   return {
     config: config as RecordableConfig,
     voiceover: vo,
-    blocks: parseBlocks(stripComments(content)),
+    blocks: expandIncludes(parseBlocks(stripComments(content)), baseDir, []),
   };
 }
 
 /**
  * Tokenise the body and emit a block per top-level token: any fenced/indented
  * code block becomes an action list (the language tag is a visual aid only and is
- * ignored), and each paragraph becomes a narration block.
+ * ignored), and each paragraph becomes a narration block. An `include(...)` call —
+ * a line in a fenced block, or a standalone paragraph — becomes an include block,
+ * splitting the surrounding action list around it.
  */
-function parseBlocks(content: string): MarkdownBlock[] {
-  const blocks: MarkdownBlock[] = [];
+function parseBlocks(content: string): RawBlock[] {
+  const blocks: RawBlock[] = [];
 
   for (const t of md.parse(content, {})) {
     if (t.type === "fence" || t.type === "code_block") {
-      const actions = parseMethodCalls(t.content).map((c) =>
-        callToAction(c.name, c.args),
-      );
+      let actions: Action[] = [];
+      for (const c of parseMethodCalls(t.content)) {
+        if (c.name === "include") {
+          if (actions.length) {
+            blocks.push({ type: "actions", actions });
+            actions = [];
+          }
+          blocks.push({ type: "include", path: includePath(c) });
+        } else {
+          actions.push(callToAction(c.name, c.args));
+        }
+      }
       if (actions.length) blocks.push({ type: "actions", actions });
     } else if (t.type === "inline") {
       // The `inline` token carries a paragraph's (or heading's) content.
-      const block = narrationFromInline(t.children ?? []);
-      if (block.narration || block.markers.length) blocks.push(block);
+      const includes = inlineIncludePaths(t.children ?? []);
+      if (includes) {
+        for (const p of includes) blocks.push({ type: "include", path: p });
+      } else {
+        const block = narrationFromInline(t.children ?? []);
+        if (block.narration || block.markers.length) blocks.push(block);
+      }
     }
   }
 
   return blocks;
+}
+
+/** The single string path of an `include(path)` call. */
+function includePath(call: MethodCall): string {
+  const [p, ...rest] = call.args;
+  if (typeof p !== "string" || rest.length)
+    throw new RecordableError(
+      "CONFIG_INVALID",
+      `include(path) takes one string path, got: ${JSON.stringify(call.args)}`,
+    );
+  return p;
+}
+
+/**
+ * If a paragraph is one or more standalone `include(...)` calls (no surrounding
+ * prose), return their paths; null if it has no include. Throws if an include is
+ * mixed with prose or other calls — an include must stand alone so it splices
+ * cleanly between blocks.
+ */
+function inlineIncludePaths(children: Token[]): string[] | null {
+  const includes: string[] = [];
+  let hasOther = false;
+  for (const tok of children) {
+    if (tok.type === "code_inline" && isMethodCall(tok.content)) {
+      const call = parseMethodCall(tok.content);
+      if (call.name === "include") {
+        includes.push(includePath(call));
+        continue;
+      }
+      hasOther = true;
+    } else if (tok.type === "code_inline") {
+      hasOther = true;
+    } else if (tok.type === "text" && tok.content.trim() !== "") {
+      hasOther = true;
+    }
+    // softbreak/hardbreak and emphasis/link wrappers carry no prose: ignore.
+  }
+  if (includes.length === 0) return null;
+  if (hasOther)
+    throw new RecordableError(
+      "CONFIG_INVALID",
+      "`include(...)` must be on its own line or in its own paragraph",
+    );
+  return includes;
+}
+
+/** Backstop against an unbounded include chain (e.g. a file that includes itself
+ *  by a path we can't dedupe across the root document). */
+const MAX_INCLUDE_DEPTH = 40;
+
+/**
+ * Replace every include block with the blocks of the file it names, resolved
+ * against `baseDir` and parsed the same way. Nested includes resolve against their
+ * own file's folder; an included file's frontmatter (config/voiceover) is ignored
+ * — only its steps and narration are spliced in. `seen` carries the resolved paths
+ * on the current branch to catch cycles.
+ */
+function expandIncludes(
+  blocks: RawBlock[],
+  baseDir: string,
+  seen: string[],
+): MarkdownBlock[] {
+  if (seen.length > MAX_INCLUDE_DEPTH)
+    throw new RecordableError(
+      "CONFIG_INVALID",
+      `include nesting too deep (> ${MAX_INCLUDE_DEPTH}) — likely a cycle`,
+    );
+
+  const out: MarkdownBlock[] = [];
+  for (const b of blocks) {
+    if (b.type !== "include") {
+      out.push(b);
+      continue;
+    }
+    const file = resolve(baseDir, b.path);
+    if (seen.includes(file))
+      throw new RecordableError(
+        "CONFIG_INVALID",
+        `Circular include: ${[...seen, file].join(" → ")}`,
+      );
+    let src: string;
+    try {
+      src = readFileSync(file, "utf8");
+    } catch (e) {
+      throw new RecordableError(
+        "CONFIG_INVALID",
+        `include: cannot read "${b.path}" (resolved to ${file})`,
+        { cause: e },
+      );
+    }
+    const { content } = matter(src); // included frontmatter is ignored
+    const childBlocks = parseBlocks(stripComments(content));
+    out.push(...expandIncludes(childBlocks, dirname(file), [...seen, file]));
+  }
+  return out;
 }
 
 /**

@@ -50,6 +50,29 @@ test("scroll: container gathers into the options object", () => {
   );
 });
 
+test("scroll: axis gathers into the options object alongside container", () => {
+  assert.deepEqual(
+    buildArgs(
+      { action: "scroll", target: 300, container: ".row", axis: "x" },
+      "scroll",
+    ),
+    [300, { container: ".row", axis: "x" }],
+  );
+  assert.deepEqual(buildArgs({ action: "scroll", target: "right" }, "scroll"), [
+    "right",
+  ]);
+});
+
+test("scroll: axis only accepts x or y", () => {
+  assert.doesNotThrow(() =>
+    validateAction({ action: "scroll", target: 0, axis: "x" }),
+  );
+  assert.throws(
+    () => validateAction({ action: "scroll", target: 0, axis: "z" }),
+    /axis/,
+  );
+});
+
 test("resetZoom: lone optional gather", () => {
   assert.deepEqual(
     buildArgs({ action: "resetZoom", duration: 300 }, "resetZoom"),

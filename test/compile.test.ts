@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { compileMarkdown } from "../src/voiceover/compile.js";
 import { MockTTSProvider } from "../src/voiceover/mock.js";
 import type { SynthOptions, TTSResult } from "../src/voiceover/types.js";
@@ -186,6 +187,42 @@ test("compileMarkdown: a `//` comment never reaches the TTS provider", async () 
   assert.ok(
     !rec.synthesized.some((t) => /\/\/|TODO|secret-token/.test(t)),
     "no comment text reached the voice",
+  );
+});
+
+test("compileMarkdown: include splices a file's narration + markers on the voiceover path", async () => {
+  // The voiceover compiler re-parses the document, so includes must expand there
+  // too (baseDir threads through to parseMarkdown).
+  const INCLUDE_DIR = fileURLToPath(
+    new URL("./fixtures/include", import.meta.url),
+  );
+  const rec = new RecordingProvider({ msPerChar: 100 });
+  const md = [
+    'First `click("#start")` here.',
+    "",
+    '`include("./voiceover-include.md")`',
+    "",
+    'Done `click("#finish")` now.',
+  ].join("\n");
+
+  const { actions } = await compileMarkdown(md, {
+    provider: rec,
+    assetsDir: freshDir(),
+    baseDir: INCLUDE_DIR,
+  });
+
+  // The included paragraph's narration was synthesized, between the two locals.
+  assert.deepEqual(rec.synthesized, [
+    "First here.",
+    "Sign in with your account.",
+    "Done now.",
+  ]);
+  // Its marker action is present in the compiled chain.
+  assert.ok(
+    actions.some(
+      (a) => a.action === "type" && a.target === "#user" && a.text === "ada",
+    ),
+    "the included type() action should be in the compiled output",
   );
 });
 
