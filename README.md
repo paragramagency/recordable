@@ -162,8 +162,24 @@ we're straight into the dashboard.
 Each backtick span holds exactly one call; its arguments are the method's
 arguments, identical to the chainable API and the JSON `action` keys. Whole-line
 `//` comments are stripped before parsing, so toggle-comment in your editor is
-safe. Run a Markdown file through the [CLI](#cli) (`npx recordable demo.md`) or
-from code:
+safe.
+
+**Reuse with `include`** — pull another Markdown script in where you call it, so a
+common flow (sign-in, setup) lives in one file:
+
+````md
+```
+include("./login.md")
+visit("/dashboard")
+```
+````
+
+The included file's steps and narration are spliced in at that point; its paths
+resolve against its own folder, and its frontmatter is ignored (the top-level
+document's config wins). An `include(...)` must stand alone — its own fenced line or
+its own paragraph.
+
+Run a Markdown file through the [CLI](#cli) (`npx recordable demo.md`) or from code:
 
 ```ts
 import { readFileSync } from "node:fs";
@@ -199,11 +215,16 @@ voiceover:
 document** (copy [`.env.example`](.env.example)):
 
 ```sh
-ELEVENLABS_API_KEY=...                   # required for real synthesis
-RECORDABLE_TTS_PROVIDER=elevenlabs       # or `mock` for silent, offline audio
-RECORDABLE_VOICE_ID=...                  # default voice when frontmatter omits it
-RECORDABLE_MODEL_ID=eleven_multilingual_v2
+ELEVENLABS_API_KEY=...                  # required for real synthesis (a secret, not a default)
+DEFAULT_TTS_PROVIDER=elevenlabs         # or `mock` for silent, offline audio
+DEFAULT_VOICE_ID=...                    # default voice when frontmatter omits it
+DEFAULT_MODEL_ID=eleven_multilingual_v2
 ```
+
+The same `.env` can default **any** [config](#configuration) option as
+`DEFAULT_<UPPER_SNAKE>` (`DEFAULT_FPS`, `DEFAULT_OUTPUT_DIR`, `DEFAULT_VIEWPORT=1920x1080`,
+`DEFAULT_LAUNCH_ARGS=--no-sandbox,--disable-dev-shm-usage`), so a folder of demos shares
+one setup. Frontmatter / explicit config still overrides it.
 
 Generated audio is written to the `assetsDir` (default `assets/`, beside the output)
 and cached, so re-running an unchanged script doesn't re-synthesize. Validate a
@@ -426,12 +447,12 @@ boundaries to produce [separate files](#multiple-output-files-start--end--split)
 
 ### Camera
 
-| Method                                      | Description                                                                                                                                               |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scroll(target, { container?, duration? })` | Smooth-scroll to `"top"`/`"bottom"`, a selector, or a Y position. `container` scrolls a named overflow pane (modal, sidebar, list) instead of the window. |
-| `zoom(level, { origin?, duration? })`       | Smoothly scale from an origin (keyword, `%`, or selector).                                                                                                |
-| `resetZoom({ duration? })`                  | Smoothly return to 1×.                                                                                                                                    |
-| `setConfig(config)`                         | Merge config mid-sequence (takes effect at that point).                                                                                                   |
+| Method                                             | Description                                                                                                                                                                                                                                                       |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scroll(target, { container?, duration?, axis? })` | Smooth-scroll to `"top"`/`"bottom"` (or `"left"`/`"right"`), a selector, or an offset. `axis: "x"` scrolls horizontally for a number/selector target (keywords infer it). `container` scrolls a named overflow pane (modal, sidebar, list) instead of the window. |
+| `zoom(level, { origin?, duration? })`              | Smoothly scale from an origin (keyword, `%`, or selector).                                                                                                                                                                                                        |
+| `resetZoom({ duration? })`                         | Smoothly return to 1×.                                                                                                                                                                                                                                            |
+| `setConfig(config)`                                | Merge config mid-sequence (takes effect at that point).                                                                                                                                                                                                           |
 
 ### Targeting
 
@@ -487,6 +508,20 @@ new Recordable({
   trimNavigation: true, // run a same-tab nav's page load off-camera (see notes under Interactions)
   baseDir: "", // dir that relative visit URLs, outputDir & assetsDir resolve against; "" = cwd
 });
+```
+
+Any option can also be defaulted from a `.env` beside the document as
+`DEFAULT_<UPPER_SNAKE>` (e.g. `DEFAULT_FPS=60`, `DEFAULT_VIEWPORT=1920x1080`) — see
+[Voiceover](#voiceover). Precedence, low → high: built-in defaults → `.env` →
+frontmatter / JSON `config` → explicit `new Recordable({...})` / CLI flags.
+
+Read the fully-resolved result back with `getConfig()` — a snapshot, after all
+layering and path resolution:
+
+```ts
+const rec = new Recordable({ baseDir: "." }).fromMarkdown(md);
+rec.getConfig().fps; // → the resolved fps
+rec.getConfig().outputDir; // → absolute, resolved against baseDir
 ```
 
 ## Development

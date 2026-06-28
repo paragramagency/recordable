@@ -248,3 +248,73 @@ test("parseMarkdown: `//` mid-line (a URL) and in a code span are left untouched
     url: "https://x.test",
   });
 });
+
+// ─── include(...) ────────────────────────────────────────────────────────────
+
+const INCLUDE_DIR = fileURLToPath(
+  new URL("./fixtures/include", import.meta.url),
+);
+
+test("include: splices a file's steps inline, splitting the surrounding list", () => {
+  // main.md: visit("/"), include("./login.md"), click("#dash")
+  const steps = extractActions(
+    parseMarkdown(fixture("include/main.md"), INCLUDE_DIR).blocks,
+  );
+  assert.deepEqual(steps, [
+    { action: "visit", url: "/" },
+    { action: "visit", url: "/login" },
+    { action: "type", target: "#user", text: "ada" },
+    { action: "click", target: "#go" },
+    { action: "click", target: "#dash" },
+  ]);
+});
+
+test("include: the included file's frontmatter is ignored (parent config wins)", () => {
+  // login.md sets `fps: 5` in its frontmatter; the top-level config is untouched.
+  const { config } = parseMarkdown(fixture("include/main.md"), INCLUDE_DIR);
+  assert.equal("fps" in config, false);
+});
+
+test("include: a standalone narration paragraph pulls the file in", () => {
+  const steps = extractActions(
+    parseMarkdown('`include("./login.md")`', INCLUDE_DIR).blocks,
+  );
+  assert.deepEqual(steps, [
+    { action: "visit", url: "/login" },
+    { action: "type", target: "#user", text: "ada" },
+    { action: "click", target: "#go" },
+  ]);
+});
+
+test("include: mixed with prose in a paragraph is rejected", () => {
+  assert.throws(
+    () => parseMarkdown('First `include("./login.md")` then go.', INCLUDE_DIR),
+    /own line or .* own paragraph/,
+  );
+});
+
+test("include: nested includes expand depth-first in order", () => {
+  // nest-1 → nest-2 → nest-3, each contributing one visit before recursing.
+  const steps = extractActions(
+    parseMarkdown(fixture("include/nest-1.md"), INCLUDE_DIR).blocks,
+  );
+  assert.deepEqual(steps, [
+    { action: "visit", url: "/1" },
+    { action: "visit", url: "/2" },
+    { action: "visit", url: "/3" },
+  ]);
+});
+
+test("include: a circular include chain throws", () => {
+  assert.throws(
+    () => parseMarkdown(fixture("include/cycle-a.md"), INCLUDE_DIR),
+    /Circular include/,
+  );
+});
+
+test("include: a missing file throws a clear error", () => {
+  assert.throws(
+    () => parseMarkdown('`include("./nope.md")`', INCLUDE_DIR),
+    /cannot read/,
+  );
+});

@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-28
+
+### Added
+
+- **Horizontal container scrolling.** `scroll` gained an `axis: "x" | "y"` option
+  (default `"y"`) and `"left"` / `"right"` keywords (which infer the x axis). A
+  number or selector target scrolls horizontally with `axis: "x"`, e.g.
+  `scroll("right", { container: ".row" })` or
+  `scroll("#card-7", { container: ".row", axis: "x" })`. Vertical behaviour is
+  unchanged. (ROADMAP #1)
+- **`.env` default configuration.** A `.env` beside the document now defaults
+  **any** config option as `DEFAULT_<UPPER_SNAKE>` (`DEFAULT_FPS`,
+  `DEFAULT_VIEWPORT=1920x1080`, `DEFAULT_LAUNCH_ARGS=--no-sandbox,--foo`, …),
+  coerced to each field's type — so a folder of demos shares one setup.
+  Precedence, low → high: built-in defaults → `.env` → frontmatter / JSON
+  `config` → explicit `new Recordable({...})` / CLI flags. (ROADMAP #2)
+- **`include(...)` in Markdown.** A standalone `include("./login.md")` — its own
+  fenced line or paragraph — splices another script's steps and narration in at
+  that point, resolving against its own folder (nested includes supported, cycles
+  caught). The included file's frontmatter is ignored; the top-level document's
+  config wins. (ROADMAP #3)
+- **`Recordable.getConfig()`** returns the fully-resolved config snapshot (after
+  all layering and `baseDir` path resolution).
+
+### Changed
+
+- **Voiceover env vars renamed `RECORDABLE_*` → `DEFAULT_*`** for consistency with
+  the new config defaults (`RECORDABLE_TTS_PROVIDER` → `DEFAULT_TTS_PROVIDER`,
+  `RECORDABLE_VOICE_ID` → `DEFAULT_VOICE_ID`, `RECORDABLE_MODEL_ID` →
+  `DEFAULT_MODEL_ID`). The `ELEVENLABS_API_KEY` secret is unchanged. **Migration:**
+  rename these keys in any existing `.env`.
+
+## [0.7.0] - 2026-06-28
+
+### Added
+
+- **Auto-trim same-tab navigation load off-camera (`trimNavigation`, default
+  true).** A `visit()` or a `waitForNav` click now seals the segment at the action
+  and runs the page load off-camera, so the clip cuts straight from action to
+  result with no dead loading time — generalising the new-tab off-camera trim
+  (`followNewTab`) to same-tab navigation. Because the load captures no frames it
+  never advances the recorded timeline, keeping voiceover timing deterministic.
+  Override per click with `click(t, { trimNavigation: false })`; flows through
+  JSON / Markdown. (ROADMAP #2)
+
 ## [0.6.0] - 2026-06-28
 
 ### Changed
@@ -164,7 +209,9 @@ Initial release.
 - Declarative JSON authoring format with published JSON Schema and `recordable` CLI
   (`--check` to validate without a browser).
 
-[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/paragramagency/recordable/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/paragramagency/recordable/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/paragramagency/recordable/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/paragramagency/recordable/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/paragramagency/recordable/compare/v0.3.0...v0.4.0

@@ -285,10 +285,15 @@ export class Runtime {
   async scroll(
     page: Page,
     target: string | number,
-    options: { container?: string; duration?: number } = {},
+    options: { container?: string; duration?: number; axis?: "x" | "y" } = {},
   ): Promise<void> {
     this.log("Scroll", String(target));
-    if (typeof target === "string" && target !== "top" && target !== "bottom")
+    const keyword =
+      target === "top" ||
+      target === "bottom" ||
+      target === "left" ||
+      target === "right";
+    if (typeof target === "string" && !keyword)
       await this.checkAmbiguous(page, target);
     if (options.container) await this.checkAmbiguous(page, options.container);
     await smoothScrollToTarget(
@@ -296,6 +301,7 @@ export class Runtime {
       target,
       options.duration ?? this.getCfg().scrollDuration,
       options.container,
+      options.axis,
     );
   }
 

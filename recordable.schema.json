@@ -766,6 +766,13 @@
               },
               "duration": {
                 "type": "number"
+              },
+              "axis": {
+                "type": "string",
+                "enum": [
+                  "x",
+                  "y"
+                ]
               }
             },
             "required": [
