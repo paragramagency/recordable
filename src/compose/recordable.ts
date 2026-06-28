@@ -15,7 +15,12 @@ import { parseConfig } from "../validate.js";
 import { Recorder } from "../video/recorder.js";
 import { AudioTrack } from "../audio/track.js";
 import { Runtime } from "../browser/runtime.js";
-import { Session, type Composition, type QueueItem } from "./session.js";
+import {
+  Session,
+  type Composition,
+  type QueueItem,
+  type TrimNav,
+} from "./session.js";
 import { validateBoundaries, type QueueKind } from "./boundaries.js";
 import { buildArgs, validateAction, type Action } from "../actions.js";
 import { resolveVisitUrls, splitScript, type Script } from "../script.js";
@@ -474,7 +479,7 @@ export class Recordable {
   }
 
   private _enqueue(
-    run: (page: Page) => Promise<Page | void>,
+    run: (page: Page) => Promise<Page | TrimNav | void>,
     control = false,
     kind?: QueueKind,
   ): this {

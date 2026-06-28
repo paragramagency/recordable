@@ -8,6 +8,7 @@ import { sleep, truncate } from "../utils.js";
 import { resolveTarget, parseOptionSpec } from "./targets.js";
 import { RecordableError } from "../errors.js";
 import { type Logger } from "../logger.js";
+import { type TrimNav } from "../compose/session.js";
 import {
   getElementCenter,
   getHandle,
@@ -74,8 +75,26 @@ export class Runtime {
 
   // ─── Navigation ────────────────────────────────────────────────────────────
 
-  async visit(page: Page, url: string, options?: GoToOptions): Promise<void> {
+  async visit(
+    page: Page,
+    url: string,
+    options?: GoToOptions,
+  ): Promise<TrimNav | void> {
     this.log("Visit", url);
+    // With trim on, hand the load back to the session to run off-camera (the
+    // whole navigation is dead time — nothing on-camera precedes it).
+    if (this.getCfg().trimNavigation)
+      return { offCamera: () => this._goto(page, url, options) };
+    await this._goto(page, url, options);
+  }
+
+  /** Navigate and settle, then refresh the cursor overlay. Shared by the trimmed
+   *  (off-camera) and untrimmed (on-camera) `visit` paths. */
+  private async _goto(
+    page: Page,
+    url: string,
+    options?: GoToOptions,
+  ): Promise<void> {
     await page.goto(url, {
       waitUntil: "networkidle2",
       timeout: this.getCfg().visitTimeout,
@@ -106,16 +125,17 @@ export class Runtime {
   // ─── Interactions ──────────────────────────────────────────────────────────
 
   /** Click a target. Returns the new tab's `Page` when `followNewTab` is set and the
-   *  click opened one — the session then switches recording to it. Otherwise void. */
+   *  click opened one (the session switches recording to it); a {@link TrimNav}
+   *  directive when a `waitForNav` click trims its load off-camera; else void. */
   async click(
     page: Page,
     target: string,
     options: ClickOptions = {},
-  ): Promise<Page | void> {
+  ): Promise<Page | TrimNav | void> {
     this.log("Click", target);
     await this.checkAmbiguous(page, target);
     if (options.followNewTab) return this._clickNewTab(page, target, options);
-    await this._click(page, target, options);
+    return this._click(page, target, options);
   }
 
   /**
@@ -341,7 +361,7 @@ export class Runtime {
     page: Page,
     target: string,
     options: ClickOptions = {},
-  ): Promise<void> {
+  ): Promise<TrimNav | void> {
     if (this.getCfg().autoScroll) await this._scrollIntoView(page, target);
     const { x, y } = await getElementCenter(page, target);
     if (this.getCfg().cursor) {
@@ -349,7 +369,7 @@ export class Runtime {
       await sleep(jitter(PRE_CLICK_MS));
       await this.cursor.clickEffect(page);
     }
-    await this._clickPoint(page, x, y, options);
+    return this._clickPoint(page, x, y, options);
   }
 
   /**
@@ -360,13 +380,17 @@ export class Runtime {
    * `visit()`. The network settle afterwards is best-effort, so a perpetually-busy
    * page can't fail an otherwise-successful navigation. SPA route changes are not
    * full-page navigations — gate those with a following `waitFor("<selector>")`.
+   *
+   * The on-camera part (cursor travel, the click itself) runs here; with
+   * `trimNavigation` on, the post-click load wait is handed back as a
+   * {@link TrimNav} so the session can seal first and run it off-camera.
    */
   private async _clickPoint(
     page: Page,
     x: number,
     y: number,
     options: ClickOptions = {},
-  ): Promise<void> {
+  ): Promise<TrimNav | void> {
     if (!options.waitForNav) {
       await page.mouse.click(x, y);
       return;
@@ -378,8 +402,14 @@ export class Runtime {
     // can't be missed, then settle the network best-effort.
     const navigated = page.waitForNavigation({ waitUntil: "load", timeout });
     await page.mouse.click(x, y);
-    await navigated;
-    await page.waitForNetworkIdle({ idleTime: 500, timeout }).catch(() => {});
+    const settle = async () => {
+      await navigated;
+      await page.waitForNetworkIdle({ idleTime: 500, timeout }).catch(() => {});
+    };
+    // Per-click override falls back to the global config.
+    if (options.trimNavigation ?? this.getCfg().trimNavigation)
+      return { offCamera: settle };
+    await settle();
   }
 
   /** Move to viewport coords, animating the overlay when the cursor is enabled. */

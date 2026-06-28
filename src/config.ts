@@ -67,6 +67,13 @@ export const ConfigSchema = z.strictObject({
   cursor: z.boolean().default(true),
   /** Timeout in ms for page navigation. Default: 30000 */
   visitTimeout: z.number().default(30_000),
+  /** Trim the dead time a same-tab navigation spends loading out of the clip:
+   *  `visit` and a `waitForNav` click seal the segment, load off-camera, then
+   *  resume — so the video cuts straight from action to result and the load
+   *  duration never advances the recorded timeline (deterministic narration
+   *  timing). Override per click with `click(t, { trimNavigation: false })`.
+   *  Default: true */
+  trimNavigation: z.boolean().default(true),
   /** Directory that relative `visit` URLs, `outputDir`, and `assetsDir` resolve
    *  against (e.g. the script file's folder). Default: "" → resolve against cwd. */
   baseDir: z.string().default(""),
@@ -140,6 +147,13 @@ export interface ClickOptions {
   waitForNav?: boolean;
   /** Navigation timeout in ms for `waitForNav: true`. Default: the `visitTimeout` config. */
   timeout?: number;
+  /**
+   * Override the `trimNavigation` config for this click only. With `waitForNav`,
+   * `true` trims the page-load dead time off-camera and `false` keeps it in the
+   * clip. No effect without `waitForNav` (a non-navigating click trims nothing).
+   * Default: the `trimNavigation` config value.
+   */
+  trimNavigation?: boolean;
   /**
    * Follow a link that opens in a *new tab* — continue recording in the new tab,
    * which becomes the active page for following actions. The old tab is left open.
