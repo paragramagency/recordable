@@ -1,0 +1,11 @@
+# <type>(<scope>): <summary>          ← ≤72 chars, imperative ("add", not "added")
+#
+# <body — what changed and why; wrap ~72 chars. Blank line above.>
+#
+# <footer — BREAKING CHANGE: <desc>, Closes #123, Co-Authored-By: …>
+#
+# ── Conventional Commits (see CONTRIBUTING.md → Commit messages) ──────────────
+# type:  feat  fix  docs  style  refactor  perf  test  build  ci  chore  revert
+# bump:  feat → minor   fix → patch   BREAKING CHANGE / type! → major (SemVer)
+# scope: optional, e.g. feat(markdown):  fix(cli):  docs(readme):
+# Example:  fix(scroll): thread FRAME_MS through the evaluate() args

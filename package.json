@@ -44,7 +44,9 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepublishOnly": "npm run clean && npm run gen:schema && npm run build"
+    "prepublishOnly": "npm run clean && npm run gen:schema && npm run build",
+    "commitlint": "commitlint",
+    "prepare": "husky && git config commit.template .gitmessage 2>/dev/null || true"
   },
   "keywords": [
     "screen-recording",
@@ -72,11 +74,14 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.1.0",
+    "@commitlint/config-conventional": "^21.1.0",
     "@eslint/js": "^10.0.1",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.0.0",
     "eslint": "^10.5.0",
     "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
     "prettier": "^3.8.4",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",

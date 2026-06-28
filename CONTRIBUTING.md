@@ -28,6 +28,34 @@ npm run clean        # remove dist/
 The published tarball is restricted by the `files` field in `package.json`. If you
 add a top-level file that should ship, add it there.
 
+## Commit messages
+
+This repo follows [Conventional Commits](https://www.conventionalcommits.org).
+It pairs with the SemVer + [Keep a Changelog](https://keepachangelog.com) flow
+in `CHANGELOG.md`, and `commitlint` enforces it (locally via a Git hook, and on
+PRs in CI).
+
+```
+<type>(<optional scope>): <imperative summary, ≤72 chars>
+
+<optional body — what & why, wrapped ~72 chars>
+
+<optional footer — BREAKING CHANGE: …, Closes #123, Co-Authored-By: …>
+```
+
+- **Types:** `feat` · `fix` · `docs` · `style` · `refactor` · `perf` · `test` ·
+  `build` · `ci` · `chore` · `revert`.
+- **Version bump:** `feat` → minor, `fix` → patch, a `BREAKING CHANGE:` footer
+  (or `!` after the type, e.g. `feat!:`) → major.
+- **Scope** is optional and freeform — the area touched, e.g. `feat(markdown):`,
+  `fix(cli):`, `docs(readme):`.
+- Examples: `fix(scroll): thread FRAME_MS through the evaluate() args`,
+  `feat(select): add :option-index / :option-label pseudos`.
+
+`npm install` installs the hook and points `git commit` at a template
+(`.gitmessage`) that spells the format out. `Release vX.Y.Z` and merge commits
+are exempt. Lint a message by hand with `npx commitlint --edit <file>`.
+
 ## Before opening a PR
 
 - Run `npm run gen:schema` and commit the result if `src/script.ts` changed —
