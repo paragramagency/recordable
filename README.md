@@ -47,9 +47,10 @@ want on camera; every captured segment is stitched into one seamless MP4.
 - **Manual steps / logins** — `resumeOnPlay()` waits for an in-page ▶ Play button
   (see below), so you can sign in by hand before recording.
 - **Auto-scroll** to bring elements into view before interacting.
-- **Declarative JSON scripts + CLI** — author a recording as JSON (with a published
-  schema for editor autocomplete) and run it with `npx recordable demo.json`, no
-  install or TypeScript required.
+- **Declarative scripts (JSON _or_ Markdown) + CLI** — author a recording as data,
+  not code, and run it with `npx recordable demo.json` / `demo.md`, no install or
+  TypeScript required. JSON ships a published schema for editor autocomplete;
+  Markdown adds prose narration for voiceover.
 
 ## Install
 
@@ -95,27 +96,132 @@ local copy) and your editor gives you autocomplete, required-key checking, and
 typo catching for every action — no TypeScript needed. The schema is published as
 `recordable.schema.json`.
 
-Run a script from code with `runScript` (or `fromJSON` to build without running):
+Run a JSON script from code by handing it to a `Recordable` — a parsed object or
+the raw file string both work:
 
 ```ts
-import { runScript } from "recordable";
-import demo from "./demo.json" with { type: "json" };
+import { readFileSync } from "node:fs";
+import { Recordable } from "recordable";
 
-await runScript(demo);
+const script = readFileSync("./demo.json", "utf8");
+await new Recordable({ baseDir: "." }).fromJSON(script).run();
 ```
 
-### CLI
+`baseDir` is the script's folder — `recordable` resolves relative `visit` URLs
+and a relative `outputDir` against it. (Standalone `runScript` / `fromJSON`
+helpers are also exported if you prefer a single call.)
 
-Or run a JSON file directly — **no install required** via `npx`:
+## Declarative scripts (Markdown)
+
+Markdown is the richest authoring surface — the **same actions as JSON**, written
+as backtick method-call spans, with optional narration prose woven around them for
+voiceover. YAML frontmatter carries the [config](#configuration); an optional
+`voiceover` block opts into narration audio (`voiceover: true` reads provider /
+voice from the environment, or pass an object to set them inline).
+
+Two flavours, mixable in one document:
+
+**1. A fenced action list** — one call per line, no prose. The closest Markdown
+gets to JSON; compiles to the exact same actions:
+
+````md
+---
+viewport: { width: 1280, height: 800 }
+---
+
+```
+pause()
+visit("./index.html")
+resume()
+zoom(1.4, { origin: "#email" })
+type("#email", "hello@example.com")
+click("text:Sign up", { waitForNav: true })
+waitFor("text:Thanks", { state: "visible" })
+resetZoom()
+```
+````
+
+**2. Inline markers in prose** — drop call spans into narration; each fires at its
+position in the spoken line. With `voiceover` on, the prose is read aloud and waits
+are timed to the narration:
+
+```md
+---
+typingSpeed: 16
+voiceover: true
+---
+
+`visit("./signin.html")` Welcome — first we sign in with our work account
+`type("#email", "maya@example.com")` then our password
+`type("#password", "•••••")` `click("#signInBtn", { waitForNav: true })` — and
+we're straight into the dashboard.
+```
+
+Each backtick span holds exactly one call; its arguments are the method's
+arguments, identical to the chainable API and the JSON `action` keys. Whole-line
+`//` comments are stripped before parsing, so toggle-comment in your editor is
+safe. Run a Markdown file through the [CLI](#cli) (`npx recordable demo.md`) or
+from code:
+
+```ts
+import { readFileSync } from "node:fs";
+import { Recordable } from "recordable";
+
+const md = readFileSync("./demo.md", "utf8");
+await new Recordable({ baseDir: "." }).fromMarkdown(md).run();
+```
+
+## Voiceover
+
+A Markdown script can narrate itself. The prose around your inline markers becomes
+spoken audio (text-to-speech), and the markers are **timed to the narration** — each
+action fires at its position in the spoken line, so the demo and the voice stay in
+sync without hand-tuned `wait`s.
+
+Opt in from frontmatter. With credentials in the environment, `voiceover: true` is
+all a document needs; spell out a `voiceover` object to set provider / voice / model
+inline (it overrides the environment):
+
+```yaml
+voiceover: true
+```
+
+```yaml
+voiceover:
+  provider: elevenlabs # or `mock` for silent, offline audio
+  voiceId: EXAVITQu4vr4xnSDxMaL
+  modelId: eleven_multilingual_v2
+```
+
+**Credentials & defaults** come from a `.env` loaded automatically from **beside the
+document** (copy [`.env.example`](.env.example)):
+
+```sh
+ELEVENLABS_API_KEY=...                   # required for real synthesis
+RECORDABLE_TTS_PROVIDER=elevenlabs       # or `mock` for silent, offline audio
+RECORDABLE_VOICE_ID=...                  # default voice when frontmatter omits it
+RECORDABLE_MODEL_ID=eleven_multilingual_v2
+```
+
+Generated audio is written to the `assetsDir` (default `assets/`, beside the output)
+and cached, so re-running an unchanged script doesn't re-synthesize. Validate a
+voiceover script without hitting the TTS API — or a browser — with `recordable
+demo.md --check`. For a music bed or a hand-recorded narration file, drop it straight
+onto the timeline with `audio(path, opts?)` (see the [API](#recording)).
+
+## CLI
+
+Run a JSON **or** Markdown file directly — **no install required** via `npx`:
 
 ```sh
 npx recordable demo.json
+npx recordable demo.md
 ```
 
 ```
-recordable <script.json> [options]
+recordable <script.json | script.md> [options]
 
-  --check          Validate the script and exit (no browser, no recording)
+  --check          Validate the script and exit (no browser, no audio, no recording)
   --headless       Run without a visible browser window
   --silent         Suppress recorder console output
   --out-dir <dir>  Output directory (overrides the script's config)
@@ -197,8 +303,9 @@ new Recordable()
 ```
 
 No `pause()`/`resume()` needed — `insert` seals the current segment and recording
-resumes into a fresh one on the next action automatically. (Audio on the clip is
-currently dropped; voiceover support is on the roadmap.)
+resumes into a fresh one on the next action automatically. (Audio on the inserted
+clip itself is currently dropped — narration voiceover is a separate, supported
+feature, authored in [Markdown](#declarative-scripts-markdown).)
 
 **Cross-fades.** Pass `fadeIn` / `fadeOut` (ms) to dissolve rather than hard-cut.
 A fade blends the clip with the **neighbouring recorded footage** (a true
@@ -225,6 +332,7 @@ what lands on camera:
 | `waitForPlay(message?)`  | Block until the user clicks the in-page ▶ Play button (or presses Enter); leaves recording state untouched.       |
 | `resumeOnPlay(message?)` | Wait for ▶ Play, then resume capturing — `waitForPlay().resume()`.                                                |
 | `insert(path, opts?)`    | Splice an external clip (intro / outro / mid-roll) into the timeline; `opts.fadeIn`/`fadeOut` (ms) cross-fade it. |
+| `audio(path, opts?)`     | Lay an existing audio file (mp3/wav) onto the timeline here — narration, music bed, SFX. Blocks until the clip ends by default (`opts.wait: false` plays it over following actions); `opts.volume` gains it. |
 
 ### Navigation & waiting
 
@@ -307,11 +415,13 @@ new Recordable({
   viewport: { width: 1920, height: 1080 },
   pageZoom: 1, // browser page zoom (Ctrl +/−); <1 reflows to fit more on screen
   fps: 30,
-  outputDir: "./output",
+  outputDir: "output", // relative paths resolve against baseDir
   outputName: "recordable",
   outputTimestamp: true, // prepend an ISO timestamp to the filename
+  assetsDir: "assets", // where generated voiceover audio is written (relative to baseDir)
   headless: false,
-  language: "", // BCP-47 locale, e.g. "fr-FR" (--lang + Accept-Language); "" = system
+  launchArgs: [], // extra Chromium flags, e.g. ["--no-sandbox"] for CI/containers
+  language: "", // BCP-47 locale, e.g. "fr-FR" (--lang + --accept-lang + Accept-Language); "" = system
   typingSpeed: 7, // characters per second
   videoCrf: 18, // lower = better quality, larger file
   videoCodec: "libx264",
@@ -325,6 +435,7 @@ new Recordable({
   scrollDuration: 1200, // ms for the scroll action's transition
   cursor: true, // show the animated cursor overlay
   visitTimeout: 30_000, // ms for navigation / waitFor
+  baseDir: "", // dir that relative visit URLs, outputDir & assetsDir resolve against; "" = cwd
 });
 ```
 
@@ -338,6 +449,7 @@ npm test              # unit + ffmpeg I/O tests
 npm run test:e2e      # opt-in end-to-end pipeline run (launches a browser)
 npx tsx my-script.ts  # run a recording script directly
 node dist/cli.js demo.json   # run a JSON script through the CLI locally
+node dist/cli.js demo.md      # run a Markdown script through the CLI locally
 ```
 
 The JSON action set and its schema are both generated from one manifest in
