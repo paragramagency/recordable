@@ -23,6 +23,9 @@ jobs:
 
       - run: npm run format:check
       - run: npm run lint
+      # Type-checks the whole project incl. test/ (tsx only transpiles, so type
+      # errors there slip past build/test).
+      - run: npm run typecheck
 
       - run: npm test
 

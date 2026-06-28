@@ -39,3 +39,34 @@ jobs:
 
       # prepublishOnly runs clean + gen:schema + build. --access public for the unscoped package.
       - run: npm publish --access public
+
+  # Create a GitHub Release for the tag, with notes lifted from CHANGELOG.md.
+  # Runs only after npm publish succeeds, so the Release never claims a version
+  # that didn't ship.
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pull the body between this version's "## [x.y.z]" heading and the next
+      # "## [" heading — so the Release notes mirror the CHANGELOG section exactly.
+      - name: Extract changelog section
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" {f=1; next}
+            f && /^## \[/ {exit}
+            f {print}
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "::error::no CHANGELOG.md section found for $VERSION"
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
