@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-06-29
+
+### Fixed
+
+- **Clicking / hovering / scrolling elements inside a dialog iframe.** v0.8.0
+  resolves targets inside iframes (e.g. modal dialogs), but the scroll and
+  metrics helpers still evaluated the element against the top page, throwing
+  `JSHandles can be evaluated only in the context they were created` for any
+  target in an iframe (such as an APEX modal confirm button). They now evaluate
+  against the element's own frame, so interactions inside dialog iframes work.
+
 ## [0.8.0] - 2026-06-28
 
 ### Added
@@ -209,7 +220,8 @@ Initial release.
 - Declarative JSON authoring format with published JSON Schema and `recordable` CLI
   (`--check` to validate without a browser).
 
-[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/paragramagency/recordable/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/paragramagency/recordable/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/paragramagency/recordable/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/paragramagency/recordable/compare/v0.5.0...v0.6.0
