@@ -80,8 +80,8 @@ test("parseIndexedTarget: trailing :nth() splits base + 1-based index", () => {
 });
 
 test("parseIndexedTarget: base is resolved, so :text() still compiles", () => {
-  assert.deepEqual(parseIndexedTarget("a:text(Business Loans):nth(2)"), {
-    selector: "a::-p-text(Business Loans)",
+  assert.deepEqual(parseIndexedTarget("a:text(Submit):nth(2)"), {
+    selector: "a::-p-text(Submit)",
     index: 2,
   });
 });

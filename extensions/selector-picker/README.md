@@ -26,7 +26,7 @@ preferring (in order):
    references. Values that look like volatile numeric ids are skipped.)
 4. **`…:nth(K)`** — when the best short selector (`:text()` or `[attr]`) matches a
    few elements rather than one, it appends recordable's `:nth(K)` (1-based,
-   counted among _visible_ matches) — e.g. `a:text(Business Loans):nth(2)` — in
+   counted among _visible_ matches) — e.g. `a:text(Submit):nth(2)` — in
    preference to a long positional chain.
 5. **CSS path** — a minimal `>` child-combinator path; each step disambiguated by
    a distinguishing attribute or `:nth-of-type`, anchored on the nearest stable

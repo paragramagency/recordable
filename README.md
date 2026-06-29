@@ -490,8 +490,8 @@ Anywhere a `target` is accepted you can pass:
 - the **`:nth(N)`** pseudo picks the **Nth match** (1-based, document order) of
   everything the selector matches — unlike CSS `:nth-child`/`:nth-of-type`, which
   only count among siblings. It composes with `:text()`:
-  `"a:text(Business Loans):nth(2)"` is the second link whose text contains
-  "Business Loans"; `"button[type=submit]:nth(2)"` the second submit button.
+  `"a:text(Submit):nth(2)"` is the second link whose text contains
+  "Submit"; `"button[type=submit]:nth(2)"` the second submit button.
   Indexing is over _visible_ matches (hidden duplicates are skipped). It must be
   the single, trailing marker on the target.
 
