@@ -4,7 +4,9 @@ import {
   resolveTarget,
   isPositionValue,
   parseOptionSpec,
+  parseIndexedTarget,
 } from "../src/browser/targets.js";
+import { RecordableError } from "../src/errors.js";
 
 // ─── resolveTarget: :text() pseudo ───────────────────────────────────────────
 
@@ -61,6 +63,44 @@ test("resolveTarget: plain CSS passes through verbatim", () => {
   ]) {
     assert.equal(resolveTarget(sel), sel, sel);
   }
+});
+
+// ─── parseIndexedTarget: :nth(N) ─────────────────────────────────────────────
+
+test("parseIndexedTarget: no :nth() returns null", () => {
+  for (const t of ["a:text(Save)", "#id", "button.primary", "div > a"])
+    assert.equal(parseIndexedTarget(t), null, t);
+});
+
+test("parseIndexedTarget: trailing :nth() splits base + 1-based index", () => {
+  assert.deepEqual(parseIndexedTarget("button[type=submit]:nth(2)"), {
+    selector: "button[type=submit]",
+    index: 2,
+  });
+});
+
+test("parseIndexedTarget: base is resolved, so :text() still compiles", () => {
+  assert.deepEqual(parseIndexedTarget("a:text(Business Loans):nth(2)"), {
+    selector: "a::-p-text(Business Loans)",
+    index: 2,
+  });
+});
+
+test("parseIndexedTarget: mid-selector :nth throws CONFIG_INVALID", () => {
+  for (const t of ["div:nth(2) > a", "a:nth(1):nth(2)"]) {
+    assert.throws(
+      () => parseIndexedTarget(t),
+      (e) => e instanceof RecordableError && e.code === "CONFIG_INVALID",
+      t,
+    );
+  }
+});
+
+test("parseIndexedTarget: a zero/negative index throws", () => {
+  assert.throws(
+    () => parseIndexedTarget("a:text(X):nth(0)"),
+    (e) => e instanceof RecordableError && e.code === "CONFIG_INVALID",
+  );
 });
 
 // ─── parseOptionSpec: select value pseudos ───────────────────────────────────

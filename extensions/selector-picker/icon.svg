@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="26" fill="#0a7d5a"/>
+  <!-- selection "marquee" corner brackets — the pick-an-element motif -->
+  <g fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 44 V32 H44"/>
+    <path d="M96 44 V32 H84"/>
+    <path d="M32 84 V96 H44"/>
+    <path d="M96 84 V96 H84"/>
+  </g>
+  <!-- R monogram, drawn as strokes so no font is needed -->
+  <g fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M54 44 V86"/>
+    <path d="M54 44 C 80 44 80 66 54 66"/>
+    <path d="M55 66 L 80 86"/>
+  </g>
+</svg>

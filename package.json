@@ -1,6 +1,6 @@
 {
   "name": "recordable",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Programmatic, repeatable browser screen recording. Script a walkthrough as a fluent chain of actions — clicks, typing, smooth zoom/scroll, an animated cursor, and manual steps like logins — and capture it to MP4.",
   "repository": {
     "type": "git",
@@ -41,6 +41,7 @@
     "test:e2e": "tsx --test test/e2e/*.e2e.ts",
     "clean": "rm -rf dist",
     "gen:schema": "tsx scripts/gen-schema.ts",
+    "build:extension": "node scripts/build-extension.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

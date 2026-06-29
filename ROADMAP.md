@@ -33,6 +33,16 @@ demos, tightening rough edges so the whole thing is presentable.
 
 ## Done
 
+### Selector authoring: `:nth(N)` + picker extension (v0.10.0)
+
+Added the `:nth(N)` target pseudo — pick the Nth (1-based, visible, document
+order) match of any selector, composing with `:text()` (`a:text(Loans):nth(2)`)
+— so you rarely need a brittle positional CSS chain. Shipped a repo-only MV3
+**selector-picker** Chrome extension (`extensions/selector-picker/`) that copies
+a unique target in recordable's grammar by clicking an element (promotes to the
+nearest control; `:text()` → `#id` → `[attr]` → `:nth(K)` → CSS path;
+iframe-aware), built with `npm run build:extension`.
+
 ### Variables system + config-file split (v0.9.0)
 
 Split the three jobs `.env` was overloaded with: **secrets** (`ELEVENLABS_API_KEY`,

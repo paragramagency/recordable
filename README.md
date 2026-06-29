@@ -487,12 +487,19 @@ Anywhere a `target` is accepted you can pass:
   hold spaces and commas but not a literal `)`.
 - **Puppeteer selectors** also pass through untouched — `::-p-aria(Submit)` for
   accessible name, `>>>` to pierce shadow DOM.
+- the **`:nth(N)`** pseudo picks the **Nth match** (1-based, document order) of
+  everything the selector matches — unlike CSS `:nth-child`/`:nth-of-type`, which
+  only count among siblings. It composes with `:text()`:
+  `"a:text(Business Loans):nth(2)"` is the second link whose text contains
+  "Business Loans"; `"button[type=submit]:nth(2)"` the second submit button.
+  Indexing is over _visible_ matches (hidden duplicates are skipped). It must be
+  the single, trailing marker on the target.
 
 > The legacy whole-string `text:` prefix (`"text:Sign up"`) still works as an
 > alias for `:text(…)`.
 
 If a target matches more than one element, `recordable` logs a warning and acts
-on the first — tighten the selector to silence it.
+on the first — tighten the selector, or use `:nth(N)` to pick one, to silence it.
 
 ## Configuration
 

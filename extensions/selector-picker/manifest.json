@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Recordable Selector Picker",
+  "version": "1.0.0",
+  "description": "Click any element to copy a unique Recordable target selector (:text() / #id / [attr] / :nth() / CSS path).",
+  "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
+  "action": {
+    "default_title": "Recordable: toggle selector picker",
+    "default_icon": {
+      "16": "icon-16.png",
+      "32": "icon-32.png"
+    }
+  },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["picker.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ]
+}
