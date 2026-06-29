@@ -33,7 +33,7 @@ demos, tightening rough edges so the whole thing is presentable.
 
 ## Done
 
-### Variables system + config-file split (merged, unreleased)
+### Variables system + config-file split (v0.9.0)
 
 Split the three jobs `.env` was overloaded with: **secrets** (`ELEVENLABS_API_KEY`,
 secret `VAR_*`) stay in a gitignored `.env`; **default config + voiceover defaults +

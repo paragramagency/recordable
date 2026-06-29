@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-29
+
+### Added
+
+- **Variables.** Define reusable values once and reference them with `{{ name }}`
+  in any action string argument (selectors, `visit` URLs, typed text, asset
+  paths) and in Markdown narration prose. Provide them programmatically
+  (`new Recordable({ variables })`, `.variables(map)`, `.variable(name, value)`),
+  as a `variables` sibling in a JSON script, as a `variables:` block in Markdown
+  frontmatter, or on the CLI (`--var name=value`, repeatable). Names are case-
+  and separator-insensitive (`VAR_EMAIL_ADDRESS` ≡ `{{emailAddress}}` ≡
+  `{{email_address}}`); `\{{name}}` is a literal, `{{ non-name }}` is left
+  verbatim, and a missing variable is a hard error naming it and the sources
+  searched. Resolution is at enqueue time and chain-ordered. (ROADMAP #2)
+- **`recordable.config.json`** — a committed, non-secret config file: flat config
+  keys plus reserved `variables` and `voiceover` sections, natively typed and
+  validated. Both it and `.env` are discovered by walking from the script's
+  folder up to the current directory and depth-merged, deeper overriding
+  shallower per key. A published `recordable.config.schema.json` drives editor
+  autocomplete, and the script schema gained a `variables` property.
+- **Secret variables** via a `VAR_` prefix in `.env` (e.g. `VAR_ADMIN_PASSWORD`),
+  joined with `process.env VAR_*`.
+- **CLI flags** `--config <path>` / `--env-file <path>` (override auto-discovery)
+  and `--base-dir <path>` (the directory the config/`.env` walk starts from).
+
+### Changed
+
+- **`.env` is now secrets only** (`ELEVENLABS_API_KEY`, `VAR_*`). Non-secret
+  recording config moves to `recordable.config.json`, and the voiceover
+  provider/voice/model defaults move to that file's `voiceover` section.
+- **Variable precedence** is type-major — every variables source outranks every
+  env source: `.env VAR_*` < `process.env VAR_*` < `recordable.config.json`
+  `variables` < frontmatter / JSON `variables` < programmatic (constructor /
+  `.variables()` / `.variable()` / `--var`). Config precedence is now
+  defaults < `recordable.config.json` < document config < constructor / CLI.
+
+### Removed
+
+- **The `DEFAULT_<UPPER_SNAKE>` env-config prefix** (`DEFAULT_FPS`,
+  `DEFAULT_VIEWPORT`, …) and its string coercion. **Migration:** move these into
+  `recordable.config.json` as native-typed keys (e.g. `{ "fps": 30 }`).
+- **The voiceover env defaults** `DEFAULT_TTS_PROVIDER` / `DEFAULT_VOICE_ID` /
+  `DEFAULT_MODEL_ID`. **Migration:** set `provider` / `voiceId` / `modelId` in the
+  `voiceover` section of `recordable.config.json` (or per-document frontmatter).
+  `ELEVENLABS_API_KEY` is unchanged.
+
 ## [0.8.1] - 2026-06-29
 
 ### Fixed
@@ -220,7 +266,8 @@ Initial release.
 - Declarative JSON authoring format with published JSON Schema and `recordable` CLI
   (`--check` to validate without a browser).
 
-[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/paragramagency/recordable/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/paragramagency/recordable/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/paragramagency/recordable/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/paragramagency/recordable/compare/v0.6.0...v0.7.0
