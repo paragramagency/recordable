@@ -25,6 +25,10 @@ const ConfigInputSchema = z.strictObject(
   ),
 );
 
+// Variables are a flat name→value map of strings — a non-string value (or a
+// nested object) is a validation error, since interpolation is string-only.
+const VariablesSchema = z.record(z.string(), z.string());
+
 const VoiceoverSchema = z.strictObject({
   provider: z.string().optional(),
   voiceId: z.string().optional(),
@@ -70,6 +74,18 @@ export function parseConfig(input: unknown): RecordableConfig {
     "Invalid config — ",
     input,
   ) as RecordableConfig;
+}
+
+/** Validate a `variables` block (frontmatter / JSON / config-file). Returns a
+ *  flat name→value string map; throws {@link RecordableError} `CONFIG_INVALID`
+ *  if any value is not a string. */
+export function parseVariables(input: unknown): Record<string, string> {
+  return parseWith(
+    VariablesSchema,
+    "variables",
+    "Invalid variables — ",
+    input,
+  ) as Record<string, string>;
 }
 
 /** Validate a `voiceover` frontmatter block. Returns it typed; throws

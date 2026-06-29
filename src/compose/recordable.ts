@@ -6,13 +6,20 @@ import {
   type ClickOptions,
   type InsertOptions,
   type RecordableConfig,
+  type RecordableInput,
   type ResolvedConfig,
+  type VoiceoverConfig,
   type WaitForOptions,
 } from "../config.js";
 import { sleep, truncate } from "../utils.js";
 import { createLogger, type Logger } from "../logger.js";
-import { parseConfig } from "../validate.js";
-import { configFromEnv } from "../env.js";
+import { parseConfig, parseVariables } from "../validate.js";
+import { discoverConfig, type DiscoveredConfig } from "../config-file.js";
+import {
+  substitute,
+  VariableStore,
+  type VariableResolver,
+} from "../variables.js";
 import { Recorder } from "../video/recorder.js";
 import { AudioTrack } from "../audio/track.js";
 import { Runtime } from "../browser/runtime.js";
@@ -41,6 +48,9 @@ export class Recordable {
   // Constructor config — always wins over config from a loaded document
   // (frontmatter / script `config`), which layers underneath.
   private readonly userConfig: RecordableConfig;
+  // Discovery overrides from the constructor (CLI `--config` / `--env-file`).
+  private readonly configFile?: string;
+  private readonly envFile?: string;
   private readonly log: Logger = createLogger(() => this.cfg.silent);
   private readonly recorder = new Recorder(() => this.cfg, this.log);
   private readonly audioTrack = new AudioTrack();
@@ -54,12 +64,28 @@ export class Recordable {
   // recorder starts segments lazily so a leading pause() never makes a clip.
   private recording = true;
 
-  // Whether the sibling `.env` has been loaded into `process.env` (once).
-  private envLoaded = false;
+  // ─── Variables ──────────────────────────────────────────────────────────────
+  // The layered variable map (env < config file < document < programmatic). Only
+  // the programmatic layer mutates as the chain advances. `activeResolver` lets a
+  // deferred (voiceover) load substitute against a snapshot taken when its
+  // `fromMarkdown` was called, instead of the live store.
+  private readonly vars = new VariableStore();
+  private activeResolver?: VariableResolver;
+  // The file-discovery result (config + variables + voiceover), computed once.
+  private discovered?: DiscoveredConfig;
+  // Voiceover defaults from `recordable.config.json` (frontmatter overrides them).
+  private voiceoverDefaults: VoiceoverConfig = {};
+  // Whether the one-time "Config sources —" line has been emitted.
+  private sourcesLogged = false;
 
-  constructor(config: RecordableConfig = {}) {
+  constructor(input: RecordableInput = {}) {
+    const { variables, configFile, envFile, ...config } = input;
     this.userConfig = parseConfig(config);
-    this._applyContentConfig({}); // sets cfg = defaults < userConfig, resolving paths
+    this.configFile = configFile;
+    this.envFile = envFile;
+    if (variables)
+      this.vars.addProgrammatic(parseVariables(variables), "constructor");
+    this._applyContentConfig({}); // sets cfg = defaults < files < userConfig
   }
 
   // ─── Loaders ───────────────────────────────────────────────────────────────
@@ -71,13 +97,15 @@ export class Recordable {
   fromJSON(script: Script | string): this {
     const parsed: Script =
       typeof script === "string" ? JSON.parse(script) : script;
-    const { config, actions } = splitScript(parsed);
+    const { config, variables, actions } = splitScript(parsed);
     if (!Array.isArray(actions))
       throw new RecordableError(
         "CONFIG_INVALID",
         "Script must be an array of actions, or { actions: [...] }",
       );
     this._applyContentConfig(config ?? {});
+    if (variables)
+      this.vars.addDocument(parseVariables(variables), "JSON variables");
     this._loadActions(actions);
     return this;
   }
@@ -92,37 +120,54 @@ export class Recordable {
   fromMarkdown(md: string): this {
     const parsed = parseMarkdown(md, this.cfg.baseDir);
     this._applyContentConfig(parsed.config);
+    if (parsed.variables)
+      this.vars.addDocument(parsed.variables, "frontmatter variables");
 
     if (!parsed.voiceover) {
       this._loadActions(extractActions(parsed.blocks));
       return this;
     }
-    // Defer TTS to run(); remember where these actions belong in the queue.
+    // Defer TTS to run(); remember where these actions belong in the queue. Snap
+    // the variable view *now* so a later `.variable()` can't retroactively touch
+    // this document's narration or actions (chain order is preserved).
     const insertAt = this.queue.length;
-    this.pending.push(() => this._stageVoiceover(md, insertAt));
+    const snapshot = this.vars.snapshot();
+    this.pending.push(() => this._stageVoiceover(md, insertAt, snapshot));
     return this;
   }
 
   /** Synthesize a voiceover document and splice its actions into the queue at the
-   *  position `fromMarkdown` was called (so chaining order is preserved). */
-  private async _stageVoiceover(md: string, insertAt: number): Promise<void> {
-    // Pick up secrets (ELEVENLABS_API_KEY) from a .env beside the document.
-    this._loadEnvFile(this.cfg.baseDir);
-
+   *  position `fromMarkdown` was called (so chaining order is preserved). Both
+   *  narration and action args resolve against `snapshot` — the variable view as
+   *  it stood when `fromMarkdown` ran. */
+  private async _stageVoiceover(
+    md: string,
+    insertAt: number,
+    snapshot: VariableResolver,
+  ): Promise<void> {
     const { compileMarkdown } = await import("../voiceover/index.js");
     const compiled = await compileMarkdown(md, {
       assetsDir: this.cfg.assetsDir,
       baseDir: this.cfg.baseDir,
       configOverride: this.cfg,
+      voiceoverDefaults: this.voiceoverDefaults,
+      interpolate: (s) => substitute(s, snapshot),
       log: this.log,
     });
     this.cfg = { ...this.cfg, actionDelay: 0 }; // computed waits assume no inter-action delay
 
     // Build the compiled actions in isolation (the chain methods push to `queue`),
     // then splice them in. Safe: this runs during run()'s await, single-threaded.
+    // Action args substitute against the same snapshot, via `activeResolver`.
     const saved = this.queue;
+    const prevResolver = this.activeResolver;
     this.queue = [];
-    this._loadActions(compiled.actions);
+    this.activeResolver = snapshot;
+    try {
+      this._loadActions(compiled.actions);
+    } finally {
+      this.activeResolver = prevResolver;
+    }
     const items = this.queue;
     this.queue = saved;
     this.queue.splice(insertAt, 0, ...items);
@@ -143,6 +188,26 @@ export class Recordable {
     return structuredClone(this.cfg);
   }
 
+  // ─── Variables ───────────────────────────────────────────────────────────────
+  //
+  // Reusable `{{ name }}` values, resolved by immediate substitution as each
+  // action is enqueued. These feed the top-priority programmatic layer and take
+  // effect *from this point on*: a mid-chain `.variable()` touches only later
+  // actions, never steps already enqueued (or a voiceover document already
+  // staged). Names are case- and separator-insensitive.
+
+  /** Merge a map of variables into the programmatic layer (highest precedence). */
+  variables(vars: Record<string, string>): this {
+    this.vars.addProgrammatic(parseVariables(vars), ".variables()");
+    return this;
+  }
+
+  /** Set a single variable in the programmatic layer (highest precedence). */
+  variable(name: string, value: string): this {
+    this.vars.setProgrammatic(name, String(value), ".variable()");
+    return this;
+  }
+
   // ─── Recording control ───────────────────────────────────────────────────────
   //
   // Two axes (ROADMAP §6). pause()/resume() carve off-camera gaps *within* one
@@ -158,9 +223,10 @@ export class Recordable {
    * Pair with `end()`, or leave it to close implicitly at the bottom.
    */
   start(name?: string): this {
+    const n = this._substOpt(name);
     return this._enqueue(
       async () => {
-        this.recorder.openFile(name ?? null);
+        this.recorder.openFile(n ?? null);
       },
       true,
       "start",
@@ -189,10 +255,11 @@ export class Recordable {
    * between them, use `end()` … `start()` instead.
    */
   split(name?: string): this {
+    const n = this._substOpt(name);
     return this._enqueue(
       async (page) => {
         await this.recorder.closeFile();
-        this.recorder.openFile(name ?? null);
+        this.recorder.openFile(n ?? null);
         // Keep rolling: begin the next file's first segment now (no off-camera gap).
         if (this.recording) await this.recorder.begin(page);
       },
@@ -241,8 +308,9 @@ export class Recordable {
    * pause → sign-in-by-hand → resume flow is `resumeOnPlay()`.
    */
   waitForPlay(message = "Press ▶ Play to continue"): this {
+    const msg = this._subst(message);
     return this._enqueue(async (page) => {
-      await this.runtime.waitForPlay(page, message);
+      await this.runtime.waitForPlay(page, msg);
     }, true);
   }
 
@@ -266,9 +334,10 @@ export class Recordable {
    * Auto-segments: no pause/resume needed.
    */
   insert(path: string, options: InsertOptions = {}): this {
+    const p = this._subst(path);
     return this._enqueue(
       async () => {
-        const file = this._resolveFile(path);
+        const file = this._resolveFile(p);
         this.log("Insert", file);
         await this.recorder.insert(file, options);
       },
@@ -286,10 +355,11 @@ export class Recordable {
    * Don't `pause()` mid-clip — paused time is dropped, desyncing the audio.
    */
   audio(path: string, options: AudioOptions = {}): this {
+    const p = this._subst(path);
     return this._enqueue(
       async () => {
         const { wait = true, volume } = options;
-        const file = this._resolveFile(path);
+        const file = this._resolveFile(p);
         // Pin the clip to where we are in recorded time (the video timeline), then
         // hand it to the audio layer to probe + collect for the final mix.
         const startMs = this.recorder.currentTimelineMs();
@@ -311,7 +381,8 @@ export class Recordable {
 
   /** Navigate to a URL and wait for the page to settle. */
   visit(url: string, options?: GoToOptions): this {
-    return this._enqueue((page) => this.runtime.visit(page, url, options));
+    const u = this._subst(url);
+    return this._enqueue((page) => this.runtime.visit(page, u, options));
   }
 
   /**
@@ -320,7 +391,8 @@ export class Recordable {
    * selector or a `text:` prefix; see {@link WaitForOptions} for `state`/`timeout`.
    */
   waitFor(target: string, options: WaitForOptions = {}): this {
-    return this._enqueue((page) => this.runtime.waitFor(page, target, options));
+    const t = this._subst(target);
+    return this._enqueue((page) => this.runtime.waitFor(page, t, options));
   }
 
   // ─── Interactions ──────────────────────────────────────────────────────────
@@ -334,7 +406,8 @@ export class Recordable {
    * tab stays open, the load is trimmed). See {@link ClickOptions}.
    */
   click(target: string, options: ClickOptions = {}): this {
-    return this._enqueue((page) => this.runtime.click(page, target, options));
+    const t = this._subst(target);
+    return this._enqueue((page) => this.runtime.click(page, t, options));
   }
 
   /**
@@ -342,7 +415,8 @@ export class Recordable {
    * `:hover` state — tooltips, dropdowns, menus — is revealed.
    */
   hover(target: string): this {
-    return this._enqueue((page) => this.runtime.hover(page, target));
+    const t = this._subst(target);
+    return this._enqueue((page) => this.runtime.hover(page, t));
   }
 
   /**
@@ -357,14 +431,15 @@ export class Recordable {
     text: string,
     options: { duration?: number } = {},
   ): this {
-    return this._enqueue((page) =>
-      this.runtime.type(page, target, text, options),
-    );
+    const t = this._subst(target);
+    const txt = this._subst(text);
+    return this._enqueue((page) => this.runtime.type(page, t, txt, options));
   }
 
   /** Clear an input or textarea (select-all + delete). Handy before re-typing. */
   clear(target: string): this {
-    return this._enqueue((page) => this.runtime.clear(page, target));
+    const t = this._subst(target);
+    return this._enqueue((page) => this.runtime.clear(page, t));
   }
 
   /**
@@ -376,12 +451,15 @@ export class Recordable {
    * dropdown from `click()`s for an on-camera menu.
    */
   select(target: string, value: string): this {
-    return this._enqueue((page) => this.runtime.select(page, target, value));
+    const t = this._subst(target);
+    const v = this._subst(value);
+    return this._enqueue((page) => this.runtime.select(page, t, v));
   }
 
   /** Press a keyboard key (e.g. "Escape", "Enter", "Tab"). */
   key(key: string): this {
-    return this._enqueue((page) => this.runtime.key(page, key));
+    const k = this._subst(key);
+    return this._enqueue((page) => this.runtime.key(page, k));
   }
 
   /**
@@ -389,7 +467,8 @@ export class Recordable {
    * selector / plain text (element centre) or `{ x, y }` (viewport coords).
    */
   mouse(target: string | { x: number; y: number }): this {
-    return this._enqueue((page) => this.runtime.mouse(page, target));
+    const t = typeof target === "string" ? this._subst(target) : target;
+    return this._enqueue((page) => this.runtime.mouse(page, t));
   }
 
   // ─── Scrolling ─────────────────────────────────────────────────────────────
@@ -408,7 +487,9 @@ export class Recordable {
     target: string | number,
     options: { container?: string; duration?: number; axis?: "x" | "y" } = {},
   ): this {
-    return this._enqueue((page) => this.runtime.scroll(page, target, options));
+    const t = typeof target === "string" ? this._subst(target) : target;
+    const opts = { ...options, container: this._substOpt(options.container) };
+    return this._enqueue((page) => this.runtime.scroll(page, t, opts));
   }
 
   // ─── Zoom ──────────────────────────────────────────────────────────────────
@@ -423,7 +504,8 @@ export class Recordable {
     level: number,
     options: { origin?: string; duration?: number } = {},
   ): this {
-    return this._enqueue((page) => this.runtime.zoomTo(page, level, options));
+    const opts = { ...options, origin: this._substOpt(options.origin) };
+    return this._enqueue((page) => this.runtime.zoomTo(page, level, opts));
   }
 
   /** Smoothly reset zoom back to 1. */
@@ -497,17 +579,15 @@ export class Recordable {
     return this;
   }
 
-  /** Recompute `cfg` as defaults < env defaults < content config < constructor
+  /** Recompute `cfg` as defaults < config-file < content config < constructor
    *  config, then resolve a relative `outputDir`/`assetsDir` against `baseDir`. */
   private _applyContentConfig(content: RecordableConfig): void {
-    // `baseDir` comes from the constructor (CLI) or, rarely, the content; load the
-    // sibling `.env` from it before reading `DEFAULT_*` env defaults.
-    this._loadEnvFile(this.userConfig.baseDir ?? content.baseDir ?? "");
+    const discovered = this._ensureDiscovered(content.baseDir);
     this.cfg = {
       ...DEFAULT_CONFIG,
-      ...configFromEnv(),
-      ...parseConfig(content),
-      ...this.userConfig,
+      ...discovered.config, // recordable.config.json cascade (baseDir → cwd)
+      ...parseConfig(content), // document config (frontmatter / JSON `config`)
+      ...this.userConfig, // explicit constructor / CLI config
     };
     const base = this.cfg.baseDir;
     if (base) {
@@ -516,19 +596,44 @@ export class Recordable {
       if (!isAbsolute(this.cfg.assetsDir))
         this.cfg.assetsDir = resolve(base, this.cfg.assetsDir);
     }
+    // Report where files resolved from, once, after `cfg` (and `silent`) is set.
+    if (!this.sourcesLogged) {
+      this.sourcesLogged = true;
+      if (discovered.sources.length)
+        this.log("Config", `sources — ${discovered.sources.join("; ")}`);
+    }
   }
 
-  /** Load a `.env` beside `baseDir` into `process.env` (once), so `DEFAULT_*`
-   *  config defaults and voiceover secrets are available. No-op without a
-   *  `baseDir` or when the file is absent. */
-  private _loadEnvFile(baseDir: string): void {
-    if (this.envLoaded || !baseDir) return;
-    this.envLoaded = true;
-    try {
-      process.loadEnvFile(resolve(baseDir, ".env"));
-    } catch {
-      // No .env beside the document — fine, values may already be in the env.
-    }
+  /** Run file discovery once (config + variables + `.env`), seeding the env and
+   *  config-file variable layers and the voiceover defaults. `baseDir` is the
+   *  walk's deepest dir (constructor wins, else the content's); `cwd` is the
+   *  ceiling. Cached — the first call fixes `baseDir`, matching the old
+   *  load-`.env`-once behaviour. */
+  private _ensureDiscovered(contentBaseDir?: string): DiscoveredConfig {
+    if (this.discovered) return this.discovered;
+    const baseDir = this.userConfig.baseDir ?? contentBaseDir ?? "";
+    const discovered = discoverConfig({
+      baseDir,
+      configPath: this.configFile,
+      envFile: this.envFile,
+    });
+    this.discovered = discovered;
+    this.vars.setEnv(discovered.envVariables);
+    this.vars.setConfigFile(discovered.variables);
+    this.voiceoverDefaults = discovered.voiceover;
+    return discovered;
+  }
+
+  /** Interpolate `{{ name }}` in an action string arg against the current
+   *  resolver (the live store, or a deferred load's snapshot). A missing variable
+   *  throws here — eagerly, at enqueue. */
+  private _subst(value: string): string {
+    return substitute(value, this.activeResolver ?? this.vars);
+  }
+
+  /** Optional-string variant for trailing options (e.g. `origin`, `container`). */
+  private _substOpt<T extends string | undefined>(value: T): T {
+    return (value === undefined ? value : this._subst(value)) as T;
   }
 
   /** Validate each action against the manifest and enqueue it by calling its method

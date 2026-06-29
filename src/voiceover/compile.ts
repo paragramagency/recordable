@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   parseMarkdown,
+  type Interpolate,
   type Marker,
   type NarrationBlock,
 } from "../formats/markdown/parse.js";
@@ -44,6 +45,10 @@ export interface CompileOptions {
   baseDir?: string;
   /** Voiceover settings (provider/voice/model). Falls back to document frontmatter. */
   voiceover?: VoiceoverConfig;
+  /** Voiceover defaults from `recordable.config.json` — frontmatter overrides them. */
+  voiceoverDefaults?: VoiceoverConfig;
+  /** Resolve `{{ name }}` in narration prose. Omit to leave prose verbatim. */
+  interpolate?: Interpolate;
   /** Config merged over frontmatter (e.g. CLI flags). `actionDelay` is always forced to 0. */
   configOverride?: RecordableConfig;
   /** Gitignored timing cache. Default: `<assetsDir>/.cache`. */
@@ -233,18 +238,21 @@ async function compileNarration(
   return { actions, asset };
 }
 
-/** Apply env defaults to a voiceover block — frontmatter always wins. The env
- *  vars let many files share a provider/voice/model without repeating it; a file
- *  stays fully reproducible by spelling the values out. No-op without a block. */
-function withEnvDefaults(
+/** Apply `recordable.config.json` voiceover defaults to a block — frontmatter
+ *  always wins. The defaults let many files share a provider/voice/model without
+ *  repeating it; a file stays fully reproducible by spelling the values out.
+ *  No-op without a block. */
+function withVoiceoverDefaults(
   vo: VoiceoverConfig | undefined,
+  defaults: VoiceoverConfig,
 ): VoiceoverConfig | undefined {
   if (!vo) return vo;
   return {
+    ...defaults,
     ...vo,
-    provider: vo.provider || process.env.DEFAULT_TTS_PROVIDER || "elevenlabs",
-    voiceId: vo.voiceId || process.env.DEFAULT_VOICE_ID || "",
-    modelId: vo.modelId ?? process.env.DEFAULT_MODEL_ID,
+    provider: vo.provider || defaults.provider || "elevenlabs",
+    voiceId: vo.voiceId || defaults.voiceId || "",
+    modelId: vo.modelId ?? defaults.modelId,
   };
 }
 
@@ -270,15 +278,15 @@ function resolveProvider(
     throw new RecordableError(
       "CONFIG_INVALID",
       "Voiceover: ElevenLabs needs an API key — set ELEVENLABS_API_KEY (e.g. in a .env beside " +
-        "the document) or `voiceover.apiKey`, or use RECORDABLE_TTS_PROVIDER=mock for silent audio.",
+        'the document) or `voiceover.apiKey`, or use `provider: "mock"` for silent audio.',
     );
   }
   const voiceId = voiceover.voiceId;
   if (!voiceId) {
     throw new RecordableError(
       "CONFIG_INVALID",
-      "Voiceover: ElevenLabs needs a voice — set RECORDABLE_VOICE_ID (e.g. in a .env beside " +
-        "the document) or `voiceover.voiceId`.",
+      "Voiceover: ElevenLabs needs a voice — set a `voiceId` in the `voiceover` section of " +
+        "recordable.config.json or in the document's `voiceover` frontmatter.",
     );
   }
   return new ElevenLabsProvider({ ...voiceover, voiceId });
@@ -291,12 +299,15 @@ export async function compileMarkdown(
   md: string,
   options: CompileOptions,
 ): Promise<CompiledScript> {
-  const parsed = parseMarkdown(md, options.baseDir);
+  const parsed = parseMarkdown(md, options.baseDir, options.interpolate);
   // Progress is opt-in (silent default); warnings always surface.
   const log = options.log ?? createLogger(() => true);
   const warn =
     options.warn ?? options.log?.warn ?? createLogger(() => false).warn;
-  const voiceover = withEnvDefaults(options.voiceover ?? parsed.voiceover);
+  const voiceover = withVoiceoverDefaults(
+    options.voiceover ?? parsed.voiceover,
+    options.voiceoverDefaults ?? {},
+  );
   const provider = resolveProvider(options.provider, voiceover);
   const providerName =
     provider.constructor?.name?.replace(/(TTS)?Provider$/, "").toLowerCase() ||

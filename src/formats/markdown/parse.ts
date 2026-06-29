@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { callToAction, type Action } from "../../actions.js";
 import type { RecordableConfig, VoiceoverConfig } from "../../config.js";
-import { parseVoiceover } from "../../validate.js";
+import { parseVariables, parseVoiceover } from "../../validate.js";
 import { RecordableError } from "../../errors.js";
 import {
   isMethodCall,
@@ -63,10 +63,16 @@ interface IncludeBlock {
 /** A block as first parsed, before include expansion. */
 type RawBlock = MarkdownBlock | IncludeBlock;
 
-/** The fully parsed document: recording config, optional voiceover, blocks. */
+/** A narration-prose interpolator: resolves `{{ name }}` in text the TTS reads.
+ *  Markers (call spans) are never passed through it — only prose. */
+export type Interpolate = (text: string) => string;
+
+/** The fully parsed document: recording config, optional voiceover + variables,
+ *  blocks. */
 export interface ParsedMarkdown {
   config: RecordableConfig;
   voiceover?: VoiceoverConfig;
+  variables?: Record<string, string>;
   blocks: MarkdownBlock[];
 }
 
@@ -93,13 +99,19 @@ function stripComments(content: string): string {
  * recording config and an optional `voiceover` block; everything else is body
  * content.
  */
-export function parseMarkdown(md: string, baseDir = ""): ParsedMarkdown {
+export function parseMarkdown(
+  md: string,
+  baseDir = "",
+  interpolate?: Interpolate,
+): ParsedMarkdown {
   const { data, content } = matter(md);
-  const { voiceover, ...config } = (data ?? {}) as RecordableConfig & {
+  const { voiceover, variables, ...config } = (data ??
+    {}) as RecordableConfig & {
     voiceover?: VoiceoverConfig | boolean;
+    variables?: Record<string, string>;
   };
 
-  // `voiceover: true` opts in with everything from the environment (provider,
+  // `voiceover: true` opts in with everything from config defaults (provider,
   // voice, model); `false`/absent stays a plain, audio-free recording. An object
   // is validated so a typo'd key (e.g. `voicId`) fails clearly here.
   const vo =
@@ -112,7 +124,13 @@ export function parseMarkdown(md: string, baseDir = ""): ParsedMarkdown {
   return {
     config: config as RecordableConfig,
     voiceover: vo,
-    blocks: expandIncludes(parseBlocks(stripComments(content)), baseDir, []),
+    variables: variables === undefined ? undefined : parseVariables(variables),
+    blocks: expandIncludes(
+      parseBlocks(stripComments(content), interpolate),
+      baseDir,
+      [],
+      interpolate,
+    ),
   };
 }
 
@@ -123,7 +141,7 @@ export function parseMarkdown(md: string, baseDir = ""): ParsedMarkdown {
  * a line in a fenced block, or a standalone paragraph — becomes an include block,
  * splitting the surrounding action list around it.
  */
-function parseBlocks(content: string): RawBlock[] {
+function parseBlocks(content: string, interpolate?: Interpolate): RawBlock[] {
   const blocks: RawBlock[] = [];
 
   for (const t of md.parse(content, {})) {
@@ -147,7 +165,7 @@ function parseBlocks(content: string): RawBlock[] {
       if (includes) {
         for (const p of includes) blocks.push({ type: "include", path: p });
       } else {
-        const block = narrationFromInline(t.children ?? []);
+        const block = narrationFromInline(t.children ?? [], interpolate);
         if (block.narration || block.markers.length) blocks.push(block);
       }
     }
@@ -215,6 +233,7 @@ function expandIncludes(
   blocks: RawBlock[],
   baseDir: string,
   seen: string[],
+  interpolate?: Interpolate,
 ): MarkdownBlock[] {
   if (seen.length > MAX_INCLUDE_DEPTH)
     throw new RecordableError(
@@ -245,8 +264,15 @@ function expandIncludes(
       );
     }
     const { content } = matter(src); // included frontmatter is ignored
-    const childBlocks = parseBlocks(stripComments(content));
-    out.push(...expandIncludes(childBlocks, dirname(file), [...seen, file]));
+    const childBlocks = parseBlocks(stripComments(content), interpolate);
+    out.push(
+      ...expandIncludes(
+        childBlocks,
+        dirname(file),
+        [...seen, file],
+        interpolate,
+      ),
+    );
   }
   return out;
 }
@@ -258,12 +284,23 @@ function expandIncludes(
  * spans stay in the prose verbatim. Whitespace is collapsed without shifting any
  * recorded offset.
  */
-export function narrationBlock(raw: string): NarrationBlock {
-  return narrationFromInline(md.parseInline(raw, {})[0]?.children ?? []);
+export function narrationBlock(
+  raw: string,
+  interpolate?: Interpolate,
+): NarrationBlock {
+  return narrationFromInline(
+    md.parseInline(raw, {})[0]?.children ?? [],
+    interpolate,
+  );
 }
 
-/** Build a narration block from a paragraph's inline tokens (markdown-it). */
-function narrationFromInline(children: Token[]): NarrationBlock {
+/** Build a narration block from a paragraph's inline tokens (markdown-it).
+ *  `interpolate`, when given, resolves `{{ name }}` in prose text (not markers
+ *  or non-call code spans), with marker offsets computed on the resolved text. */
+function narrationFromInline(
+  children: Token[],
+  interpolate?: Interpolate,
+): NarrationBlock {
   const calls: MethodCall[] = [];
 
   // Flatten the inline tokens to text, replacing each method-call span with a
@@ -279,7 +316,7 @@ function narrationFromInline(children: Token[]): NarrationBlock {
     } else if (tok.type === "softbreak" || tok.type === "hardbreak") {
       s += " ";
     } else if (tok.type === "text") {
-      s += tok.content;
+      s += interpolate ? interpolate(tok.content) : tok.content;
     }
     // Emphasis/link wrappers (em_open, link_open, …) carry no text of their own;
     // their text arrives as separate `text` children, so they're skipped here.

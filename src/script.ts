@@ -23,17 +23,29 @@ import type { RecordableConfig } from "./config.js";
 //     ]
 //   }
 
-/** A whole script: a bare array of actions, or an object pairing config + actions. */
+/** A whole script: a bare array of actions, or an object pairing config (and an
+ *  optional `variables` map) with the action array. */
 export type Script =
-  Action[] | { $schema?: string; config?: RecordableConfig; actions: Action[] };
+  | Action[]
+  | {
+      $schema?: string;
+      config?: RecordableConfig;
+      variables?: Record<string, string>;
+      actions: Action[];
+    };
 
-/** Split a `Script` into its optional config and action array. */
+/** Split a `Script` into its optional config, optional variables, and actions. */
 export function splitScript(script: Script): {
   config?: RecordableConfig;
+  variables?: Record<string, string>;
   actions: Action[];
 } {
   if (Array.isArray(script)) return { actions: script };
-  return { config: script.config, actions: script.actions };
+  return {
+    config: script.config,
+    variables: script.variables,
+    actions: script.actions,
+  };
 }
 
 /**

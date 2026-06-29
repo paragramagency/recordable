@@ -15,12 +15,30 @@ test("splitScript: bare array → actions only, no config", () => {
 test("splitScript: { config, actions } object → both extracted", () => {
   const actions: Action[] = [{ action: "pause" }];
   const config = { cursor: true };
-  assert.deepEqual(splitScript({ config, actions }), { config, actions });
+  assert.deepEqual(splitScript({ config, actions }), {
+    config,
+    variables: undefined,
+    actions,
+  });
 });
 
 test("splitScript: object without config → config undefined", () => {
   const actions: Action[] = [{ action: "pause" }];
-  assert.deepEqual(splitScript({ actions }), { config: undefined, actions });
+  assert.deepEqual(splitScript({ actions }), {
+    config: undefined,
+    variables: undefined,
+    actions,
+  });
+});
+
+test("splitScript: { variables, actions } object → variables extracted", () => {
+  const actions: Action[] = [{ action: "pause" }];
+  const variables = { siteUrl: "https://app.example.com" };
+  assert.deepEqual(splitScript({ variables, actions }), {
+    config: undefined,
+    variables,
+    actions,
+  });
 });
 
 // ─── resolveVisitUrls ────────────────────────────────────────────────────────

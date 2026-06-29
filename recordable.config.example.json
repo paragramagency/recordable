@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/paragramagency/recordable/main/recordable.config.schema.json",
+  "fps": 30,
+  "viewport": { "width": 1920, "height": 1080 },
+  "outputDir": "output",
+  "variables": {
+    "siteUrl": "https://app.example.com",
+    "userName": "Ada"
+  },
+  "voiceover": {
+    "provider": "elevenlabs",
+    "voiceId": "EXAVITQu4vr4xnSDxMaL",
+    "modelId": "eleven_multilingual_v2"
+  }
+}

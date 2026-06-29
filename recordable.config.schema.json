@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/paragramagency/recordable/main/recordable.config.schema.json",
+  "title": "Recordable config",
+  "description": "Shared recording config, variables, and voiceover defaults (recordable.config.json).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "viewport": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "pageZoom": {
+      "type": "number"
+    },
+    "fps": {
+      "type": "number"
+    },
+    "outputDir": {
+      "type": "string"
+    },
+    "outputName": {
+      "type": "string"
+    },
+    "outputTimestamp": {
+      "type": "boolean"
+    },
+    "assetsDir": {
+      "type": "string"
+    },
+    "headless": {
+      "type": "boolean"
+    },
+    "launchArgs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "language": {
+      "type": "string"
+    },
+    "typingSpeed": {
+      "type": "number"
+    },
+    "videoCrf": {
+      "type": "number"
+    },
+    "videoCodec": {
+      "type": "string"
+    },
+    "videoPreset": {
+      "type": "string"
+    },
+    "zoomDuration": {
+      "type": "number"
+    },
+    "actionDelay": {
+      "type": "number"
+    },
+    "silent": {
+      "type": "boolean"
+    },
+    "autoScroll": {
+      "type": "boolean"
+    },
+    "scrollMargin": {
+      "type": "number"
+    },
+    "scrollSpeed": {
+      "type": "number"
+    },
+    "scrollDuration": {
+      "type": "number"
+    },
+    "cursor": {
+      "type": "boolean"
+    },
+    "visitTimeout": {
+      "type": "number"
+    },
+    "trimNavigation": {
+      "type": "boolean"
+    },
+    "variables": {
+      "$ref": "#/$defs/variables"
+    },
+    "voiceover": {
+      "$ref": "#/$defs/voiceover"
+    }
+  },
+  "$defs": {
+    "variables": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Reusable values referenced with {{ name }}. Names are case- and separator-insensitive."
+    },
+    "voiceover": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "type": "string"
+        },
+        "voiceId": {
+          "type": "string"
+        },
+        "modelId": {
+          "type": "string"
+        },
+        "apiKey": {
+          "type": "string"
+        },
+        "voiceSettings": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "format": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

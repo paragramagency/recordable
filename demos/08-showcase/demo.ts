@@ -6,8 +6,8 @@
 // the waits so each action lands on its narrated word.
 //
 // Needs an ElevenLabs key — ELEVENLABS_API_KEY, from a .env beside this file
-// (loaded automatically from `baseDir`). Without a key the run throws; set
-// RECORDABLE_TTS_PROVIDER=mock to render silent audio instead.
+// (loaded automatically from `baseDir`). Without a key the run throws; set the
+// voiceover provider to `mock` (in frontmatter) to render silent audio instead.
 //
 // Regenerate the title cards (one-off):  node demos/08-showcase/make-cards.mjs
 // Run (headful, in your own terminal):   npx tsx demos/08-showcase/demo.ts
