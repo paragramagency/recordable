@@ -5,6 +5,7 @@ demos
 .claude
 .vscode
 recordable.schema.json
+recordable.config.schema.json
 package-lock.json
 
 # Markdown fixtures embed the recordable DSL (method-call syntax with no trailing

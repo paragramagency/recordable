@@ -82,6 +82,21 @@ export const ConfigSchema = z.strictObject({
 /** Public config input — every field optional (defaults fill the rest). */
 export type RecordableConfig = z.input<typeof ConfigSchema>;
 
+/**
+ * The full constructor input: recording config plus the reserved sibling keys —
+ * `variables` (the top-priority programmatic layer) and discovery overrides
+ * (`configFile` / `envFile`, the CLI's `--config` / `--env-file`). Mirrors the
+ * flat shape of `recordable.config.json` and Markdown frontmatter.
+ */
+export interface RecordableInput extends RecordableConfig {
+  /** Variables defined here win over every file/document source. */
+  variables?: Record<string, string>;
+  /** Use exactly this `recordable.config.json`, skipping auto-discovery. */
+  configFile?: string;
+  /** Use exactly this `.env`, skipping auto-discovery. */
+  envFile?: string;
+}
+
 /** The full config with every field resolved — what the running instance holds. */
 export type ResolvedConfig = z.output<typeof ConfigSchema>;
 

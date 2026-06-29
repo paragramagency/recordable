@@ -2,7 +2,7 @@
 //
 // Needs an ElevenLabs key — ELEVENLABS_API_KEY, from a .env beside this file
 // (Recordable loads it automatically from `baseDir`). Without a key the run
-// throws; set RECORDABLE_TTS_PROVIDER=mock to render silent audio instead.
+// throws; set the voiceover provider to `mock` (in frontmatter) for silent audio.
 
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";

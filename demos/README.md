@@ -104,13 +104,13 @@ await new Recordable({ baseDir: dir }).fromMarkdown(md).run();
 synthesis is deferred to `run()`), so it reads just like the basic demos. Config
 goes in the constructor; the document's frontmatter layers *under* it (so what you
 pass explicitly wins). `baseDir` is the document's folder: Recordable resolves the
-doc's relative `visit` URL against it, **loads a sibling `.env`** (for
+doc's relative `visit` URL against it, **loads a sibling `.env`** (secrets only — for
 `ELEVENLABS_API_KEY`), and defaults `outputDir`/`assetsDir` to `<baseDir>/output`
 and `<baseDir>/assets` (audio is gitignored; reruns reuse the cache).
-Provider/voice/model default from `RECORDABLE_TTS_PROVIDER` / `RECORDABLE_VOICE_ID`
-/ `RECORDABLE_MODEL_ID`, so with those set a document opts in with just
-`voiceover: true` in its frontmatter (anything spelled out overrides them).
-ElevenLabs with no key (config or env) throws; set `RECORDABLE_TTS_PROVIDER=mock`
+Provider/voice/model defaults live in a committed `recordable.config.json` `voiceover`
+block, so with those set a document opts in with just `voiceover: true` in its
+frontmatter (anything spelled out overrides them). ElevenLabs with no key (config or
+env) throws; set the provider to `mock` (in frontmatter or `recordable.config.json`)
 for silent audio. The CLI does the same — just `recordable demo.md`.
 
 ### Showcase demo (`08-showcase`)
@@ -126,5 +126,5 @@ node dist/cli.js demos/08-showcase/demo.md   # synthesize narration + record
 ```
 
 Like demo 7, the narration needs an `ELEVENLABS_API_KEY` (from a sibling `.env`);
-set `RECORDABLE_TTS_PROVIDER=mock` for silent audio. Edit the card text/colours in
-`make-cards.mjs` and re-run it to rebrand.
+set the voiceover provider to `mock` (in frontmatter) for silent audio. Edit the card
+text/colours in `make-cards.mjs` and re-run it to rebrand.

@@ -13,6 +13,7 @@ export type {
 } from "./formats/markdown/parse.js";
 export type {
   RecordableConfig,
+  RecordableInput,
   VoiceoverConfig,
   AudioOptions,
   InsertOptions,

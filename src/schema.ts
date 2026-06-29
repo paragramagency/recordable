@@ -87,6 +87,36 @@ function configSchema(): JSONSchema {
   return schema;
 }
 
+/** Schema for a `variables` block — a flat map of string values. */
+function variablesSchema(): JSONSchema {
+  return {
+    type: "object",
+    additionalProperties: { type: "string" },
+    description:
+      "Reusable values referenced with {{ name }}. Names are case- and separator-insensitive.",
+  };
+}
+
+/** Schema for a `voiceover` block (provider/voice/model defaults). Hand-written
+ *  to mirror `VoiceoverConfig` — a small, stable shape. */
+function voiceoverSchema(): JSONSchema {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      provider: { type: "string" },
+      voiceId: { type: "string" },
+      modelId: { type: "string" },
+      apiKey: { type: "string" },
+      voiceSettings: {
+        type: "object",
+        additionalProperties: { type: "number" },
+      },
+      format: { type: "string" },
+    },
+  };
+}
+
 /** Build the full JSON Schema for a Recordable script file. */
 export function buildSchema(): JSONSchema {
   const action = actionSchema();
@@ -98,6 +128,7 @@ export function buildSchema(): JSONSchema {
     properties: {
       $schema: { type: "string" },
       config: { $ref: "#/$defs/config" },
+      variables: { $ref: "#/$defs/variables" },
       actions: { type: "array", items: { $ref: "#/$defs/action" } },
     },
   };
@@ -112,11 +143,39 @@ export function buildSchema(): JSONSchema {
     $id: "https://raw.githubusercontent.com/paragramagency/recordable/main/recordable.schema.json",
     title: "Recordable script",
     description:
-      "A declarative recording script: config + an array of actions.",
+      "A declarative recording script: config + variables + an array of actions.",
     oneOf: [objectForm, arrayForm],
     $defs: {
       config: configSchema(),
+      variables: variablesSchema(),
       action,
+    },
+  };
+}
+
+/** Build the JSON Schema for a `recordable.config.json` file: the flat config
+ *  keys plus the reserved `variables` and `voiceover` sibling sections. */
+export function buildConfigFileSchema(): JSONSchema {
+  const config = configSchema();
+  const properties: JSONSchema = {
+    $schema: { type: "string" },
+    ...(config.properties as JSONSchema),
+    variables: { $ref: "#/$defs/variables" },
+    voiceover: { $ref: "#/$defs/voiceover" },
+  };
+
+  return {
+    $schema: SCHEMA_URL,
+    $id: "https://raw.githubusercontent.com/paragramagency/recordable/main/recordable.config.schema.json",
+    title: "Recordable config",
+    description:
+      "Shared recording config, variables, and voiceover defaults (recordable.config.json).",
+    type: "object",
+    additionalProperties: false,
+    properties,
+    $defs: {
+      variables: variablesSchema(),
+      voiceover: voiceoverSchema(),
     },
   };
 }

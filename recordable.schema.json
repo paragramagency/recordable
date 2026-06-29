@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/paragramagency/recordable/main/recordable.schema.json",
   "title": "Recordable script",
-  "description": "A declarative recording script: config + an array of actions.",
+  "description": "A declarative recording script: config + variables + an array of actions.",
   "oneOf": [
     {
       "type": "object",
@@ -16,6 +16,9 @@
         },
         "config": {
           "$ref": "#/$defs/config"
+        },
+        "variables": {
+          "$ref": "#/$defs/variables"
         },
         "actions": {
           "type": "array",
@@ -126,6 +129,13 @@
         }
       },
       "additionalProperties": false
+    },
+    "variables": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Reusable values referenced with {{ name }}. Names are case- and separator-insensitive."
     },
     "action": {
       "type": "object",

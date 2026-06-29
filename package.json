@@ -30,6 +30,7 @@
   "files": [
     "dist",
     "recordable.schema.json",
+    "recordable.config.schema.json",
     "README.md",
     "LICENSE"
   ],
