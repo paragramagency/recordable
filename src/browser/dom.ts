@@ -117,7 +117,9 @@ export async function smoothScroll(
   container: ElementHandle<Element> | null = null,
   axis: "x" | "y" = "y",
 ): Promise<void> {
-  await page.evaluate(
+  // Evaluate in the container's own frame so a scroller inside a dialog iframe
+  // resolves against the right context; the window scroll falls back to the page.
+  await (container?.frame ?? page).evaluate(
     // frameMs is passed in: a module-level const isn't visible inside this
     // browser-context closure.
     (el, { targetPos, duration, frameMs, horiz }) => {
@@ -194,7 +196,7 @@ export async function smoothScrollToTarget(
   if (target === "top" || target === "left")
     return smoothScroll(page, 0, duration, scroller, ax);
   if (target === "bottom" || target === "right") {
-    const end = await page.evaluate(
+    const end = await (scroller?.frame ?? page).evaluate(
       (el, h) =>
         el
           ? h
@@ -210,7 +212,9 @@ export async function smoothScrollToTarget(
   }
 
   const handle = await getHandle(page, target);
-  const pos = await page.evaluate(
+  // Evaluate against the target's own frame so an element inside a dialog iframe
+  // doesn't trip Puppeteer's cross-context guard.
+  const pos = await handle.frame.evaluate(
     (el, scrollEl, viewport, h) => {
       const rect = el.getBoundingClientRect();
       if (scrollEl) {
@@ -271,11 +275,12 @@ function comfortTarget(m: ScrollMetrics, margin: number): number | null {
 /** Read the target's position within `container` (an element scroller) or, when
  *  null, within the window. */
 function readMetrics(
-  page: Page,
   handle: ElementHandle<Element>,
   container: ElementHandle<Element> | null,
 ): Promise<ScrollMetrics> {
-  return page.evaluate(
+  // The element's frame, so a target inside a dialog iframe reads against its own
+  // document rather than the top page (which would throw a cross-context error).
+  return handle.frame.evaluate(
     (el, c) => {
       const r = el.getBoundingClientRect();
       if (c) {
@@ -340,7 +345,7 @@ export async function scrollIntoView(
   const container = await nearestScrollableAncestor(handle);
 
   const reveal = async (scroller: ElementHandle<Element> | null) => {
-    const metrics = await readMetrics(page, handle, scroller);
+    const metrics = await readMetrics(handle, scroller);
     const top = comfortTarget(metrics, margin);
     if (top === null) return;
     const dist = Math.abs(top - metrics.scrollTop);
