@@ -14,8 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`:nth(N)` target pseudo.** Pick the Nth element (1-based, document order)
   among everything a selector matches — unlike CSS `:nth-child`/`:nth-of-type`,
   which only count among siblings. It composes with `:text()`:
-  `"a:text(Business Loans):nth(2)"` is the second link whose text contains
-  "Business Loans"; `"button[type=submit]:nth(2)"` the second submit button.
+  `"a:text(Submit):nth(2)"` is the second link whose text contains
+  "Submit"; `"button[type=submit]:nth(2)"` the second submit button.
   Indexing is over _visible_ matches (hidden duplicates such as a mirrored mobile
   menu are skipped) and is resolved across frames like any other target. It must
   be the single, trailing marker on a target; a mid-selector or malformed marker

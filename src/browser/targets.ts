@@ -22,8 +22,8 @@ export function resolveTarget(target: string): string {
 
 // `:nth(N)` — pick the Nth element (1-based, document order) among everything a
 // selector matches, where plain CSS `:nth-child`/`:nth-of-type` only count among
-// siblings. Composes with `:text()`: `a:text(Business Loans):nth(2)` is the
-// second link whose text contains "Business Loans". For now it must be the
+// siblings. Composes with `:text()`: `a:text(Submit):nth(2)` is the
+// second link whose text contains "Submit". For now it must be the
 // single, trailing marker on a target (mid-selector `:nth` is a future step).
 const NTH_TAIL = /^(.+):nth\((\d+)\)$/;
 
