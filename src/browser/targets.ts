@@ -1,6 +1,8 @@
 // Target resolution: author-facing target strings → Puppeteer selectors, plus
 // the position-keyword test used by zoom/scroll origins.
 
+import { RecordableError } from "../errors.js";
+
 // `:text(...)` anywhere in a selector → Puppeteer's `::-p-text(...)`. Bare, not
 // quoted: the target is already a quoted string in JSON/markdown, so nesting
 // quotes would force escaping. Captures up to the closing `)`, so the matched
@@ -16,6 +18,36 @@ const TEXT_PSEUDO = /:text\(([^)]*)\)/g;
 export function resolveTarget(target: string): string {
   if (target.startsWith("text:")) return `::-p-text(${target.slice(5)})`;
   return target.replace(TEXT_PSEUDO, (_, text) => `::-p-text(${text.trim()})`);
+}
+
+// `:nth(N)` — pick the Nth element (1-based, document order) among everything a
+// selector matches, where plain CSS `:nth-child`/`:nth-of-type` only count among
+// siblings. Composes with `:text()`: `a:text(Business Loans):nth(2)` is the
+// second link whose text contains "Business Loans". For now it must be the
+// single, trailing marker on a target (mid-selector `:nth` is a future step).
+const NTH_TAIL = /^(.+):nth\((\d+)\)$/;
+
+/** Split a trailing `:nth(N)` off a target. Returns the resolved base selector
+ *  plus the 1-based index, or null when there's no `:nth(…)`. Throws on a
+ *  mid-selector or malformed marker so the mistake surfaces at author time. */
+export function parseIndexedTarget(
+  target: string,
+): { selector: string; index: number } | null {
+  if (!target.includes(":nth(")) return null;
+  const m = target.match(NTH_TAIL);
+  if (!m || m[1].includes(":nth("))
+    throw new RecordableError(
+      "CONFIG_INVALID",
+      `\`:nth(N)\` must be a single marker at the end of a target — got "${target}". ` +
+        `(Mid-selector \`:nth\` isn't supported yet.)`,
+    );
+  const index = Number(m[2]);
+  if (index < 1)
+    throw new RecordableError(
+      "CONFIG_INVALID",
+      `\`:nth(N)\` is 1-based; got \`:nth(${index})\` in "${target}".`,
+    );
+  return { selector: resolveTarget(m[1]), index };
 }
 
 // Author-facing pseudos for picking a `<select>` option. Puppeteer's native

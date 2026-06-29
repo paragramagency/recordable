@@ -4,6 +4,7 @@ output
 demos
 .claude
 .vscode
+extensions
 recordable.schema.json
 recordable.config.schema.json
 package-lock.json

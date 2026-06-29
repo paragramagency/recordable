@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-29
+
+### Added
+
+- **`:nth(N)` target pseudo.** Pick the Nth element (1-based, document order)
+  among everything a selector matches — unlike CSS `:nth-child`/`:nth-of-type`,
+  which only count among siblings. It composes with `:text()`:
+  `"a:text(Business Loans):nth(2)"` is the second link whose text contains
+  "Business Loans"; `"button[type=submit]:nth(2)"` the second submit button.
+  Indexing is over _visible_ matches (hidden duplicates such as a mirrored mobile
+  menu are skipped) and is resolved across frames like any other target. It must
+  be the single, trailing marker on a target; a mid-selector or malformed marker
+  is a config error naming the target.
+- **Selector-picker browser extension** (`extensions/selector-picker/`, a
+  repo-only dev tool — not part of the npm package). A small MV3 Chrome extension
+  for authoring targets: arm it from the toolbar, hover to highlight, click to
+  copy a unique target in recordable's grammar. It promotes the click to the
+  nearest control, prefers `:text()` → `#id` → `[attr]` (test hooks, accessible
+  name, `data-*`, …) → `…:nth(K)` → CSS path, and works inside iframes. Built to
+  a zip with `npm run build:extension`.
+
 ## [0.9.0] - 2026-06-29
 
 ### Added
@@ -266,7 +287,8 @@ Initial release.
 - Declarative JSON authoring format with published JSON Schema and `recordable` CLI
   (`--check` to validate without a browser).
 
-[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/paragramagency/recordable/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/paragramagency/recordable/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/paragramagency/recordable/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/paragramagency/recordable/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/paragramagency/recordable/compare/v0.7.0...v0.8.0

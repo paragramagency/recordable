@@ -1,5 +1,9 @@
 import { type ElementHandle, type Page } from "puppeteer";
-import { isPositionValue, resolveTarget } from "./targets.js";
+import {
+  isPositionValue,
+  parseIndexedTarget,
+  resolveTarget,
+} from "./targets.js";
 import { RecordableError } from "../errors.js";
 
 /** Jitter spread as a fraction of an element's dimension (±20% of each side). */
@@ -31,19 +35,77 @@ export interface Point {
  *    the same id, so we race every frame and take the first *visible* match.
  *    An iframe element's `boundingBox()` is reported in main-frame coordinates,
  *    so the coordinate-based click still lands correctly. */
-export async function getHandle(page: Page, target: string) {
+export async function getHandle(
+  page: Page,
+  target: string,
+): Promise<ElementHandle<Element>> {
+  const indexed = parseIndexedTarget(target);
+  if (indexed)
+    return getIndexedHandle(page, target, indexed.selector, indexed.index);
   const selector = resolveTarget(target);
   try {
-    return await Promise.any(
+    return (await Promise.any(
       page
         .frames()
         .map((f) => f.locator(selector).setVisibility("visible").waitHandle()),
-    );
+    )) as ElementHandle<Element>;
   } catch {
     throw new RecordableError(
       "TARGET_NOT_FOUND",
       `Could not find target: "${target}"`,
     );
+  }
+}
+
+/** Default time to wait for an indexed target's Nth match to appear (ms),
+ *  matching Puppeteer's locator default. */
+const NTH_TIMEOUT_MS = 30_000;
+
+/** True once the element has a non-empty layout box — the same "visible" bar the
+ *  locator path uses, so we index among visible matches and skip hidden
+ *  duplicates (e.g. a mirrored mobile menu). */
+async function isVisible(h: ElementHandle<Element>): Promise<boolean> {
+  const box = await h.boundingBox();
+  return !!box && box.width > 0 && box.height > 0;
+}
+
+/** Resolve a `:nth(N)` target: the Nth visible match (1-based, document order)
+ *  of `selector`, raced across frames and polled until it appears. */
+async function getIndexedHandle(
+  page: Page,
+  target: string,
+  selector: string,
+  index: number,
+): Promise<ElementHandle<Element>> {
+  const deadline = Date.now() + NTH_TIMEOUT_MS;
+  for (;;) {
+    for (const frame of page.frames()) {
+      let handles: ElementHandle<Element>[];
+      try {
+        handles = (await frame.$$(selector)) as ElementHandle<Element>[];
+      } catch {
+        continue; // frame detached, or selector invalid in this frame
+      }
+      const visible: ElementHandle<Element>[] = [];
+      for (const h of handles) {
+        if (await isVisible(h)) visible.push(h);
+        else await h.dispose();
+      }
+      if (visible.length >= index) {
+        const chosen = visible[index - 1];
+        await Promise.all(
+          visible.filter((_, i) => i !== index - 1).map((h) => h.dispose()),
+        );
+        return chosen;
+      }
+      await Promise.all(visible.map((h) => h.dispose()));
+    }
+    if (Date.now() >= deadline)
+      throw new RecordableError(
+        "TARGET_NOT_FOUND",
+        `Could not find target: "${target}" (no ${index}th visible match)`,
+      );
+    await new Promise((r) => setTimeout(r, FRAME_MS * 2));
   }
 }
 
